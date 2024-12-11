@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa com Manipulação de Imagem</title>
+    <link rel="stylesheet" href="/css/leaflet.css">
+    <script src="/js/leaflet.js"></script>
+    <script src="/js/fabric.min.js"></script>
+    <script src="/js/exif.min.js"></script>
+    
+
+    <script src="/js/Leaflet.MetricGrid.js"></script>
+
+    <!-- Proj4js -->
+    <script src="/js/proj4.js"></script>
+    <script src="/js/proj4leaflet.js"></script>
+
+    <link rel="stylesheet" href="/css/fontawesome-all.min.css">
+    
+    <!-- Inclua o CSS do Leaflet Control Geocoder -->
+    <link rel="stylesheet" href="/css/Control.Geocoder.css" />
+
+    <!-- Inclua o JS do Leaflet Control Geocoder -->
+    <script src="/js/Control.Geocoder.js"></script>
+    
+    <!-- SweetAlert2 JS -->
+    <script src="/js/sweetalert2@11.js"></script>
+    
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="/css/sweetalert2.min.css">
+
+    <style>
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #imageCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5000;
+        }
+        #uploadButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 6000;
+        }
+        .map-toolbar {
+            background-color: #f8f9fa;
+            padding: 10px;
+            color: #333;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .toolbar-item,
+        .toolbar-button {
+            margin: 5px;
+            background-color: #e7e7e7;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .toolbar-icons {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .toolbar-icon {
+            margin: 0 10px;
+            cursor: pointer;
+        }
+        .toolbar-icon:hover {
+            color: #007bff;
+        }
+        #imageTools {
+            position: absolute;
+            top: 50px;
+            left: 40px;
+            z-index: 1200;
+            background-color: rgba(255, 255, 255, 0.9); /* Fundo branco com leve transparência */
+            border: 1px solid #ccc; /* Borda leve em cinza */
+            border-radius: 5px; /* Canto levemente arredondado */
+            padding: 10px; /* Espaçamento interno para dar mais conforto aos ícones */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Sombra para destaque */
+        }
+
+    </style>
+</head>
+<body>
+    <div id="map" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+    <canvas id="imageCanvas"></canvas>
+
+    <div id="imageTools" style="position: absolute; top: 50px; left: 40px; z-index: 1200;" class="toolbar-icons">
+        <div class="toolbar-item">
+            <label>Contraste</label>
+            <input type="range" id="contrastSlider" min="0" max="2" step="0.01" value="1">
+        </div>
+        <div class="toolbar-item">
+            <label>Brilho</label>
+            <input type="range" id="brightnessSlider" min="0" max="2" step="0.01" value="1">
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        <label for="fileInput" class="toolbar-icon" title="Carregar Imagem">
+            <i class="fas fa-upload"></i>
+        </label>
+        <i class="fas fa-save toolbar-icon" title="Salvar Imagem e Localização" onclick="saveImage()"></i>
+        <i class="fas fa-times-circle toolbar-icon" title="Remover Fundo" onclick="removeBackground()"></i>
+        <i class="fas fa-filter toolbar-icon" title="Tornar Escala de Cinza" onclick="applyGrayscale()"></i>
+        <i class="fas fa-sync-alt toolbar-icon" title="Resetar Imagem" onclick="resetImage()"></i>
+        <i class="fas fa-trash-alt toolbar-icon" title="Remover Imagem" onclick="removeImage()"></i>
+        <!-- Dentro da div #imageTools, após os outros ícones -->
+        <div id="moveButtons" class="toolbar-icons">
+            <i class="fas fa-arrow-up toolbar-icon" title="Mover para Cima" onclick="moveMap('up')"></i>
+            <i class="fas fa-arrow-left toolbar-icon" title="Mover para Esquerda" onclick="moveMap('left')"></i>
+            <i class="fas fa-arrow-down toolbar-icon" title="Mover para Baixo" onclick="moveMap('down')"></i>
+            <i class="fas fa-arrow-right toolbar-icon" title="Mover para Direita" onclick="moveMap('right')"></i>
+        </div>
+
+    </div>
+
+    <script>
+
+        var canvas = new fabric.Canvas('imageCanvas', {
+            selection: true,
+            width: document.getElementById('map').offsetWidth,
+            height: document.getElementById('map').offsetHeight
+        });
+        
+        // Configurações para escurecer as bordas e controles
+        fabric.Object.prototype.set({
+            borderColor: '#333333', // Cor da borda ao redor da imagem
+            cornerColor: '#333333', // Cor dos cantos para redimensionamento
+            cornerStrokeColor: '#ffffff', // Cor da borda dos cantos para dar contraste
+            cornerSize: 12, // Tamanho dos cantos
+            transparentCorners: false, // Desativa cantos transparentes para melhorar a visibilidade
+            rotatingPointOffset: 20, // Desloca o ponto de rotação para facilitar o uso
+            padding: 0 // Espaçamento entre a imagem e a borda
+        });
+
+        var originalImage;
+
+        function updateImagePosition() {
+            document.getElementById('imageCanvas').style.top = '0px';
+            document.getElementById('imageCanvas').style.left = '0px';
+        }
+
+
+        var map = L.map('map', {
+            attributionControl: false,
+            zoomControl: true,
+            dragging: true,
+            zoom: 10
+        }).setView([-23.5505, -46.6333], 10);
+
+        L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', {
+            opacity: 1.0,
+            attribution: '',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 18
+        }).addTo(map);
+        
+        // Adicione o controle de busca ao mapa
+        L.Control.geocoder({
+            position: 'topright', // Posição do controle no mapa
+            placeholder: 'Buscar cidade...', // Texto de placeholder
+            errorMessage: 'Local não encontrado.',
+            defaultMarkGeocode: false // Não adiciona um marcador no local encontrado
+        })
+            .on('markgeocode', function(e) {
+            var latlng = e.geocode.center;
+            var bbox = e.geocode.bbox;
+
+            // Centraliza o mapa na localização encontrada
+            map.fitBounds(bbox);
+
+            // Opcional: Ajustar o nível de zoom diretamente
+            // map.setView(latlng, 13); // Use um nível de zoom específico, se preferir
+        })
+            .addTo(map);
+        
+        function moveMap(direction) {
+            var panOffset = 100; // Você pode ajustar esse valor conforme necessário
+            switch (direction) {
+                case 'up':
+                    map.panBy([0, -panOffset]);
+                    break;
+                case 'down':
+                    map.panBy([0, panOffset]);
+                    break;
+                case 'left':
+                    map.panBy([-panOffset, 0]);
+                    break;
+                case 'right':
+                    map.panBy([panOffset, 0]);
+                    break;
+                             }
+        }
+
+
+        var imageTools = new L.Control({position: 'topleft'});
+        imageTools.onAdd = function(map) {
+            var div = L.DomUtil.get('imageTools');
+            L.DomEvent.disableClickPropagation(div);
+            return div;
+        };
+        imageTools.addTo(map);
+
+        document.getElementById('fileInput').onchange = function(e) {
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                fabric.Image.fromURL(event.target.result, function(img) {
+                    originalImage = img;
+
+                    let imageTextureSize = Math.max(img.width, img.height);
+                    if (imageTextureSize > fabric.textureSize) {
+                        fabric.textureSize = imageTextureSize;
+                    }
+
+                    let maxDimension = imageTextureSize * (Math.sqrt(2)/2);
+
+                    var canvasElement = document.getElementById('imageCanvas');
+                    var mapElement = document.getElementById('map');
+
+                    canvasElement.width = maxDimension;
+                    canvasElement.height = maxDimension;
+                    canvas.setWidth(maxDimension);
+                    canvas.setHeight(maxDimension);
+
+                    var scale = Math.min(
+                        canvas.width / img.width,
+                        canvas.height / img.height
+                    );
+                    img.set({
+                        scaleX: scale,
+                        scaleY: scale,
+                        originX: 'center',
+                        originY: 'center',
+                        left: canvas.width / 2,
+                        top: canvas.height / 2
+                    });
+
+                    canvas.clear();
+                    canvas.add(img);
+                    canvas.renderAll();
+
+                    mapElement.style.width = `${maxDimension}px`;
+                    mapElement.style.height = `${maxDimension}px`;
+                    map.invalidateSize();
+                }, {crossOrigin: 'anonymous'});
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        function moveMap(direction) {
+            var panOffset = 100;
+            switch (direction) {
+                case 'up':
+                    map.panBy([0, -panOffset]);
+                    break;
+                case 'down':
+                    map.panBy([0, panOffset]);
+                    break;
+                case 'left':
+                    map.panBy([-panOffset, 0]);
+                    break;
+                case 'right':
+                    map.panBy([panOffset, 0]);
+                    break;
+            }
+        }
+
+        function adjustCanvasSizeAndPosition() {
+            var mapWidth = document.getElementById('map').offsetWidth;
+            var mapHeight = document.getElementById('map').offsetHeight;
+
+            var canvasElement = document.getElementById('imageCanvas');
+            canvasElement.width = mapWidth;
+            canvasElement.height = mapHeight;
+
+            canvas.setWidth(mapWidth);
+            canvas.setHeight(mapHeight);
+            canvas.renderAll();
+        }
+
+
+        canvas.on('object:moved', function(e) {
+            var object = e.target;
+            var objectCenter = object.getCenterPoint();
+            var latLng = map.containerPointToLatLng([objectCenter.x, objectCenter.y]);
+
+            console.log('Latitude:', latLng.lat, 'Longitude:', latLng.lng);
+        });
+
+        function removeBackground() {
+            var activeObject = canvas.getActiveObject();
+            if (!activeObject) {
+                console.log("Nenhum objeto ativo selecionado.");
+                return;
+            }
+
+            if (activeObject.type === 'image') {
+                var filter = activeObject.filters.find(f => f && f.type === 'RemoveColor');
+                if (!filter) {
+                    filter = new fabric.Image.filters.RemoveColor({
+                        threshold: 200,
+                        color: '#FFFFFF'
+                    });
+                    activeObject.filters.push(filter);
+                } else {
+                    Object.assign(filter, { threshold: 200, color: '#FFFFFF' });
+                }
+
+                activeObject.applyFilters();
+
+                var maxDimension = Math.max(activeObject.getScaledWidth(), activeObject.getScaledHeight());
+                var scaleReduction = (maxDimension > 4000) ? 4000 / maxDimension : 1;
+
+                activeObject.set({
+                    left: canvas.width / 2,
+                    top: canvas.height / 2,
+                    scaleX: activeObject.scaleX * scaleReduction,
+                    scaleY: activeObject.scaleY * scaleReduction,
+                    originX: 'center',
+                    originY: 'center'
+                });
+
+                canvas.renderAll();
+                console.log("Canvas renderizado com a imagem ajustada.");
+            }
+        }
+
+        function resetImage() {
+            var activeObject = canvas.getActiveObject();
+            if (!activeObject) return;
+            activeObject.filters = [];
+            activeObject.applyFilters();
+            canvas.renderAll();
+        }
+
+        function removeImage() {
+            var activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                canvas.remove(activeObject);
+                canvas.discardActiveObject();
+                canvas.renderAll();
+            }
+        }
+
+        function applyGrayscale() {
+            var activeObject = canvas.getActiveObject();
+            if (!activeObject) {
+                alert('Por favor, selecione uma imagem para aplicar o filtro.');
+                return;
+            }
+
+            var alreadyGrayscale = activeObject.filters.some(f => f && f.type === 'Grayscale');
+            if (!alreadyGrayscale) {
+                activeObject.filters.push(new fabric.Image.filters.Grayscale());
+                activeObject.applyFilters();
+                canvas.renderAll();
+            } else {
+                alert('O filtro de escala de cinza já está aplicado nesta imagem.');
+            }
+        }
+
+        async function saveImage() {
+    if (!canvas) {
+        console.error("Canvas não está definido.");
+        return;
+    }
+
+    // Garante que todas as transformações estão aplicadas
+    canvas.renderAll();
+
+    // Captura o estado atual do canvas com todas as transformações
+    var imageDataUrl = canvas.toDataURL('image/png', 1.0);
+    console.log("Image data URL capturada do canvas atual.");
+
+    var mapBounds = map.getBounds();
+    var canvasBounds = [
+        [mapBounds.getNorthWest().lat, mapBounds.getNorthWest().lng],
+        [mapBounds.getSouthEast().lat, mapBounds.getSouthEast().lng]
+    ];
+    console.log("Canvas bounds for geolocalização:", JSON.stringify(canvasBounds));
+
+    // Solicita título, senha e opção de compartilhamento
+    const { value: formValues } = await Swal.fire({
+        title: 'Salvar Imagem',
+        html:
+            '<label for="descricao">Título do Calco:</label>' +
+            '<input id="swal-input1" class="swal2-input" placeholder="Digite o título">' +
+            '<label for="senha">Senha (opcional):</label>' +
+            '<input id="swal-input2" class="swal2-input" type="password" placeholder="Digite a senha">' +
+            '<label><input type="checkbox" id="swal-input3"> Compartilhar sem senha</label>',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Salvar',
+        preConfirm: () => {
+            const descricao = document.getElementById('swal-input1').value;
+            const senha = document.getElementById('swal-input2').value;
+            const compartilhavel = document.getElementById('swal-input3').checked;
+            if (!descricao) {
+                Swal.showValidationMessage('O título do Calco é obrigatório!');
+                return false;
+            }
+            return { descricao, senha, compartilhavel };
+        }
+    });
+
+            if (!formValues) {
+                // Usuário cancelou
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('descricao', formValues.descricao);
+            formData.append('senha', formValues.senha);
+            formData.append('compartilhavel', formValues.compartilhavel);
+            formData.append('imagem', imageDataUrl);
+            formData.append('localizacao', JSON.stringify(canvasBounds));
+
+            fetch('salvar-imagem.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.text())
+                .then(data => {
+                console.log("Resposta do servidor:", data);
+                Swal.fire('Sucesso!', 'Imagem salva com sucesso!', 'success');
+            })
+                .catch(error => {
+                console.error("Erro ao enviar imagem:", error);
+                Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
+            });
+        }
+
+
+
+        function applyFilter(filterType, options) {
+            var activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                var filter = activeObject.filters.find(f => f && f.type === filterType);
+                if (filter) {
+                    Object.assign(filter, options);
+                } else {
+                    filter = new fabric.Image.filters[filterType](options);
+                    activeObject.filters.push(filter);
+                }
+                activeObject.applyFilters();
+                canvas.renderAll();
+            }
+        }
+
+        document.getElementById('brightnessSlider').addEventListener('input', function() {
+            var brightnessValue = parseFloat(this.value) - 1;
+            applyFilter('Brightness', { brightness: brightnessValue });
+        });
+
+        document.getElementById('contrastSlider').addEventListener('input', function() {
+            var contrastValue = parseFloat(this.value);
+            applyFilter('Contrast', { contrast: contrastValue });
+        });
+
+        // Inicializa a camada composta para as quadrículas UTM do Brasil
+        var utmGrids = L.layerGroup();
+
+        // Adiciona cada zona UTM à camada composta
+        utmGrids.addLayer(L.utmGrid(19, true, {
+            color: '#080',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+        utmGrids.addLayer(L.utmGrid(20, true, {
+            color: '#800',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+        utmGrids.addLayer(L.utmGrid(21, true, {
+            color: '##880',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+        utmGrids.addLayer(L.utmGrid(22, true, {
+            color: '#008',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+
+        utmGrids.addLayer(L.utmGrid(23, true, {
+            color: '#080',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+
+        utmGrids.addLayer(L.utmGrid(24, true, {
+            color: '#800',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+
+        utmGrids.addLayer(L.utmGrid(25, true, {
+            color: '#880',
+            showAxisLabels: [100, 1000, 10000, 100000],
+            showSquareLabels: [100000], // label 100km grid squares
+            showAxis100km: true
+        }));
+
+        // Adiciona a camada composta ao mapa
+        map.addLayer(utmGrids);
+
+        var layer_BDGEx_2 = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache', {
+            layers: 'ctm50',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            tileSize: 96,
+            crs: L.CRS.EPSG4326,
+            dpiMode: 7,
+            tileMatrixSet: 'ctm50-wmsc-2'
+        });
+
+        // Adiciona as camadas ao controle de camadas
+        var layerControl = L.control.layers(null, {
+            "Quadrículas - UTM": utmGrids,
+            "BDGEx - CTM50": layer_BDGEx_2,
+        }, { collapsed: false }).addTo(map);
+
+
+        updateImagePosition();
+        adjustCanvasSizeAndPosition();
+    </script>
+</body>
+</html>
