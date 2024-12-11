@@ -27,13 +27,6 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Move all content to root
-        run: |
-          mkdir -p root
-          mv * root/
-          mv root/* .
-          rm -rf root
-
       - name: Upload artifact to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
