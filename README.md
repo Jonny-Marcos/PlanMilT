@@ -1,6 +1,6 @@
 # PlanMilT (en)
 
-**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira during the Officer Improvement Course at the School of Advanced Officers, aiming to support the teaching of tactical military operation planning.
+**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira during the Officer Improvement Course at the School of Advanced Officers (2024), aiming to support the teaching of tactical military operation planning.
 
 ## Description
 
