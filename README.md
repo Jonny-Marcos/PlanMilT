@@ -138,4 +138,4 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 
 ---
 
-© 2024 - Capitão de Comunicações Barbosa Oliveira
+© 2024 - João Marcos Barbosa Oliveira
