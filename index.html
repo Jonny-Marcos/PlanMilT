@@ -6,41 +6,41 @@
         <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="stylesheet" href="/css/leaflet.css">
-        <link rel="stylesheet" href="/css/fontawesome-all.min.css">
-        <link rel="stylesheet" href="/css/leaflet-measure.css">
-        <link rel="stylesheet" href="/css/leaflet-control-geocoder.Geocoder.css">
-        <link rel="stylesheet" href="/css/leaflet.draw.css">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-measure.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <link rel="stylesheet" href="css/leaflet.draw.css">
         <!-- jQuery primeiro -->
-        <script src="/js/jquery.min.js"></script>
+        <script src="js/jquery.min.js"></script>
 
         <!-- Spectrum CSS -->
-        <link rel="stylesheet" type="text/css" href="/css/spectrum.min.css" />
+        <link rel="stylesheet" type="text/css" href="css/spectrum.min.css" />
 
         <!-- Spectrum JS -->
-        <script src="/js/spectrum.min.js"></script>
+        <script src="js/spectrum.min.js"></script>
 
         <!-- Omnivore para leitura de KML -->
-        <script src='/js/leaflet-omnivore.min.js'></script>
+        <script src='js/leaflet-omnivore.min.js'></script>
 
         <!-- Font Awesome -->
-        <!--<link rel="stylesheet" href="/css/all.min.css">
+        <!--<link rel="stylesheet" href="css/all.min.css">
 
 <!-- Gráfico de linha topográfica -->
-        <script src="/js/chart.js"></script>
+        <script src="js/chart.js"></script>
 
         <!-- html2canvas -->
-        <script src="/js/html2canvas.min.js"></script>
+        <script src="js/html2canvas.min.js"></script>
 
         <!-- Edição de textos -->
-        <script src="/js/tinymce/tinymce.min.js" referrerpolicy="origin"></script>
+        <script src="js/tinymce/tinymce.min.js" referrerpolicy="origin"></script>
 
 
         <!-- SweetAlert2 CSS -->
-        <link rel="stylesheet" href="/css/sweetalert2.min.css">
+        <link rel="stylesheet" href="css/sweetalert2.min.css">
 
         <!-- Inclua o CSS do Leaflet Control Geocoder -->
-        <link rel="stylesheet" href="/css/Control.Geocoder.css" />
+        <link rel="stylesheet" href="css/Control.Geocoder.css" />
         
         <script type="text/javascript">
             function googleTranslateElementInit() {
@@ -611,38 +611,38 @@
 
 
         <!-- Adicionando FontAwesome para usar ícones -->
-        <link href="/css/all.min.css" rel="stylesheet">
-        <script src="/js/leaflet.js"></script>
-        <script src="/js/leaflet.rotatedMarker.js"></script>
-        <script src="/js/leaflet.pattern.js"></script>
-        <script src="/js/leaflet-hash.js"></script>
-        <script src="/js/Autolinker.min.js"></script>
-        <script src="/js/rbush.min.js"></script>
-        <script src="/js/labelgun.min.js"></script>
-        <script src="/js/labels.js"></script>
-        <script src="/js/leaflet-control-geocoder.Geocoder.js"></script>
-        <script src="/js/leaflet.draw.js"></script>
-        <script src="/js/leaflet.browser.print.min.js"></script>
-        <script src="/js/leaflet-measure.js"></script>
+        <link href="css/all.min.css" rel="stylesheet">
+        <script src="js/leaflet.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="js/leaflet.draw.js"></script>
+        <script src="js/leaflet.browser.print.min.js"></script>
+        <script src="js/leaflet-measure.js"></script>
 
-        <script src="/js/jszip.min.js"></script>
+        <script src="jsjszip.min.js"></script>
 
         <!-- Proj4js -->
-        <script src="/js/proj4.js"></script>
-        <script src="/js/proj4leaflet.js"></script>
+        <script src="js/proj4.js"></script>
+        <script src="js/proj4leaflet.js"></script>
 
-        <script src="/js/Leaflet.MetricGrid.js"></script>
+        <script src="js/Leaflet.MetricGrid.js"></script>
 
         <!-- SweetAlert2 JS -->
-        <script src="/js/sweetalert2@11.js"></script>
+        <script src="js/sweetalert2@11.js"></script>
 
         <!-- Inclua o plugin Leaflet.VectorGrid Bundled -->
-        <script src="/js/Leaflet.VectorGrid.bundled.js"></script>
+        <script src="js/Leaflet.VectorGrid.bundled.js"></script>
 
         <!-- Inclua o JS do Leaflet Control Geocoder -->
-        <script src="/js/Control.Geocoder.js"></script>
+        <script src="js/Control.Geocoder.js"></script>
 
-        <script src="/js/clustering.js"></script>
+        <script src="js/clustering.js"></script>
         
 
 
@@ -981,7 +981,7 @@ function onEndDrawing(e) {
 
             // Função para carregar e agrupar ícones por diretório
             function loadIcons() {
-                fetch('/symbols/icons.php')
+                fetch('symbols/icons.php')
                     .then(response => response.json())
                     .then(data => {
                     data.forEach(iconPath => {
@@ -3130,7 +3130,7 @@ function onEndDrawing(e) {
                     const response = await fetch('elevation_profile.php', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'applicationjson',
                         },
                         body: json_data,
                     });
@@ -4209,7 +4209,7 @@ ${text}
 `;
 
                             // Obter a lista de ícones disponíveis para seleção
-                            let iconListFind = await fetch('/symbols/icons.php')
+                            let iconListFind = await fetch('symbols/icons.php')
                             .then(response => response.json())
                             .catch(error => {
                                 console.error('Erro ao obter a lista de ícones:', error);
@@ -4297,7 +4297,7 @@ ${newIconFieldsHtmlFind}
 
                         case 'placeIcons':
                             // Obter a lista de ícones disponíveis para seleção
-                            let iconListPlace = await fetch('/symbols/icons.php')
+                            let iconListPlace = await fetch('symbols/icons.php')
                             .then(response => response.json())
                             .catch(error => {
                                 console.error('Erro ao obter a lista de ícones:', error);
@@ -4347,7 +4347,7 @@ ${icon.split('/')[2]}/${iconName}
 onchange="document.getElementById('iconToInsertImage').src = this.value">
 ${iconOptionsHtmlPlace}
             </select>
-<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListPlace[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListPlace[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
 <label for="criteria" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
@@ -4384,7 +4384,7 @@ ${text}
 `;
 
                             // Obter a lista de ícones disponíveis para seleção
-                            let iconListLines = await fetch('/symbols/icons.php')
+                            let iconListLines = await fetch('symbols/icons.php')
                             .then(response => response.json())
                             .catch(error => {
                                 console.error('Erro ao obter a lista de ícones:', error);
@@ -4435,7 +4435,7 @@ ${layerSelectHtmlLines}
 onchange="document.getElementById('iconTypeImage').src = this.value">
 ${iconOptionsHtmlLines}
             </select>
-<img id="iconTypeImage" src="${existingParameters.iconType || iconListLines[0]}" alt="Ícone Selecionado" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconTypeImage" src="${existingParameters.iconType || iconListLines[0]}" alt="Ícone Selecionado" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
 <label for="maxDistance" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
@@ -4472,7 +4472,7 @@ ${text}
 `;
 
                             // Obter a lista de ícones disponíveis para seleção
-                            let iconListConnect = await fetch('/symbols/icons.php')
+                            let iconListConnect = await fetch('symbols/icons.php')
                             .then(response => response.json())
                             .catch(error => {
                                 console.error('Erro ao obter a lista de ícones:', error);
@@ -4543,7 +4543,7 @@ ${layerSelectHtmlConnect}
 onchange="document.getElementById('iconType1Image').src = this.value">
 ${iconOptionsHtmlConnect1}
             </select>
-<img id="iconType1Image" src="${existingParameters.iconType1 || iconListConnect[0]}" alt="Ícone Selecionado 1" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconType1Image" src="${existingParameters.iconType1 || iconListConnect[0]}" alt="Ícone Selecionado 1" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 
 <!-- Select para o Segundo Tipo de Ícone com Imagem -->
@@ -4555,7 +4555,7 @@ ${iconOptionsHtmlConnect1}
 onchange="document.getElementById('iconType2Image').src = this.value">
 ${iconOptionsHtmlConnect2}
             </select>
-<img id="iconType2Image" src="${existingParameters.iconType2 || iconListConnect[0]}" alt="Ícone Selecionado 2" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconType2Image" src="${existingParameters.iconType2 || iconListConnect[0]}" alt="Ícone Selecionado 2" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 
 <!-- Input para Distância Máxima entre Ícones -->
@@ -4583,7 +4583,7 @@ ${layerSelectHtmlConnect}
 onchange="document.getElementById('iconType1Image').src = this.value">
 ${iconOptionsHtmlConnect1}
             </select>
-<img id="iconType1Image" src="${existingParameters.iconType1 || iconListConnect[0]}" alt="Ícone Selecionado 1" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconType1Image" src="${existingParameters.iconType1 || iconListConnect[0]}" alt="Ícone Selecionado 1" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 
 <!-- Select para o Segundo Tipo de Ícone com Imagem -->
@@ -4595,7 +4595,7 @@ ${iconOptionsHtmlConnect1}
 onchange="document.getElementById('iconType2Image').src = this.value">
 ${iconOptionsHtmlConnect2}
             </select>
-<img id="iconType2Image" src="${existingParameters.iconType2 || iconListConnect[0]}" alt="Ícone Selecionado 2" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconType2Image" src="${existingParameters.iconType2 || iconListConnect[0]}" alt="Ícone Selecionado 2" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 
 <!-- Input para Distância Máxima entre Ícones -->
@@ -4654,7 +4654,7 @@ ${text}
 `;
 
                             // Obter a lista de ícones disponíveis
-                            let iconListCoverage = await fetch('/symbols/icons.php')
+                            let iconListCoverage = await fetch('symbols/icons.php')
                             .then(response => response.json())
                             .catch(error => {
                                 console.error('Erro ao obter a lista de ícones:', error);
@@ -4712,7 +4712,7 @@ ${layerSelectHtmlCoverage}
 onchange="document.getElementById('iconToInsertImage').src = this.value">
 ${iconOptionsHtmlCoverage}
             </select>
-<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListCoverage[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='/symbols/default.svg'">
+<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListCoverage[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
             </div>
 
 <!-- Input para Raio da Cobertura -->
@@ -7215,7 +7215,7 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                             width: size.x,
                             layers: layerNames,
                             query_layers: layerNames,
-                            info_format: 'text/html', // ou 'application/json', dependendo do servidor
+                            info_format: 'text/html', // ou 'applicationjson', dependendo do servidor
                             x: Math.round(point.x),
                             y: Math.round(point.y)
                         };
