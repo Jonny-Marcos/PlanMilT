@@ -1,6 +1,6 @@
 # PlanMilT (en)
 
-**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira during the Officer Improvement Course at the School of Advanced Officers (2024), aiming to support the teaching of tactical military operation planning.
+**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira (Brazilian Army) during the Officer Improvement Course at the Escola de Aperfeiçoamento de Oficiais (2024), aiming to support the teaching of tactical military operation planning.
 
 ## Description
 
@@ -15,7 +15,7 @@ PlanMilT leverages the **Leaflet** library and **Geographic Information System (
 
 The application uses an **SQLite3** database named `bd.db`, which stores all planning information locally on the server, ensuring information security through offline storage.
 
-You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun)**.
+You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun/PlanMilT/)**.
 
 ## Technologies Used
 
