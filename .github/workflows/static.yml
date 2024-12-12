@@ -34,7 +34,7 @@ jobs:
           echo "document.addEventListener('DOMContentLoaded', function () {
               Swal.fire({
                   title: 'Notice / Aviso',
-                  html: `
+                  html: \"
                     <p>This version of PlanMilT is hosted on GitHub Pages and does not support PHP processing.</p>
                     <p>Esta versão do PlanMilT está hospedada no GitHub Pages e não suporta processamento PHP.</p>
                     <p><strong>For full functionality:</strong></p>
@@ -45,7 +45,7 @@ jobs:
                       <li><a href='https://aescoladatatica.fun/PlanMilT' target='_blank'>https://aescoladatatica.fun/PlanMilT</a></li>
                     </ul>
                     <p><a href='https://github.com/Jonny-Marcos/PlanMilT/archive/refs/heads/main.zip' target='_blank'>Download Full Version / Baixar Versão Completa</a></p>
-                  `,
+                  \",
                   icon: 'info',
                   confirmButtonText: 'OK'
               });
@@ -53,8 +53,10 @@ jobs:
 
           # Append the SweetAlert2 script to the end of the index.html file
           if [ -f "index.html" ]; then
+            echo '<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>' >> index.html
             echo '<script src="alert.js"></script>' >> index.html
           fi
+
 
 
       - name: Upload artifact
