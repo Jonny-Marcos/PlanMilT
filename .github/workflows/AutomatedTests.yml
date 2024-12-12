@@ -1,4 +1,3 @@
-# Workflow para Testes Automatizados
 name: Automated Tests
 
 on:
@@ -20,11 +19,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
-          tools: composer
           extensions: pdo_sqlite
-
-      - name: Install Dependencies
-        run: composer install
 
       - name: Run PHPUnit
         run: vendor/bin/phpunit
@@ -41,9 +36,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-
-      - name: Install Dependencies
-        run: npm install
 
       - name: Run Jest
         run: npm test
