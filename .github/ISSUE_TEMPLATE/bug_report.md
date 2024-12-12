@@ -1,38 +1,28 @@
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
+# Bug Report
 
----
+## Description / Descrição
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+- Describe the issue
+  - Descreva o problema
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## Steps to Reproduce / Passos para Reproduzir
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+1. Step 1 / Passo 1
+2. Step 2 / Passo 2
+3. Step 3 / Passo 3
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## Expected Behavior / Comportamento Esperado
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+- What should happen instead?
+  - O que deveria acontecer em vez disso?
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+## Screenshots / Capturas de Tela
 
-**Additional context**
-Add any other context about the problem here.
+- Attach any screenshots if applicable
+  - Anexe capturas de tela, se aplicável
+
+## Environment / Ambiente
+
+- Browser / Navegador:
+- OS / SO:
+- Version / Versão:
