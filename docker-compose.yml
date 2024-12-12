@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   app:
     build: .
@@ -6,3 +7,13 @@ services:
       - "8080:80"
     volumes:
       - ./bd.db:/var/www/html/bd.db
+      - ./logs:/var/log/apache2
+    environment:
+      - APACHE_LOG_DIR=/var/log/apache2
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
