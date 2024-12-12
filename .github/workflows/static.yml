@@ -44,7 +44,7 @@ jobs:
                       <li>or access the fully supported version at / ou acesse a versão completa em:</li>
                       <li><a href='https://aescoladatatica.fun/PlanMilT' target='_blank'>https://aescoladatatica.fun/PlanMilT</a></li>
                     </ul>
-                    <p><a href='https://github.com/username/PlanMilT/archive/refs/heads/main.zip' target='_blank'>Download Full Version / Baixar Versão Completa</a></p>
+                    <p><a href='https://github.com/Jonny-Marcos/PlanMilT/archive/refs/heads/main.zip' target='_blank'>Download Full Version / Baixar Versão Completa</a></p>
                   `,
                   icon: 'info',
                   confirmButtonText: 'OK'
