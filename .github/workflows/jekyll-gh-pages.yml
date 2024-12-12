@@ -37,22 +37,26 @@ jobs:
       - name: Configure Apache
         run: |
           echo '<VirtualHost *:80>
-          DocumentRoot /var/www/html
+          DocumentRoot /home/runner/html
           ErrorLog ${APACHE_LOG_DIR}/error.log
           CustomLog ${APACHE_LOG_DIR}/access.log combined
           </VirtualHost>' | sudo tee /etc/apache2/sites-available/000-default.conf
           sudo a2enmod rewrite
           sudo service apache2 restart
 
-      - name: Copy Files
+      - name: Set Up Directory
         run: |
-          cp -R . /var/www/html/
-          chmod -R 777 /var/www/html/bd.db
+          mkdir -p /home/runner/html
+          chmod -R 777 /home/runner/html
+
+      - name: Copy Files to HTML Directory
+        run: |
+          cp -R . /home/runner/html/
 
       - name: Run Jekyll Build
         uses: actions/jekyll-build-pages@v1
         with:
-          source: /var/www/html
+          source: /home/runner/html
           destination: ./_site
 
       - name: Upload Artifact
