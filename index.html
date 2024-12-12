@@ -2236,7 +2236,7 @@ function onEndDrawing(e) {
 
                     // Função para obter o valor de um parâmetro da URL
                     function getParameterByName(name, url = window.location.href) {
-                        name = name.replace(/[\[\]]/g, "\\$&");
+                        name = name.replace(/\\/g, "\\\\").replace(/[\[\]]/g, "\\$&");
                         let regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
                             results = regex.exec(url);
                         if (!results) return null;
