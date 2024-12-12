@@ -53,6 +53,11 @@ jobs:
         run: |
           rsync -av --exclude=html ./ $GITHUB_WORKSPACE/html
 
+      - name: Create Placeholder SCSS
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/html/assets/css
+          echo "// Placeholder SCSS file" > $GITHUB_WORKSPACE/html/assets/css/style.scss
+
       - name: Run Jekyll Build
         uses: actions/jekyll-build-pages@v1
         with:
