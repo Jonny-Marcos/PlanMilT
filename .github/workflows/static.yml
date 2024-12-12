@@ -37,11 +37,11 @@ jobs:
                   html: \`
                       <p>This version of PlanMilT is hosted on GitHub Pages and does not support PHP processing.</p>
                       <p>Esta versão do PlanMilT está hospedada no GitHub Pages e não suporta processamento PHP.</p>
-                      <p><strong>For full functionality:</strong></p>
+                      <p><strong>For full functionality: / Para funcionalidade completa:</strong></p>
                       <ul style='text-align: left;'>
                         <li>Download and run the application on a local server with PHP support</li>
                         <li>Baixe e execute a aplicação em um servidor local com suporte a PHP</li>
-                        <li>or access the fully supported version at / ou acesse a versão completa em:</li>
+                        <li>Or access the fully supported version at / ou acesse a versão completa em:</li>
                         <li><a href='https://aescoladatatica.fun/PlanMilT' target='_blank'>https://aescoladatatica.fun/PlanMilT</a></li>
                       </ul>
                       <p><a href='https://github.com/Jonny-Marcos/PlanMilT/archive/refs/heads/main.zip' target='_blank'>Download Full Version / Baixar Versão Completa</a></p>
@@ -53,7 +53,6 @@ jobs:
 
           # Append the SweetAlert2 script to the end of the index.html file
           if [ -f "index.html" ]; then
-            echo '<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>' >> index.html
             echo '<script src="alert.js"></script>' >> index.html
           fi
 
