@@ -53,7 +53,6 @@ jobs:
 
           # Append the SweetAlert2 script to the end of the index.html file
           if [ -f "index.html" ]; then
-            echo '<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>' >> index.html
             echo '<script src="alert.js"></script>' >> index.html
           fi
 
