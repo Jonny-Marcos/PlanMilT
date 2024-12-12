@@ -33,28 +33,28 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Add Banner Script
-        run: |
-          echo "document.addEventListener('DOMContentLoaded', function () {
-              const banner = document.createElement('div');
-              banner.style = 'background-color: #ffdddd; color: #900; padding: 10px; margin: 10px 0; border: 1px solid #900; border-radius: 5px; text-align: center;';
-              banner.innerHTML = `
-                <strong>Notice / Aviso:</strong> This version of PlanMilT is hosted on GitHub Pages and does not support PHP processing.<br>
-                Esta versão do PlanMilT está hospedada no GitHub Pages e não suporta processamento PHP.<br><br>
-                For full functionality, please download and run the application on a local server with PHP support or access the fully supported version at:<br>
-                Para funcionalidade completa, baixe e execute a aplicação em um servidor local com suporte a PHP ou acesse a versão completa em:<br>
-                <a href="https://aescoladatatica.fun/PlanMilT" target="_blank">https://aescoladatatica.fun/PlanMilT</a><br><br>
-                <a href="https://github.com/username/PlanMilT/archive/refs/heads/main.zip">Download Full Version / Baixar Versão Completa</a>
-              `;
-
-              document.body.insertBefore(banner, document.body.firstChild);
-          });" > banner.js
-          echo '<script src="banner.js"></script>' >> index.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
           path: '.'
+      - name: Add Banner Script
+        run: |
+           echo "document.addEventListener('DOMContentLoaded', function () {
+                const banner = document.createElement('div');
+                banner.style = 'background-color: #ffdddd; color: #900; padding: 10px; margin: 10px 0; border: 1px solid #900; border-radius: 5px; text-align: center;';
+                banner.innerHTML = `
+                  <strong>Notice / Aviso:</strong> This version of PlanMilT is hosted on GitHub Pages and does not support PHP processing.<br>
+                  Esta versão do PlanMilT está hospedada no GitHub Pages e não suporta processamento PHP.<br><br>
+                  For full functionality, please download and run the application on a local server with PHP support or access the fully supported version at:<br>
+                  Para funcionalidade completa, baixe e execute a aplicação em um servidor local com suporte a PHP ou acesse a versão completa em:<br>
+                  <a href="https://aescoladatatica.fun/PlanMilT" target="_blank">https://aescoladatatica.fun/PlanMilT</a><br><br>
+                  <a href="https://github.com/username/PlanMilT/archive/refs/heads/main.zip">Download Full Version / Baixar Versão Completa</a>
+                `;
+  
+                document.body.insertBefore(banner, document.body.firstChild);
+            });" > banner.js
+            echo '<script src="banner.js"></script>' >> index.html
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
