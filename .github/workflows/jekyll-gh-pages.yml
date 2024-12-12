@@ -51,7 +51,7 @@ jobs:
 
       - name: Copy Files to HTML Directory
         run: |
-          cp -R . $GITHUB_WORKSPACE/html
+          rsync -av --exclude=html ./ $GITHUB_WORKSPACE/html
 
       - name: Run Jekyll Build
         uses: actions/jekyll-build-pages@v1
