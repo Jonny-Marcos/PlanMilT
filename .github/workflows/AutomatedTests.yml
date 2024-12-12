@@ -21,6 +21,9 @@ jobs:
           php-version: '7.4'
           extensions: pdo_sqlite
 
+      - name: Install PHP Dependencies
+        run: composer install
+
       - name: Run PHPUnit
         run: vendor/bin/phpunit
 
@@ -36,6 +39,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+
+      - name: Install JS Dependencies
+        run: npm install
 
       - name: Run Jest
         run: npm test
