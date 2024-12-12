@@ -17,6 +17,8 @@ The application uses an **SQLite3** database named `bd.db`, which stores all pla
 
 You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun/PlanMilT/)**.
 
+You can also test the application, with limitations, through GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
+
 ## Technologies Used
 
 The application is built with the following technologies and libraries:
@@ -86,6 +88,8 @@ O PlanMilT utiliza a biblioteca **Leaflet** e ferramentas de **Sistema de Inform
 O banco de dados utilizado é um **SQLite3** chamado `bd.db`, que armazena todas as informações de planejamento localmente no servidor, garantindo a segurança da informação por meio de armazenamento offline.
 
 É possível testar a aplicação no endereço: **[aescoladatatica.fun](http://aescoladatatica.fun)**.
+
+Você também pode testar a aplicação, com limitações, através do GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
 
 ## Tecnologias Utilizadas
 

@@ -1,21 +1,20 @@
-# Feature Request
+---
+name: Feature request
+about: Suggest an idea for this project
+title: ''
+labels: ''
+assignees: ''
 
-## Description / Descrição
+---
 
-- What new feature would you like to see?
-  - Qual nova funcionalidade você gostaria de ver?
+**Is your feature request related to a problem? Please describe.**
+A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
-## Why is this feature needed? / Por que esta funcionalidade é necessária?
+**Describe the solution you'd like**
+A clear and concise description of what you want to happen.
 
-- Explain the benefit
-  - Explique o benefício
+**Describe alternatives you've considered**
+A clear and concise description of any alternative solutions or features you've considered.
 
-## How should it work? / Como deve funcionar?
-
-- Provide details
-  - Forneça detalhes
-
-## Additional Context / Contexto Adicional
-
-- Include any other relevant information
-- Inclua qualquer outra informação relevante
+**Additional context**
+Add any other context or screenshots about the feature request here.
