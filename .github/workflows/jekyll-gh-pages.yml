@@ -37,7 +37,7 @@ jobs:
       - name: Configure Apache
         run: |
           echo '<VirtualHost *:80>
-          DocumentRoot /github/workspace/html
+          DocumentRoot $GITHUB_WORKSPACE/html
           ErrorLog ${APACHE_LOG_DIR}/error.log
           CustomLog ${APACHE_LOG_DIR}/access.log combined
           </VirtualHost>' | sudo tee /etc/apache2/sites-available/000-default.conf
@@ -46,17 +46,17 @@ jobs:
 
       - name: Set Up Directory
         run: |
-          mkdir -p /github/workspace/html
-          chmod -R 777 /github/workspace/html
+          mkdir -p $GITHUB_WORKSPACE/html
+          chmod -R 777 $GITHUB_WORKSPACE/html
 
       - name: Copy Files to HTML Directory
         run: |
-          cp -R . /github/workspace/html
+          cp -R . $GITHUB_WORKSPACE/html
 
       - name: Run Jekyll Build
         uses: actions/jekyll-build-pages@v1
         with:
-          source: /github/workspace/html
+          source: $GITHUB_WORKSPACE/html
           destination: ./_site
 
       - name: Upload Artifact
