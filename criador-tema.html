@@ -175,6 +175,34 @@
             minNativeZoom: 0,
             maxNativeZoom: 18
         }).addTo(map);
+
+        // Adicionar o controle do Google Translate ao mapa
+        var TranslateControl = L.Control.extend({
+                options: {
+                    position: 'topright' // Posição do botão no mapa
+                },
+                onAdd: function (map) {
+                    // Cria um contêiner para o Google Translate
+                    var div = L.DomUtil.create('div', 'google-translate-control leaflet-bar');
+                    div.id = 'google_translate_element'; // O id que o Google Translate precisa
+                    div.style.backgroundColor = 'white'; // Fundo branco para se integrar ao estilo do Leaflet
+                    div.style.padding = '5px';
+                    div.style.borderRadius = '5px'; // Deixe arredondado para ficar bonito
+                    div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'; // Sombra para destacar
+                    return div;
+                }
+            });
+
+            // Adicionar o controle ao mapa
+            map.addControl(new TranslateControl());
+
+            // Inicializar o Google Translate
+            function googleTranslateElementInit() {
+                new google.translate.TranslateElement({
+                    pageLanguage: 'pt'
+                }, 'google_translate_element');
+            }
+
         
         // Adicione o controle de busca ao mapa
         L.Control.geocoder({
