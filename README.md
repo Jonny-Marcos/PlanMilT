@@ -1,75 +1,3 @@
-# PlanMilT (en)
-
-**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira (Brazilian Army) during the Officer Improvement Course at the Escola de Aperfeiçoamento de Oficiais (2024), aiming to support the teaching of tactical military operation planning.
-
-## Description
-
-PlanMilT leverages the **Leaflet** library and **Geographic Information System (GIS)** tools to offer interactive features such as:
-
-- Creating map drawings (lines, polygons, circles, and markers);
-- Importing and exporting files in **KMZ** format;
-- Editing text directly on the map;
-- Measuring areas and distances;
-- Layer and icon customization;
-- Geospatial search tools.
-
-The application uses an **SQLite3** database named `bd.db`, which stores all planning information locally on the server, ensuring information security through offline storage.
-
-You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun/PlanMilT/)**.
-
-You can also test the application, with limitations, through GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
-
-## Technologies Used
-
-The application is built with the following technologies and libraries:
-
-- **HTML5**
-- **CSS3**
-- **JavaScript**
-- **Leaflet**
-- **Leaflet Draw**
-- **Leaflet Geocoder**
-- **SweetAlert2**
-- **Chart.js**
-- **Tinymce**
-- **HTML2Canvas**
-- **SQLite3**
-
-## Installation
-
-### Prerequisites
-
-- A web server (Apache, Nginx, etc.) with PHP support.
-- SQLite3 database.
-
-### Installation Steps
-
-1. Clone the repository or download the files.
-2. Place the files in the web server directory.
-3. Ensure the `bd.db` database file is in the configured directory.
-4. Set the database permissions for read and write access.
-
-### Running Locally
-
-1. Start the web server.
-2. Access the application through a browser at the configured address (e.g., `http://localhost/PlanMilT`).
-
-## Features
-
-### User Interface
-- **Drawing:** Add polygons, lines, circles, and markers directly to the map.
-- **Customization:** Choose colors, icons, and styles for map elements.
-- **Import/Export:** Support for KMZ files.
-- **Editing:** Modify text and properties of existing elements.
-
-### Security
-The application is designed to operate on local servers, ensuring the confidentiality of stored data.
-
-## Contributions
-Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
-
----
-
 # PlanMilT (pt-br)
 
 **PlanMilT** é uma aplicação web projetada para auxiliar no planejamento de operações militares no nível tático. Esta aplicação foi desenvolvida pelo Capitão de Comunicações Barbosa Oliveira durante o Curso de Aperfeiçoamento de Oficiais da Escola de Aperfeiçoamento de Oficiais, com o objetivo de apoiar o ensino do planejamento de operações militares no nível tático.
@@ -142,4 +70,74 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 
 ---
 
-© 2024 - João Marcos Barbosa Oliveira
+# PlanMilT (en)
+
+**PlanMilT** is a web application designed to assist in planning military operations at the tactical level. This application was developed by Captain of Communications Barbosa Oliveira (Brazilian Army) during the Officer Improvement Course at the Escola de Aperfeiçoamento de Oficiais (2024), aiming to support the teaching of tactical military operation planning.
+
+## Description
+
+PlanMilT leverages the **Leaflet** library and **Geographic Information System (GIS)** tools to offer interactive features such as:
+
+- Creating map drawings (lines, polygons, circles, and markers);
+- Importing and exporting files in **KMZ** format;
+- Editing text directly on the map;
+- Measuring areas and distances;
+- Layer and icon customization;
+- Geospatial search tools.
+
+The application uses an **SQLite3** database named `bd.db`, which stores all planning information locally on the server, ensuring information security through offline storage.
+
+You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun/PlanMilT/)**.
+
+You can also test the application, with limitations, through GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
+
+## Technologies Used
+
+The application is built with the following technologies and libraries:
+
+- **HTML5**
+- **CSS3**
+- **JavaScript**
+- **Leaflet**
+- **Leaflet Draw**
+- **Leaflet Geocoder**
+- **SweetAlert2**
+- **Chart.js**
+- **Tinymce**
+- **HTML2Canvas**
+- **SQLite3**
+
+## Installation
+
+### Prerequisites
+
+- A web server (Apache, Nginx, etc.) with PHP support.
+- SQLite3 database.
+
+### Installation Steps
+
+1. Clone the repository or download the files.
+2. Place the files in the web server directory.
+3. Ensure the `bd.db` database file is in the configured directory.
+4. Set the database permissions for read and write access.
+
+### Running Locally
+
+1. Start the web server.
+2. Access the application through a browser at the configured address (e.g., `http://localhost/PlanMilT`).
+
+## Features
+
+### User Interface
+- **Drawing:** Add polygons, lines, circles, and markers directly to the map.
+- **Customization:** Choose colors, icons, and styles for map elements.
+- **Import/Export:** Support for KMZ files.
+- **Editing:** Modify text and properties of existing elements.
+
+### Security
+The application is designed to operate on local servers, ensuring the confidentiality of stored data.
+
+## Contributions
+Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
+
+© 2024-2025 - João Marcos Barbosa Oliveira
