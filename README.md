@@ -140,4 +140,4 @@ The application is designed to operate on local servers, ensuring the confidenti
 ## Contributions
 Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
 
-© 2024-2025 - João Marcos Barbosa Oliveira
+© 2024-2026 - João Marcos Barbosa Oliveira
