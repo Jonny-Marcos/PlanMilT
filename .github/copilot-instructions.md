@@ -4,7 +4,7 @@
 
 PlanMilT é uma aplicação web de planejamento tático com mapa interativo. A interface usa Leaflet e bibliotecas JavaScript locais para desenho, camadas geográficas, importação/exportação KMZ, edição de imagens, elevação, cálculos de rádio e sequências de tarefas. O backend usa PHP e SQLite.
 
-O idioma da interface e do conteúdo visível ao usuário é português. A instalação oficial consiste em copiar/clonar o repositório para um servidor LAMP ou XAMPP já configurado com Apache e PHP. Docker é experimental e serve para desenvolvimento/aprendizado. GitHub Pages não é suportado; seu workflow de publicação foi removido.
+O idioma da interface e do conteúdo visível ao usuário é português. A instalação consiste em copiar/clonar todos os arquivos para um servidor WAMP/LAMP com Apache e PHP, com permissões e módulos necessários configurados. GitHub Pages não é suportado; seu workflow de publicação foi removido.
 
 ## Estado atual
 
@@ -21,7 +21,7 @@ O idioma da interface e do conteúdo visível ao usuário é português. A insta
 - `php/src/Application/DrawingsService.php` concentra leitura/gravação na tabela legada `desenhos` (`load`, `save`), valida hashes de senha e preserva o JSON do desenho sem decodificá-lo. `php/endpoints/carregar.php` e `salvar.php` traduzem as requisições legadas para o serviço sem alterar URLs ou formatos de sucesso.
 - `docs/api-contracts.md` registra contratos existentes entre frontend e endpoints, incluindo a migração piloto de `get_sigs.php`. Atualize-o quando contratos ou caminhos HTTP mudarem.
 - O banco SQLite tem tabelas e campos históricos em português e inglês. Preservar compatibilidade com dados implantados é requisito; não apagar, recriar ou renomear dados automaticamente.
-- Há testes JavaScript em `tests/js/` executados com `node --test tests/js/*.test.js` (última validação do frontend: 40/40) e testes PHP isolados para sequências e desenhos em `tests/php/`, executados com `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`. Node é ferramenta de desenvolvimento; ainda não há manifests npm/Composer nem runner geral de testes PHP.
+- Há testes JavaScript em `tests/js/` executados com `node --test tests/js/*.test.js` e testes PHP isolados para sequências e desenhos em `tests/php/`, executados com `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`. Node é ferramenta de desenvolvimento; ainda não há manifests npm/Composer nem runner geral de testes PHP.
 
 ## Mapa dos arquivos da aplicação
 
@@ -151,14 +151,14 @@ No backend, centralizar criação da conexão PDO, configuração, validação d
 
 ### 1. Estabelecer uma base segura e verificável
 
-- Manter a instalação LAMP/XAMPP por cópia do repositório como caminho oficial. Docker Compose é experimental; não torná-lo requisito nem usar sua estrutura de volumes como premissa para a implantação oficial.
+- Manter a instalação WAMP/LAMP por cópia de todos os arquivos do repositório como método de implantação. As orientações devem contemplar Apache, PHP, extensões, permissões e configuração do servidor local, sem depender de empacotamento ou de infraestrutura adicional.
 - Configurar o Apache para não servir `bd.db`, logs, `.git`, `.github`, configurações locais ou código interno. Sempre que possível, configure o document root para `public/`; caso a instalação mantenha a raiz do repositório no webroot, use regras Apache explícitas e documentadas para negar arquivos e diretórios internos.
 - O `.htaccess` atual usa `mod_rewrite`, `Require` e `Options`; documente e verifique `mod_rewrite` e permissões Apache `AllowOverride` adequadas. Não remova nem torne condicionais as regras de proteção sem fornecer uma alternativa equivalente.
 - Garantir que o usuário do Apache tenha escrita apenas nos arquivos/diretórios necessários, incluindo o SQLite e `SRTM3/`, sem permissões recursivas no repositório inteiro.
 - O workflow do GitHub Pages foi removido; não recrie publicação estática sem uma nova decisão explícita.
 - Preserve dados de banco e arquivos de usuário ao reorganizar o armazenamento. Não apague nem reescreva dados ou histórico automaticamente.
 - Registrar os contratos atuais entre frontend e endpoints e criar testes de regressão para os fluxos prioritários antes de mudar suas implementações.
-- Requerer uma versão PHP ainda suportada no servidor alvo e validar compatibilidade com a versão disponível no LAMP/XAMPP. A imagem experimental usa PHP 8.4, mas isso não define o runtime oficial.
+- Requerer uma versão PHP ainda suportada no servidor alvo e validar compatibilidade com a versão disponível no WAMP/LAMP.
 
 ### 2. Modularizar o frontend
 
@@ -182,7 +182,7 @@ No backend, centralizar criação da conexão PDO, configuração, validação d
 - Documentar métodos, parâmetros, formatos de sucesso e erro dos endpoints.
 - Adicionar testes para validação de requisições, persistência SQLite e regras geoespaciais/de rádio relevantes.
 - Adicionar verificações automatizadas compatíveis com as ferramentas adotadas, como `php -l`, testes PHP e lint JavaScript.
-- Atualizar o README com instalação LAMP/XAMPP, extensões, permissões, configuração por ambiente, backup e comandos de validação. Documentar Docker separadamente como opção experimental.
+- Atualizar o README com instalação WAMP/LAMP, extensões, permissões, configuração do PHP no servidor, backup e comandos de validação.
 
 ## Segurança e operação
 
@@ -192,7 +192,7 @@ No backend, centralizar criação da conexão PDO, configuração, validação d
 - Revise uploads com validação de nome e formato por allowlist, limite de quantidade/tamanho e controles de escrita no destino.
 - Não exponha mensagens de exceção, caminhos locais ou configuração em respostas de produção.
 - Coloque segredos e configuração específica do ambiente em variáveis de ambiente; não os registre no Git.
-- Considere autenticação, autorização e proteção contra abuso segundo o modo real de publicação. Não presuma que um endpoint é privado apenas por usar Docker ou SQLite.
+- Considere autenticação, autorização e proteção contra abuso segundo o modo real de publicação. Não presuma que um endpoint é privado apenas por usar SQLite.
 
 ## Orientações para mudanças futuras
 

@@ -6,6 +6,6 @@ RewriteRule ^(?:src|storage|logs|tests|\.git|\.github)(?:/|$) - [F,L,NC]
 RewriteRule ^(carregar-imagem|carregar|elevation_profile|get_elevation_data|get_sigs|proxy|salvar-imagem|salvar|tasks|upload_elevation_files)\.php$ php/endpoints/$1.php [END,NC]
 RewriteRule ^symbols/icons\.php$ php/endpoints/icons.php [END,NC]
 
-<FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|php\.ini|dockerfile|docker-compose\.yml|bootstrap\.php)$">
+<FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|bootstrap\.php)$">
     Require all denied
 </FilesMatch>

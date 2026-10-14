@@ -35,24 +35,21 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 
 ### Pré-requisitos
 
-- Servidor Apache com PHP 8.3 ou superior.
+- Servidor WAMP ou LAMP com Apache e PHP 8.3 ou superior.
 - Extensões PHP PDO SQLite (`pdo_sqlite`) e cURL (`curl`) habilitadas.
 - Módulos Apache `mod_rewrite` e autorização para regras `.htaccess` (`AllowOverride All`, ou as permissões equivalentes para `FileInfo`, `AuthConfig` e `Options`).
 - Permissão de leitura e escrita no arquivo `bd.db` e em seu diretório para o usuário do Apache.
 - Permissão de escrita em `SRTM3/` para receber arquivos de elevação.
 
-### Instalação no LAMP ou XAMPP
+### Instalação no WAMP ou LAMP
 
-1. Clone ou copie o repositório para o diretório publicado pelo Apache, por exemplo `htdocs/PlanMilT` no XAMPP.
-2. Habilite as extensões `pdo_sqlite` e `curl` no PHP usado pelo Apache.
-3. Confirme as permissões de escrita descritas nos pré-requisitos.
-4. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
+1. Copie ou clone todos os arquivos do projeto para um diretório publicado pelo Apache, por exemplo `www/PlanMilT` no WAMP ou `htdocs/PlanMilT` no XAMPP.
+2. No `php.ini` usado pelo Apache, habilite `pdo_sqlite` e `curl`. Reinicie o Apache depois de alterar a configuração.
+3. Habilite o módulo Apache `mod_rewrite` e permita as diretivas necessárias do `.htaccess` no VirtualHost ou na configuração do servidor.
+4. Garanta que o usuário do Apache possa ler os arquivos do projeto e gravar em `bd.db`, no diretório que contém esse banco e em `SRTM3/`.
+5. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
 
-O arquivo `php.ini` deste repositório é usado apenas pela configuração experimental do Docker. No LAMP/XAMPP, ajuste as extensões e limites no `php.ini` do servidor. O PHP da aplicação grava logs no diretório temporário do sistema.
-
-### Execução experimental com Docker
-
-Docker Compose é mantido para desenvolvimento e aprendizado, mas não é o método oficial de instalação. Para usá-lo, execute `docker compose up --build -d` e acesse `http://localhost:8080`.
+Não há um arquivo de configuração PHP específico do projeto: ajuste os limites de upload e execução no `php.ini` ativo do servidor conforme a necessidade e reinicie o Apache. Falhas das requisições da aplicação são exibidas no console do navegador; erros internos do PHP permanecem sujeitos à configuração de diagnóstico do servidor.
 
 ## Funcionalidades
 
@@ -117,18 +114,15 @@ The application is built with the following technologies and libraries:
 - Read and write access to `bd.db` and its parent directory for the Apache user.
 - Write access to `SRTM3/` for elevation file uploads.
 
-### Installation on LAMP or XAMPP
+### Installation on WAMP or LAMP
 
-1. Clone or copy the repository into Apache's published directory, such as XAMPP's `htdocs/PlanMilT`.
-2. Enable the `pdo_sqlite` and `curl` extensions in the PHP installation used by Apache.
-3. Check the write permissions listed above.
-4. Open `http://localhost/PlanMilT/` or the address configured on the server.
+1. Copy or clone all project files into a directory published by Apache, such as WAMP's `www/PlanMilT` or XAMPP's `htdocs/PlanMilT`.
+2. Enable `pdo_sqlite` and `curl` in the `php.ini` used by Apache, then restart Apache.
+3. Enable Apache's `mod_rewrite` module and allow the required `.htaccess` directives in the VirtualHost or server configuration.
+4. Ensure the Apache user can read the project files and write to `bd.db`, its containing directory, and `SRTM3/`.
+5. Open `http://localhost/PlanMilT/` or the address configured on the server.
 
-The repository's `php.ini` is used only by the experimental Docker setup. For LAMP/XAMPP, configure extensions and limits in the server's own `php.ini`. The application writes logs to the system temporary directory.
-
-### Experimental Docker setup
-
-Docker Compose is provided for development and learning, but is not the official installation method. To use it, run `docker compose up --build -d` and open `http://localhost:8080`.
+There is no project-specific PHP configuration file; adjust upload and execution limits in the server's active `php.ini` as needed, then restart Apache. Application request failures appear in the browser console; internal PHP diagnostics remain subject to the server's own configuration.
 
 ## Features
 
@@ -139,7 +133,7 @@ Docker Compose is provided for development and learning, but is not the official
 - **Editing:** Modify text and properties of existing elements.
 
 ### Security
-The application is designed to operate on local servers, ensuring the confidentiality of stored data.
+The application uses local SQLite storage. Local deployment alone does not replace access controls, backups, and protection against data loss or modification.
 
 ## Contributions
 Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
