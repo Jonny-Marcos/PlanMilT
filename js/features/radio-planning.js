@@ -493,16 +493,97 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * Solicita os dados de elevação para os pontos especificados.
                  * @param {Array<*>} pointsArray - Valor de entrada usado durante esta operação.
                  */
-                async function requestElevation(pointsArray) {
+                async function requestElevation(pointsArray, allowUpload = true) {
                     const response = await window.PlanMilT.apiClient.request('elevation_profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ points: pointsArray })
                     });
-                    if (!response.ok) throw new Error('Falha de Comunicação');
                     const data = await response.json();
-                    if (!data || data.length === 0) throw new Error('Sem dados topográficos.');
+
+                    if (data && data.error === 'Arquivos de elevação faltando' && Array.isArray(data.missingTiles)) {
+                        const missingTiles = [...new Set(data.missingTiles)];
+                        const uploaded = allowUpload && await uploadMissingElevationTiles(missingTiles);
+                        if (uploaded) return requestElevation(pointsArray, false);
+
+                        const error = new Error('Arquivos de elevação faltando.');
+                        error.missingTiles = missingTiles;
+                        error.userCancelled = allowUpload;
+                        throw error;
+                    }
+
+                    if (!response.ok) throw new Error((data && data.error) || `Falha de comunicação (HTTP ${response.status}).`);
+                    if (!Array.isArray(data) || data.length !== pointsArray.length) {
+                        throw new Error('Dados topográficos insuficientes.');
+                    }
+                    if (data.some(point => !point || typeof point.elevation !== 'number' || !Number.isFinite(point.elevation))) {
+                        throw new Error('A API retornou elevações inválidas.');
+                    }
                     return data;
+                }
+
+                /**
+                 * Solicita os tiles ausentes e os envia ao endpoint de upload.
+                 * @param {Array<string>} missingTiles - Nomes dos arquivos HGT ausentes.
+                 * @returns {Promise<boolean>} Indica se os arquivos foram enviados.
+                 */
+                async function uploadMissingElevationTiles(missingTiles) {
+                    if (missingTiles.length === 0 || missingTiles.some(tile => !/^[NS]\d{2}[EW]\d{3}\.HGT$/i.test(tile))) {
+                        throw new Error('A API retornou nomes de tiles inválidos.');
+                    }
+
+                    const { isConfirmed } = await Swal.fire({
+                        title: 'Arquivos de Elevação Faltando',
+                        html: `Os seguintes arquivos HGT estão faltando: <b>${missingTiles.join(', ')}</b><br>Você pode obtê-los em <a href="https://dwtkns.com/srtm30m/" target="_blank" rel="noopener">SRTM30</a>.<br>Deseja fazer o upload agora?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Fazer Upload',
+                        cancelButtonText: 'Cancelar'
+                    });
+                    if (!isConfirmed) return false;
+
+                    const { value: formData } = await Swal.fire({
+                        title: 'Upload de Arquivos de Elevação',
+                        html: `<p>Selecione os arquivos correspondentes aos tiles faltantes.</p>${missingTiles.map((tile, index) => `<label>${tile}: <input type="file" id="radio-hgt-${index}" accept=".hgt"></label><br>`).join('')}`,
+                        focusConfirm: false,
+                        showCancelButton: true,
+                        confirmButtonText: 'Enviar',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: () => {
+                            const uploadData = new FormData();
+                            for (const [index, tile] of missingTiles.entries()) {
+                                const input = document.getElementById(`radio-hgt-${index}`);
+                                if (!input || !input.files || input.files.length === 0) {
+                                    Swal.showValidationMessage(`Selecione o arquivo ${tile}.`);
+                                    return false;
+                                }
+                                uploadData.append('files[]', input.files[0]);
+                            }
+                            uploadData.append('missingTiles', JSON.stringify(missingTiles));
+                            return uploadData;
+                        }
+                    });
+                    if (!formData) return false;
+
+                    const uploadResponse = await window.PlanMilT.apiClient.request('upload_elevation_files.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const uploadResult = await uploadResponse.json();
+                    if (!uploadResponse.ok || !uploadResult || !uploadResult.success) {
+                        const error = new Error((uploadResult && uploadResult.message) || `Falha no upload (HTTP ${uploadResponse.status}).`);
+                        error.userMessage = error.message;
+                        throw error;
+                    }
+
+                    await Swal.fire({
+                        title: 'Upload concluído',
+                        text: 'Os arquivos foram enviados. O cálculo será tentado novamente.',
+                        icon: 'success',
+                        timer: 1800,
+                        showConfirmButton: false
+                    });
+                    return true;
                 }
 
                 /**
@@ -511,7 +592,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  */
                 function handleRFError(error) {
                     console.error('[PlanMilT][Rádio] Falha no cálculo do enlace.', error);
-                    Swal.fire('Erro', 'Não foi possível calcular. Verifique se possui os arquivos HGT para esta coordenada.', 'error');
+                    if (!error.userCancelled) {
+                        const message = error.missingTiles
+                            ? `Arquivos de elevação ainda faltando: ${error.missingTiles.join(', ')}.`
+                            : (error.userMessage || 'Não foi possível calcular. Verifique os arquivos HGT para esta coordenada.');
+                        Swal.fire('Erro', message, 'error');
+                    }
                     rfTempLayer.clearLayers();
                 }
 

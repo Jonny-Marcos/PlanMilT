@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/bootstrap.php';
 
 // elevation_profile.php
 
+header('Content-Type: application/json; charset=utf-8');
 error_reporting(E_ALL);
 
 // Função para calcular a distância haversine entre dois pontos
@@ -127,6 +128,7 @@ if (!$data || !isset($data['points']) || !is_array($data['points'])) {
 
 $points = $data['points'];
 $elevationResults = [];
+$missingTiles = [];
 
 // Caminho para os arquivos SRTM
 $srtmDirectory = dirname(__DIR__, 2) . "/SRTM3/";
@@ -156,6 +158,11 @@ foreach ($points as $point) {
     $tileName = getSRTMTile($lat, $lon);
     $tilePath = $srtmDirectory . $tileName;
 
+    if (!is_file($tilePath)) {
+        $missingTiles[$tileName] = true;
+        continue;
+    }
+
     // Obter a elevação do ponto
     $elevation = getElevationFromTile($tilePath, $lat, $lon);
 
@@ -166,7 +173,15 @@ foreach ($points as $point) {
     ];
 }
 
+if (!empty($missingTiles)) {
+    http_response_code(400);
+    echo json_encode([
+        'error' => 'Arquivos de elevação faltando',
+        'missingTiles' => array_keys($missingTiles)
+    ]);
+    exit;
+}
+
 // Retorna os resultados como JSON
-header('Content-Type: application/json');
 echo json_encode($elevationResults);
 ?>
