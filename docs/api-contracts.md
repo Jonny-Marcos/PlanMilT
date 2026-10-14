@@ -36,6 +36,8 @@ Os caminhos antigos continuam sendo encaminhados para os endpoints canônicos:
 | `/upload_elevation_files.php` | `/elevation-upload.php` |
 | `/get_sigs.php` | `/sigs.php` |
 
+O frontend mantém `/carregar.php` e `/salvar.php` para as operações de desenhos enquanto instalações publicadas não tiverem necessariamente recebido as rotas canônicas novas. O `.htaccess` da raiz encaminha esses aliases aos arquivos atuais em `php/endpoints/`; ao implantar uma versão nova, publique também esse `.htaccess` e os endpoints PHP.
+
 ## Piloto: `sigs.php`
 
 O consumidor atual em `index.html` itera a resposta como array e usa `Nome` e `URL`. Essa forma de sucesso é preservada para não quebrar a interface.

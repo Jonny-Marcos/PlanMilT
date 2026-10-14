@@ -141,7 +141,7 @@
                             // Envio dos dados via AJAX usando jQuery
                             $.ajax({
                                 type: "POST",
-                                url: "/drawing-save.php",
+                                url: "/salvar.php",
                                 data: data,
                                 success: function(response) {
                                     if (response.includes('Desenho atualizado com sucesso!') || response.includes('Desenho salvo com sucesso!')) {

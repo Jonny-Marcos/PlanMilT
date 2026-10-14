@@ -25,7 +25,7 @@
                 const diretorio = resultado ? resultado[1] : '';
 
                 try {
-                    const response = await window.PlanMilT.apiClient.request("/drawing-load.php", {
+                    const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                         method: "POST",
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: `usuario=${encodeURIComponent(usuario)}&link=${encodeURIComponent(diretorio)}`

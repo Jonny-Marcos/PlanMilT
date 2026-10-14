@@ -34,7 +34,7 @@
 
                 try {
                     for (const camada of camadas) {
-                        const response = await window.PlanMilT.apiClient.request("/drawing-load.php", {
+                        const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                             method: "POST",
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -272,7 +272,6 @@
                     }
                 }
             });
-
 
 
 
