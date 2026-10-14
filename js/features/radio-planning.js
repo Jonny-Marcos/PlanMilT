@@ -534,7 +534,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                     const { isConfirmed } = await Swal.fire({
                         title: 'Arquivos de Elevação Faltando',
-                        html: `Os seguintes arquivos HGT estão faltando: <b>${missingTiles.join(', ')}</b><br>Você pode obtê-los em <a href="https://dwtkns.com/srtm30m/" target="_blank" rel="noopener">SRTM30</a>.<br>Deseja fazer o upload agora?`,
+                        html: `Os seguintes arquivos HGT estão faltando: <b>${missingTiles.join(', ')}</b><br>Você pode obtê-los em <a href="https://www.okmap.org/en/en_srtm.aspx" target="_blank" rel="noopener">OkMap</a>.<br>Deseja fazer o upload agora?`,
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonText: 'Fazer Upload',

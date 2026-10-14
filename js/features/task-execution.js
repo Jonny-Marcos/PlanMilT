@@ -305,7 +305,7 @@ ${!hasErrors(logMessages) ? "<p>Planejamento salvo na camada 'Sugestão de Plane
                                 const tileList = missingTiles.join(', ');
                                 const { isConfirmed } = await Swal.fire({
                                     title: 'Arquivos de Elevação Faltando',
-                                    html: `Os seguintes arquivos de elevação estão faltando: <b>${tileList}</b><br>Você pode obtê-los através do site <a href="https://dwtkns.com/srtm30m/" target="_blank">SRTM30</a><br>Deseja fazer o upload dos arquivos faltantes?`,
+                                    html: `Os seguintes arquivos de elevação estão faltando: <b>${tileList}</b><br>Você pode obtê-los em <a href="https://www.okmap.org/en/en_srtm.aspx" target="_blank" rel="noopener">OkMap</a>.<br>Deseja fazer o upload dos arquivos faltantes?`,
                                     icon: 'error',
                                     showCancelButton: true,
                                     confirmButtonText: 'Fazer Upload',
