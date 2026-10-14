@@ -1,0 +1,8 @@
+Options -Indexes
+
+RewriteEngine On
+RewriteRule ^(?:src|storage|logs|tests|\.git|\.github)(?:/|$) - [F,L,NC]
+
+<FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|php\.ini|dockerfile|docker-compose\.yml|bootstrap\.php)$">
+    Require all denied
+</FilesMatch>

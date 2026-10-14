@@ -1,13 +1,16 @@
 <?php
+use PlanMilT\Infrastructure\Logging\Logger;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // upload_elevation_files.php
 
-ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 
 function writeLog($message) {
-    file_put_contents('logfile.log', date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL, FILE_APPEND);
+    Logger::write($message);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -1,12 +1,15 @@
 <?php
+use PlanMilT\Infrastructure\Logging\Logger;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // elevation_profile.php
 
-ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 // Função para registrar logs
 function writeLog($message) {
-    file_put_contents('logfile.log', date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL, FILE_APPEND);
+    Logger::write($message);
 }
 
 // Função para calcular a distância haversine entre dois pontos

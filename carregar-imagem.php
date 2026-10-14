@@ -1,4 +1,7 @@
 <?php
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+
+require_once __DIR__ . '/bootstrap.php';
 
 header("Content-Type: application/json");
 
@@ -9,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         try {
             // Conecta ao banco de dados SQLite
-            $db = new PDO('sqlite:bd.db');
+            $db = ConnectionFactory::create();
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar os dados da imagem pelo ID
@@ -53,7 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Se 'id' não for fornecido, retorna a lista de imagens
         try {
             // Conecta ao banco de dados SQLite
-            $db = new PDO('sqlite:bd.db');
+            $db = ConnectionFactory::create();
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar a lista de imagens
@@ -74,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         try {
             // Conecta ao banco de dados SQLite
-            $db = new PDO('sqlite:bd.db');
+            $db = ConnectionFactory::create();
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar a descrição e se a imagem requer senha

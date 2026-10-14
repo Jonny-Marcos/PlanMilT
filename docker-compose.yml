@@ -1,15 +1,17 @@
-version: '3.8'
-
 services:
   app:
     build: .
     ports:
       - "8080:80"
     volumes:
-      - ./bd.db:/var/www/html/bd.db
+      - ./bd.db:/var/lib/planmilt/bd.db
       - ./logs:/var/log/apache2
+      - planmilt-logs:/var/log/planmilt
+      - planmilt-elevation:/var/www/html/SRTM3
     environment:
-      - APACHE_LOG_DIR=/var/log/apache2
+      APACHE_LOG_DIR: /var/log/apache2
+      PLANMILT_DB_PATH: /var/lib/planmilt/bd.db
+      PLANMILT_LOG_DIR: /var/log/planmilt
     restart: always
     networks:
       - app-network
@@ -17,3 +19,7 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  planmilt-logs:
+  planmilt-elevation:

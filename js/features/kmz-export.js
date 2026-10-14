@@ -1,0 +1,510 @@
+window.PlanMilT = window.PlanMilT || {};
+
+window.PlanMilT.kmzExport = Object.freeze({
+    attach({ map, drawnItems, layerRegistry, button, zipArchive, sweetAlert, captureCanvas }) {
+        const JSZip = zipArchive;
+        const Swal = sweetAlert;
+        const html2canvas = captureCanvas;
+
+            async function exportDrawingsToKMZ() {
+                try {
+                    console.log("Iniciando a exportação para KMZ...");
+
+                    // Obtém os dados dos desenhos existentes
+                    var geoJsonData = drawnItems.toGeoJSON();
+                    console.log("geoJsonData inicial:", geoJsonData);
+
+                    // Verifica as chaves presentes em layerRegistry
+                    console.log("Chaves em layerRegistry:", Object.keys(layerRegistry));
+
+                    // Verifica se a camada "Sugestão de Planejamento" existe no layerRegistry
+                    if (layerRegistry.hasOwnProperty("Sugestão de Planejamento")) {
+                        console.log("A camada 'Sugestão de Planejamento' está presente no layerRegistry.");
+                        var sugestaoLayer = layerRegistry["Sugestão de Planejamento"];
+                        console.log("sugestaoLayer:", sugestaoLayer);
+
+                        // Verifica se a camada possui layers internos
+                        if (sugestaoLayer.getLayers && sugestaoLayer.getLayers().length > 0) {
+                            console.log("'Sugestão de Planejamento' possui layers:", sugestaoLayer.getLayers().length);
+
+                            // Obtém os dados da camada "Sugestão de Planejamento"
+                            var sugestaoGeoJSON = sugestaoLayer.toGeoJSON();
+                            console.log("sugestaoGeoJSON:", sugestaoGeoJSON);
+
+                            // Verifica se há features no GeoJSON
+                            if (sugestaoGeoJSON.features && sugestaoGeoJSON.features.length > 0) {
+                                console.log("sugestaoGeoJSON possui features:", sugestaoGeoJSON.features.length);
+
+                                // Adiciona uma propriedade 'folderName' para agrupar em uma pasta
+                                sugestaoGeoJSON.features.forEach(feature => {
+                                    feature.properties.folderName = "Sugestão de Planejamento";
+                                    // Garantir que cada feature tenha 'name' e 'description'
+                                    feature.properties.name = feature.properties.name || "";
+                                    feature.properties.description = feature.properties.description || "";
+                                });
+
+                                // Combina as features dos desenhos com as da camada "Sugestão de Planejamento"
+                                geoJsonData.features = geoJsonData.features.concat(sugestaoGeoJSON.features);
+                                console.log("Após concatenação, geoJsonData.features.length:", geoJsonData.features.length);
+                            } else {
+                                console.log("sugestaoGeoJSON não possui features.");
+                            }
+                        } else {
+                            console.log("'Sugestão de Planejamento' não possui layers ou getLayers() não está disponível.");
+                        }
+                    } else {
+                        console.log("A camada 'Sugestão de Planejamento' NÃO está presente no layerRegistry.");
+                    }
+
+                    console.log("geoJsonData final:", geoJsonData);
+
+                    // Função para inserir o Folder "Sugestão de Planejamento" no KML
+                            // Converte GeoJSON para KML com suporte para ícones e estilos usando geojsontokml
+                            var kmlData = geojsontokml(geoJsonData, {
+                            name: 'name',
+                                  description: 'description',
+                                      documentName: 'A Escola da Tatica',
+                                          documentDescription: 'KMZ exportado por escoladatatica.fun',
+                                              folderName: function(properties) {
+                                                  return properties.folderName || 'Outras Features';
+                                              }
+                        });
+
+                        // Define as tags de início e fim do Folder
+                        const folderStartTag = `<Folder><name>Sugestão de Planejamento</name>`;
+                        const folderEndTag = `</Folder>`;
+
+                        // Expressão regular para encontrar todos os Placemark
+                        const placemarkRegex = /<Placemark>[\s\S]*?<\/Placemark>/g;
+                        const allPlacemarks = kmlData.match(placemarkRegex);
+
+                        // Filtrar os Placemarks que pertencem à "Sugestão de Planejamento"
+                        const folderPlacemarks = allPlacemarks.filter(placemark => placemark.includes('<name>Conexão TAR</name>') || placemark.includes('<name>NA Sugerido</name>')|| placemark.includes('<name>Enlace Sugerido</name>')|| placemark.includes('<name>EIR Sugerido</name>')|| placemark.includes('<name>CN Sugerido</name>') || placemark.includes('<name>TAR Sugerido</name>') || placemark.includes('<name>Cobertura TAR</name>'));
+
+                        // Remover os Placemarks da "Sugestão de Planejamento" do kmlData original
+                        folderPlacemarks.forEach(placemark => {
+                            kmlData = kmlData.replace(placemark, '');
+                        });
+
+                        // Criar a seção do Folder com os Placemarks filtrados
+                        const folderKml = `${folderStartTag}\n${folderPlacemarks.join('\n')}\n${folderEndTag}`;
+
+                        // Inserir o Folder no KML antes do fechamento de </Document>
+                        kmlData = kmlData.replace('</Document>', `${folderKml}\n</Document>`);
+
+                        // Continua com a criação do ZIP e download
+                        console.log("kmlData com Folder inserido:", kmlData);
+                        var zip = new JSZip();
+                        zip.file("doc.kml", kmlData);
+                        console.log("Arquivo 'doc.kml' adicionado ao ZIP.");
+
+                        // Pergunta ao usuário se ele deseja adicionar imagens da camada atual
+                        const result = await Swal.fire({
+                            title: 'Adicionar Imagens ao KMZ?',
+                            text: 'Você deseja adicionar imagens da camada atual, como as cartas do BDGEx? Isso pode aumentar o tamanho do arquivo.',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sim, adicionar',
+                            cancelButtonText: 'Não, obrigado'
+                        });
+
+                        if (result.isConfirmed) {
+                            console.log("Usuário escolheu adicionar imagens da camada BDGEx.");
+                            await addBDGExLayerToKMZ(zip);
+                        }
+
+                        // Baixa os ícones necessários, converte para PNG e adiciona ao zip
+                        var uniqueIcons = [...new Set(geoJsonData.features.map(f => f.properties.iconUrl).filter(Boolean))];
+                        console.log("uniqueIcons:", uniqueIcons);
+
+                        await Promise.all(uniqueIcons.map(async (iconUrl) => {
+                            try {
+                                console.log("Processando ícone:", iconUrl);
+                                const response = await fetch(iconUrl);
+                                if (!response.ok) {
+                                    throw new Error(`Failed to fetch ${iconUrl}`);
+                                }
+                                const iconBlob = await response.blob();
+                                const iconName = iconUrl.split('/').pop().replace(/\.\w+$/, '.png');
+                                console.log("iconName:", iconName);
+
+                                // Converte a imagem para PNG
+                                const img = document.createElement('img');
+                                img.src = URL.createObjectURL(iconBlob);
+                                await new Promise((resolve, reject) => {
+                                    img.onload = () => resolve();
+                                    img.onerror = (err) => reject(err);
+                                });
+
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                ctx.drawImage(img, 0, 0);
+
+                                const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                                zip.file(`files/${iconName}`, pngBlob);
+                                console.log(`Ícone ${iconName} adicionado ao KMZ.`);
+                            } catch (error) {
+                                console.error('Erro ao processar o ícone:', error);
+                            }
+                        }));
+
+                        // Gera o arquivo KMZ e faz o download
+                        try {
+                            const content = await zip.generateAsync({ type: "blob" });
+                            var link = document.createElement("a");
+                            link.href = URL.createObjectURL(content);
+                            link.download = "aescoladatatica.kmz";
+                            link.click();
+                            console.log("KMZ gerado e download iniciado.");
+                        } catch (error) {
+                            console.error("Erro ao gerar o KMZ:", error);
+                        }
+                    } catch (error) {
+                        console.error("Erro na função exportDrawingsToKMZ:", error);
+                    }
+                }
+
+
+
+
+
+
+
+                async function addBDGExLayerToKMZ(zip) {
+                    // Utiliza SweetAlert2 para a escolha da qualidade
+                    const { value: qualityOption } = await Swal.fire({
+                        title: 'Escolha a Qualidade da Imagem',
+                        text: 'Selecione a qualidade desejada para exportar as imagens.',
+                        icon: 'question',
+                        input: 'select',
+                        inputOptions: {
+                            high: 'Alta Qualidade (1m30s - 10MB)',
+                            medium: 'Média Qualidade (40s - 5MB)',
+                            low: 'Baixa Qualidade (20s - 2,5MB)'
+                        },
+                        inputPlaceholder: 'Selecione uma qualidade',
+                        showCancelButton: true,
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Cancelar'
+                    });
+
+                    // Define o número de divisões com base na escolha de qualidade
+                    let divisions;
+                    switch (qualityOption) {
+                        case 'high':
+                            divisions = 4; // Alta Qualidade: 4 divisões
+                            break;
+                        case 'medium':
+                            divisions = 3; // Média Qualidade: 3 divisões
+                            break;
+                        case 'low':
+                            divisions = 2; // Baixa Qualidade: 2 divisões
+                            break;
+                        default:
+                            return; // Se o usuário cancelar, a função é encerrada
+                                         }
+
+                    const panels = [];
+                    const mapElement = document.getElementById('map');
+                    const originalZoom = map.getZoom();
+                    const targetZoom = originalZoom + 2;
+                    const bounds = map.getBounds();
+                    const { north, south, east, west } = {
+                        north: bounds.getNorth(),
+                        south: bounds.getSouth(),
+                        east: bounds.getEast(),
+                        west: bounds.getWest()
+                    };
+
+                    const width = mapElement.offsetWidth;
+                    const height = mapElement.offsetHeight;
+
+                    const latStep = (north - south) / divisions;
+                    const lonStep = (east - west) / divisions;
+
+                    for (let i = 0; i < divisions; i++) {
+                        for (let j = 0; j < divisions; j++) {
+                            const panelNorth = north - i * latStep;
+                            const panelSouth = north - (i + 1) * latStep;
+                            const panelWest = west + j * lonStep;
+                            const panelEast = west + (j + 1) * lonStep;
+                            panels.push([[panelNorth, panelWest], [panelSouth, panelEast]]);
+                        }
+                    }
+
+                    const images = [];
+                    const elementsToHide = document.querySelectorAll('.leaflet-control, .leaflet-top, .leaflet-bottom, .leaflet-interactive');
+
+                    // Oculta os elementos do Leaflet
+                    elementsToHide.forEach(element => element.style.display = 'none');
+
+                    // Garante que os elementos de texto estejam visíveis
+                    const textElements = document.querySelectorAll('.custom-text-label');
+                    textElements.forEach(element => element.style.display = 'block');
+
+                    let cancelCapture = false; // Variável para controlar o cancelamento
+
+                    // Configura a barra de progresso com SweetAlert2 e um botão de cancelamento
+                    Swal.fire({
+                        title: 'Capturando Imagens',
+                        html: 'Progresso: <b>0%</b>',
+                        icon: 'info',
+                        allowOutsideClick: false,
+                        showCancelButton: true, // Habilita o botão de cancelamento
+                        cancelButtonText: 'Cancelar',
+                        showConfirmButton: false, // Remove o botão de confirmação para evitar confusão
+                        willOpen: () => {
+                            Swal.showLoading();
+                            // Listener para o botão de cancelar
+                            Swal.getCancelButton().addEventListener('click', () => {
+                                cancelCapture = true;
+                                elementsToHide.forEach(element => element.style.display = ''); // Restaura os controles do mapa
+                                Swal.close();
+                            });
+                        }
+                    });
+
+
+                    for (let index = 0; index < panels.length; index++) {
+                        if (cancelCapture) break; // Verifica se o usuário cancelou
+
+                        const panel = panels[index];
+                        map.fitBounds(panel);
+                        await new Promise(resolve => setTimeout(resolve, 5000)); // Aguarda o ajuste do mapa
+
+                        const canvas = await html2canvas(mapElement, {
+                            useCORS: true,
+                            width: width,
+                            height: height,
+                            backgroundColor: null
+                        });
+
+                        images.push(canvas);
+
+                        // Atualiza a barra de progresso
+                        const progress = Math.round(((index + 1) / panels.length) * 100);
+                        Swal.getHtmlContainer().querySelector('b').textContent = `${progress}%`;
+                    }
+
+                    if (cancelCapture) {
+                        // Reexibe os elementos e restaura o zoom original caso o usuário cancele
+                        elementsToHide.forEach(element => element.style.display = '');
+                        map.setZoom(originalZoom);
+                        map.fitBounds(bounds);
+                        Swal.fire('Operação Cancelada', 'A captura das imagens foi cancelada.', 'info');
+                        return;
+                    }
+
+                    // Exibe novamente os elementos do Leaflet
+                    elementsToHide.forEach(element => element.style.display = '');
+
+                    // Restaura o zoom original do mapa
+                    map.setZoom(originalZoom);
+                    map.fitBounds(bounds);
+
+                    // Unir as imagens capturadas em uma única imagem
+                    const finalCanvas = document.createElement('canvas');
+                    finalCanvas.width = width * divisions;
+                    finalCanvas.height = height * divisions;
+                    const finalCtx = finalCanvas.getContext('2d');
+
+                    images.forEach((canvas, index) => {
+                        const row = Math.floor(index / divisions);
+                        const col = index % divisions;
+                        const x = col * width;
+                        const y = row * height;
+                        finalCtx.drawImage(canvas, x, y, width, height);
+                    });
+
+                    const jpegBlob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/jpeg', 0.95));
+
+                    // Adiciona a imagem ao zip
+                    const imageName = 'BDGEx_CTM50.jpg';
+                    zip.file(`files/${imageName}`, jpegBlob);
+
+                    // Cria a entrada GroundOverlay para o KML
+                    const groundOverlay = `
+<GroundOverlay>
+<name>Carta BDGEx</name>
+<visibility>0</visibility>
+<Icon>
+<href>files/${imageName}</href>
+<viewBoundScale>0.75</viewBoundScale>
+            </Icon> 
+<LatLonBox>
+<north>${north}</north>
+<south>${south}</south>
+<east>${east}</east>
+<west>${west}</west>
+            </LatLonBox>
+            </GroundOverlay>`;
+
+                    // Adiciona o GroundOverlay ao KML existente
+                    const kmlData = await zip.file("doc.kml").async("string");
+                    const newKmlData = kmlData.replace('</Document>', `${groundOverlay}</Document>`);
+                    zip.file("doc.kml", newKmlData);
+
+                    // Fecha o SweetAlert2 ao finalizar
+                    Swal.close();
+                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                function geojsontokml(geojson, options) {
+                    const kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>${options.documentName}</name>
+<description>${options.documentDescription}</description>`;
+
+                    const kmlFooter = `</Document></kml>`;
+
+                    function adjustColorOpacity(hex, opacity) {
+                        const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+                        const red = hex.slice(1, 3);
+                        const green = hex.slice(3, 5);
+                        const blue = hex.slice(5, 7);
+                        return alpha + blue + green + red; // AABBGGRR
+                    }
+
+                    function stripHTML(html) {
+                        let tmp = document.createElement("DIV");
+                        tmp.innerHTML = html;
+                        return tmp.textContent || tmp.innerText || "";
+                    }
+
+                    function createPlacemark(feature) {
+                        const geometryType = feature.geometry.type;
+                        const coordinates = feature.geometry.coordinates;
+                        const properties = feature.properties;
+                        const iconUrl = properties.iconUrl ? `files/${properties.iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}` : '';
+                        const styleUrl = iconUrl ? `<styleUrl>#m_${iconUrl}</styleUrl>` : '';
+                        const color = properties.color ? adjustColorOpacity(properties.color, 1.0) : 'ff000000';
+                        const fillColor = properties.color ? adjustColorOpacity(properties.color, 0.6) : '99000000';
+                        const lineColor = properties.color ? adjustColorOpacity(properties.color, 1.0) : 'ff000000';
+
+                        if (geometryType === "Point") {
+                            const textContent = properties.text ? stripHTML(properties.text) : '';
+                            if (textContent) {
+                                return `<Placemark>
+<name>${textContent}</name>
+<description>${properties.description || ''}</description>
+<Style>
+<IconStyle>
+<Icon>
+<href></href>
+            </Icon>
+            </IconStyle>
+<LabelStyle>
+<color>ff000000</color>
+<scale>1</scale>
+            </LabelStyle>
+            </Style>
+<Point>
+<coordinates>${coordinates.join(',')}</coordinates>
+            </Point>
+            </Placemark>`;
+                            } else {
+                                return `<Placemark>
+<name>${properties.name || ''}</name>
+<description>${properties.description || ''}</description>
+${styleUrl}
+<Point>
+<coordinates>${coordinates.join(',')}</coordinates>
+            </Point>
+            </Placemark>`;
+                            }
+                        } else if (geometryType === "LineString") {
+                            const lineCoordinates = coordinates.map(coord => coord.join(',')).join(' ');
+                            return `<Placemark>
+<name>${properties.name || ''}</name>
+<description>${properties.description || ''}</description>
+<Style>
+<LineStyle>
+<color>${lineColor}</color>
+<width>2</width>
+            </LineStyle>
+            </Style>
+<LineString>
+<coordinates>${lineCoordinates}</coordinates>
+            </LineString>
+            </Placemark>`;
+                        } else if (geometryType === "Polygon") {
+                            const polygonCoordinates = coordinates.map(ring => ring.map(coord => coord.join(',')).join(' ')).join(' ');
+                            return `<Placemark>
+<name>${properties.name || ''}</name>
+<description>${properties.description || ''}</description>
+<Style>
+<LineStyle>
+<color>${lineColor}</color>
+            </LineStyle>
+<PolyStyle>
+<color>${fillColor}</color>
+            </PolyStyle>
+            </Style>
+<Polygon>
+<outerBoundaryIs>
+<LinearRing>
+<coordinates>${polygonCoordinates}</coordinates>
+            </LinearRing>
+            </outerBoundaryIs>
+            </Polygon>
+            </Placemark>`;
+                        }
+                    }
+
+                    function createStyles(features) {
+                        const uniqueIcons = [...new Set(features.map(f => f.properties.iconUrl).filter(Boolean))];
+                        return uniqueIcons.map(iconUrl => {
+                            const localUrl = `files/${iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}`;
+                            return `
+<Style id="${localUrl}">
+<IconStyle>
+<Icon>
+<href>${localUrl}</href>
+            </Icon>
+<hotSpot x="0.5" y="0.5" xunits="fraction" yunits="fraction"/>
+            </IconStyle>
+<ListStyle>
+<ItemIcon>
+<href>${localUrl}</href>
+            </ItemIcon>
+            </ListStyle>
+            </Style>
+<StyleMap id="m_${localUrl}">
+<Pair>
+<key>normal</key>
+<styleUrl>#${localUrl}</styleUrl>
+            </Pair>
+<Pair>
+<key>highlight</key>
+<styleUrl>#${localUrl}</styleUrl>
+            </Pair>
+            </StyleMap>`;
+                        }).join('');
+                    }
+
+                    const placemarks = geojson.features.map(createPlacemark).join('');
+                    const styles = createStyles(geojson.features);
+
+                    return `${kmlHeader}${styles}${placemarks}${kmlFooter}`;
+                }
+
+        button.addEventListener('click', exportDrawingsToKMZ);
+        return Object.freeze({ geojsontokml });
+    }
+});

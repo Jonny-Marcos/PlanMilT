@@ -1,4 +1,8 @@
 <?php
+use PlanMilT\Infrastructure\Logging\Logger;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // get_elevation_data.php
 
 header('Content-Type: application/json');
@@ -6,7 +10,7 @@ ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 function writeLog($message) {
-    file_put_contents('logfile.log', date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL, FILE_APPEND);
+    Logger::write($message);
 }
 
 try {

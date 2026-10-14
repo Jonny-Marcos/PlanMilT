@@ -13,11 +13,7 @@ O PlanMilT utiliza a biblioteca **Leaflet** e ferramentas de **Sistema de Inform
 - Personalização de camadas e ícones;
 - Ferramentas de busca geoespacial.
 
-O banco de dados utilizado é um **SQLite3** chamado `bd.db`, que armazena todas as informações de planejamento localmente no servidor, garantindo a segurança da informação por meio de armazenamento offline.
-
-É possível testar a aplicação no endereço: **[aescoladatatica.fun](http://aescoladatatica.fun)**.
-
-Você também pode testar a aplicação, com limitações, através do GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
+O banco de dados utilizado é o **SQLite3**, armazenado no arquivo `bd.db` na raiz do projeto.
 
 ## Tecnologias Utilizadas
 
@@ -39,20 +35,24 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 
 ### Pré-requisitos
 
-- Servidor web (Apache, Nginx, etc.) com suporte a PHP.
-- Banco de dados SQLite3.
+- Servidor Apache com PHP 8.3 ou superior.
+- Extensões PHP PDO SQLite (`pdo_sqlite`) e cURL (`curl`) habilitadas.
+- Módulos Apache `mod_rewrite` e autorização para regras `.htaccess` (`AllowOverride All`, ou as permissões equivalentes para `FileInfo`, `AuthConfig` e `Options`).
+- Permissão de leitura e escrita no arquivo `bd.db` e em seu diretório para o usuário do Apache.
+- Permissão de escrita em `SRTM3/` para receber arquivos de elevação.
 
-### Passos de Instalação
+### Instalação no LAMP ou XAMPP
 
-1. Clone o repositório ou faça o download dos arquivos.
-2. Coloque os arquivos no diretório do servidor web.
-3. Certifique-se de que o arquivo do banco de dados `bd.db` está no diretório configurado.
-4. Configure as permissões do banco de dados para leitura e escrita.
+1. Clone ou copie o repositório para o diretório publicado pelo Apache, por exemplo `htdocs/PlanMilT` no XAMPP.
+2. Habilite as extensões `pdo_sqlite` e `curl` no PHP usado pelo Apache.
+3. Confirme as permissões de escrita descritas nos pré-requisitos.
+4. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
 
-### Executando Localmente
+O arquivo `php.ini` deste repositório é usado apenas pela configuração experimental do Docker. No LAMP/XAMPP, ajuste as extensões e limites no `php.ini` do servidor. O PHP da aplicação grava logs no diretório temporário do sistema.
 
-1. Inicie o servidor web.
-2. Acesse a aplicação pelo navegador no endereço configurado (ex.: `http://localhost/PlanMilT`).
+### Execução experimental com Docker
+
+Docker Compose é mantido para desenvolvimento e aprendizado, mas não é o método oficial de instalação. Para usá-lo, execute `docker compose up --build -d` e acesse `http://localhost:8080`.
 
 ## Funcionalidades
 
@@ -63,10 +63,14 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
 
 ### Segurança
-A aplicação foi projetada para operar em servidores locais, garantindo a confidencialidade dos dados armazenados.
+A aplicação usa armazenamento local SQLite. O armazenamento local, por si só, não substitui controles de acesso, backup e proteção contra alterações ou perdas.
 
 ## Contribuições
 Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request no repositório.
+
+### Testes de desenvolvimento
+Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
+Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
 
 ---
 
@@ -85,11 +89,7 @@ PlanMilT leverages the **Leaflet** library and **Geographic Information System (
 - Layer and icon customization;
 - Geospatial search tools.
 
-The application uses an **SQLite3** database named `bd.db`, which stores all planning information locally on the server, ensuring information security through offline storage.
-
-You can test the application at: **[aescoladatatica.fun](http://aescoladatatica.fun/PlanMilT/)**.
-
-You can also test the application, with limitations, through GitHub Pages: **jonny-marcos.github.io/PlanMilT**.
+The application uses **SQLite3**, stored in the `bd.db` file at the project root.
 
 ## Technologies Used
 
@@ -111,20 +111,24 @@ The application is built with the following technologies and libraries:
 
 ### Prerequisites
 
-- A web server (Apache, Nginx, etc.) with PHP support.
-- SQLite3 database.
+- Apache with PHP 8.3 or later.
+- PHP PDO SQLite (`pdo_sqlite`) and cURL (`curl`) extensions enabled.
+- Apache `mod_rewrite` and permission to use `.htaccess` rules (`AllowOverride All`, or equivalent permissions for `FileInfo`, `AuthConfig` and `Options`).
+- Read and write access to `bd.db` and its parent directory for the Apache user.
+- Write access to `SRTM3/` for elevation file uploads.
 
-### Installation Steps
+### Installation on LAMP or XAMPP
 
-1. Clone the repository or download the files.
-2. Place the files in the web server directory.
-3. Ensure the `bd.db` database file is in the configured directory.
-4. Set the database permissions for read and write access.
+1. Clone or copy the repository into Apache's published directory, such as XAMPP's `htdocs/PlanMilT`.
+2. Enable the `pdo_sqlite` and `curl` extensions in the PHP installation used by Apache.
+3. Check the write permissions listed above.
+4. Open `http://localhost/PlanMilT/` or the address configured on the server.
 
-### Running Locally
+The repository's `php.ini` is used only by the experimental Docker setup. For LAMP/XAMPP, configure extensions and limits in the server's own `php.ini`. The application writes logs to the system temporary directory.
 
-1. Start the web server.
-2. Access the application through a browser at the configured address (e.g., `http://localhost/PlanMilT`).
+### Experimental Docker setup
+
+Docker Compose is provided for development and learning, but is not the official installation method. To use it, run `docker compose up --build -d` and open `http://localhost:8080`.
 
 ## Features
 
@@ -139,5 +143,9 @@ The application is designed to operate on local servers, ensuring the confidenti
 
 ## Contributions
 Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
+
+### Development tests
+Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
+Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
 
 © 2024-2026 - João Marcos Barbosa Oliveira

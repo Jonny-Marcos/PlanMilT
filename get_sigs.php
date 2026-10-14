@@ -1,19 +1,27 @@
 <?php
-header('Content-Type: application/json');
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+use PlanMilT\Infrastructure\Logging\Logger;
+
+require_once __DIR__ . '/bootstrap.php';
+
+header('Content-Type: application/json; charset=utf-8');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    header('Allow: GET');
+    http_response_code(405);
+    echo json_encode(['error' => 'Método não permitido.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 try {
-    // Conecta ao banco de dados SQLite
-    $db = new PDO('sqlite:bd.db');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    // Consulta os campos Nome e URL da tabela sigs
+    $db = ConnectionFactory::create();
     $stmt = $db->query('SELECT Nome, URL FROM sigs');
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $results = $stmt->fetchAll();
 
-    // Retorna os resultados em formato JSON
-    echo json_encode($results);
-} catch (PDOException $e) {
-    // Em caso de erro, retorna uma mensagem de erro
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode($results, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+} catch (PDOException | JsonException $error) {
+    Logger::write('Falha ao carregar os SIGs: ' . $error->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Não foi possível carregar a lista de SIGs.'], JSON_UNESCAPED_UNICODE);
 }
 ?>

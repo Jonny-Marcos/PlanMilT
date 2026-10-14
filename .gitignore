@@ -1,0 +1,6 @@
+/.env
+/.env.*
+!/.env.example
+/logs/
+/storage/
+/php-error.log

@@ -1,0 +1,529 @@
+            #map {
+                width: 100%;
+                height: 90vh; /* 80% da altura da janela de visualização */
+                min-height: 500px; /* Altura mínima para garantir usabilidade */
+            }
+            #elevation-profile-canvas {
+                border: 2px solid #000; /* Define uma borda sólida preta com 2px de espessura */
+                display:none;
+            }
+            .color-picker {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 1000;
+            }
+            .map-toolbar {
+                background-color: #f8f9fa;
+                padding: 10px;
+                color: #333;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .toolbar-item label,
+            .color-picker-label label {
+                margin-right: 3px;
+                font-weight: bold;
+            }
+
+            .toolbar-button,
+            .toolbar-item {
+                margin: 3px;
+                background-color: #e7e7e7;
+                border: 1px solid #ccc;
+                padding: 8px;
+                border-radius: 5px;
+                color: #333;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                flex: 1 1 auto; /* Permite que os itens se ajustem */
+                min-width: 80px; /* Largura mínima para botões */
+                box-sizing: border-box; /* Inclui padding e borda na largura */
+            }
+
+            .toolbar-button:hover,
+            .toolbar-item select:hover,
+            #transparencySlider:hover {
+                background-color: #d6d6d6;
+            }
+
+            #colorPicker {
+                padding: 5px;
+                border-radius: 5px;
+                border: 1px solid #ccc;
+                cursor: pointer;
+                width: auto;
+            }
+
+            .toolbar-item select,
+            #transparencySlider {
+                background-color: #fff;
+                color: #333;
+                border: 1px solid #ccc;
+                padding: 5px;
+                border-radius: 5px;
+                max-width: 100%; /* Não excede a largura do contêiner */
+                width: 100%; /* Ocupa toda a largura disponível */
+                box-sizing: border-box; /* Inclui padding e borda na largura */
+                overflow: hidden; /* Oculta conteúdo que excede a largura */
+                text-overflow: ellipsis; /* Adiciona reticências se o texto for muito longo */
+                white-space: nowrap; /* Impede quebra de linha */
+            }
+
+            .toolbar-button i {
+                margin-right: 5px;
+            }
+            .toolbar-icons {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .toolbar-icon {
+                margin: 0 10px;
+                cursor: pointer;
+            }
+
+            .toolbar-icon:hover {
+                color: #007bff; /* Cor de destaque ao passar o mouse */
+            }
+            /* Estilos padrão para desktop */
+            .toolbar-item select,
+            .toolbar-item input[type='range'],
+            .toolbar-icons i {
+                font-size: 16px; /* Tamanho padrão da fonte */
+            }
+
+            .toolbar-icons i {
+                margin: 0 10px; /* Espaçamento padrão */
+                cursor: pointer;
+            }
+
+            @media (min-width: 601px) {
+                .toggle-controls {
+                    display: none; /* Ocultar botão em dispositivos não móveis */
+                }
+            }
+
+            #close-btn {
+                padding: 5px 10px;
+                cursor: pointer;
+                background-color: red;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            }
+            /* Estilos para o conteúdo do popup */
+            .popup-content {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+            /* Estilos opcionais para o popup personalizado */
+            .custom-popup .leaflet-popup-content-wrapper {
+                scroll-behavior: smooth;
+            }
+
+            .custom-popup .leaflet-popup-content {
+                padding: 10px;
+            }
+
+
+
+
+
+
+            #iconSelectorContainer {
+                position: relative;
+            }
+
+            #iconSelectorToggle {
+                padding: 10px;
+                cursor: pointer;
+                background-color: #007bff;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+            }
+
+            #iconSelectorToggle:hover {
+                background-color: #0056b3;
+            }
+
+            #iconSelectorContent {
+                /* Suas outras propriedades existentes */
+                position: absolute;
+                z-index: 1000;
+                background-color: #ffffff;
+                border: 1px solid #ccc;
+                padding: 10px;
+                max-height: 300px;
+                overflow-y: auto;
+                width: 400px;
+
+                /* Adicione ou altere estas propriedades */
+                bottom: 100%;
+                left: 0;
+            }
+
+
+            .folder-list {
+                display: flex;
+                flex-wrap: wrap;
+                margin-bottom: 10px;
+            }
+
+            .folder-button {
+                margin: 5px;
+                padding: 10px;
+                cursor: pointer;
+                background-color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+            }
+
+            .folder-button:hover {
+                background-color: #e0e0e0;
+            }
+
+            .icon-list {
+                display: flex;
+                flex-wrap: wrap;
+            }
+
+            .icon-item {
+                margin: 5px;
+                text-align: center;
+            }
+
+            .icon-image {
+                width: 40px;
+                height: 40px;
+                cursor: pointer;
+            }
+
+            .icon-image:hover {
+                transform: scale(1.1);
+            }
+
+            #iconPreview {
+                width: 40px;
+                height: 40px;
+            }
+
+
+            @media (max-width: 600px) {
+                /* Ajustes no Mapa */
+                #map {
+                    width: 100%;
+                    height: 90vh;
+                    min-height: 500px;
+                    touch-action: none;
+                }
+
+                /* Botões de Confirmação e Cancelamento do SweetAlert2 */
+                .swal2-confirm,
+                .swal2-cancel {
+                    font-size: 10px;
+                    padding: 6px 12px;
+                    max-width: 100px;
+                    min-width: 80px;
+                }
+
+                /* Ações do SweetAlert2 */
+                .swal2-actions {
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    gap: 5px;
+                }
+
+                /* Estilização da Barra de Rolagem das Ações do SweetAlert2 */
+                .swal2-actions::-webkit-scrollbar {
+                    height: 6px;
+                }
+
+                .swal2-actions::-webkit-scrollbar-thumb {
+                    background-color: rgba(0, 0, 0, 0.2);
+                    border-radius: 3px;
+                }
+
+                /* Itens da Barra de Ferramentas e Ícones */
+                .toolbar-item select,
+                .toolbar-item input[type='range'],
+                .toolbar-icons i {
+                    font-size: 12px;
+                }
+
+                .toolbar-icons i {
+                    margin: 0 3px;
+                }
+
+                /* Botões e Itens da Barra de Ferramentas */
+                .toolbar-button,
+                .toolbar-item {
+                    padding: 5px;
+                    font-size: 12px;
+                    flex: 1 1 45%;
+                    min-width: 100px;
+                    margin: 2px;
+                    box-sizing: border-box;
+                    white-space: nowrap;
+                }
+
+                /* Barra de Ferramentas do Mapa */
+                .map-toolbar {
+                    background-color: #f8f9fa;
+                    padding: 5px;
+                    color: #333;
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    justify-content: flex-start;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    width: 100%;
+                    box-sizing: border-box;
+                    margin-right: 10px;
+                    max-width: calc(100% - 20px);
+                }
+
+                /* Seletores e Slider de Transparência na Barra de Ferramentas */
+                .toolbar-item select,
+                #transparencySlider {
+                    font-size: 12px;
+                    padding: 5px;
+                    max-width: 90%;
+                    width: 90%;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                /* Labels nos Itens da Barra de Ferramentas */
+                .toolbar-item label {
+                    font-size: 12px;
+                    margin: 3px;
+                    white-space: nowrap;
+                }
+
+
+
+                /* Ícones nos Botões e Itens da Barra de Ferramentas */
+                .toolbar-button i,
+                .toolbar-item i {
+                    margin: 3px 3px;
+                }
+
+                /* Canvas do Perfil de Elevação */
+                #elevation-profile-canvas {
+                    width: 100%;
+                    height: 200px;
+                }
+
+                /* Botão para Alternar Controles em Dispositivos Móveis */
+                .toggle-controls {
+                    display: block;
+                    position: fixed;
+                    bottom: 10px;
+                    right: 10px;
+                    z-index: 2000;
+                    padding: 10px;
+                    background-color: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                }
+
+                /* Ferramentas do Leaflet */
+                .leaflet-draw-toolbar {
+                    display: block;
+                }
+
+                .leaflet-control-browser-print {
+                    display: none !important;
+                }
+
+                /* Seletor de Camadas */
+                #layerSelector {
+                    display: block !important;
+                }
+
+                /* Botões de Pasta */
+                .folder-button {
+                    margin: 3px;
+                    padding: 5px;
+                    font-size: 12px;
+                    flex: 1 1 45%;
+                }
+
+
+
+                .icon-image {
+                    width: 30px !important;        /* Reduz o tamanho das imagens dos ícones */
+                    height: 30px !important;
+                }
+
+
+                /* Popup do SweetAlert2 */
+                .swal2-popup {
+                    width: 90% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
+                }
+
+                .swal2-popup select {
+                    width: 100% !important;
+                    box-sizing: border-box;
+                    max-width: 100% !important;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                }
+
+                /* Botões de Sequência */
+                #saveSequenceButton,
+                #loadSequenceButton,
+                #executeSequenceButton,
+                #deleteSequenceButton {
+                    display: block !important;
+                    flex: none !important;
+                    width: 100% !important;
+                    margin: 5px 0 !important;
+                    box-sizing: border-box;
+                }
+
+                /* Container Flex do Popup do SweetAlert2 */
+                .swal2-popup div[style*="display: flex"][style*="justify-content: space-between"] {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    margin-top: 10px !important;
+                }
+
+                /* Ícones nos Botões de Sequência */
+                #saveSequenceButton i,
+                #loadSequenceButton i,
+                #executeSequenceButton i,
+                #deleteSequenceButton i {
+                    margin-right: 5px !important;
+                }
+                /* Ajustes para os inputs do SweetAlert2 */
+                .swal2-popup .swal2-input {
+                    width: 90% !important;           /* Garante que o input ocupe toda a largura disponível */
+                    box-sizing: border-box;           /* Inclui padding e border no cálculo da largura */
+                    margin: 5px 5px;                    /* Adiciona margem vertical para espaçamento entre os inputs */
+                }
+
+                /* Opcional: Limitar a altura do modal e permitir rolagem vertical */
+                .swal2-popup {
+                    max-height: 90vh !important;      /* Limita a altura máxima do modal a 90% da viewport */
+                    overflow-y: auto !important;      /* Adiciona rolagem vertical se necessário */
+                }
+
+                /* Ajustes para o select do SweetAlert2 */
+                .swal2-popup .swal2-select {
+                    width: 90% !important;           /* Garante que o select ocupe toda a largura disponível */
+                    box-sizing: border-box;           /* Inclui padding e border no cálculo da largura */
+                    margin: 5px 5px;                    /* Adiciona margem vertical para espaçamento */
+                    font-size: 14px;                  /* Ajusta o tamanho da fonte para melhor legibilidade */
+                }
+                /* Opcional: Ajustar o título do modal para melhor adaptação */
+                .swal2-popup .swal2-title {
+                    font-size: 18px;                   /* Reduz o tamanho da fonte do título */
+                    text-align: center;                /* Centraliza o título */
+                    margin-bottom: 15px;                /* Adiciona margem inferior para espaçamento */
+                }
+
+
+
+                /* Ajustes para o container do seletor de ícones */
+                #iconSelectorContent {
+                    width: 100%;
+                    max-height: 50vh;
+                    overflow-y: auto;
+                    bottom: 100%;
+                    left: 0;
+                }
+
+                /* Ajustes para o botão de alternância do seletor de ícones */
+                #iconSelectorToggle {
+                    padding: 5px;
+                    font-size: 12px;
+                }
+
+                /* Ajuste do preview do ícone selecionado */
+                #iconPreview {
+                    width: 30px;
+                    height: 30px;
+                }
+            }
+
+
+
+
+
+
+
+
+            .form-group {
+                margin-bottom: 15px;
+            }
+
+            .form-group label {
+                display: flex;
+                align-items: center;
+                font-weight: bold;
+            }
+
+            .form-group label i {
+                margin-right: 8px;
+            }
+
+            /* Tamanho de fonte padrão para botões do Swal */
+            .swal2-confirm, .swal2-cancel {
+                font-size: 16px; /* Tamanho padrão para desktops e telas maiores */
+                padding: 10px 20px; /* Padding padrão */
+                flex: 1 1 auto; /* Flex-grow e flex-shrink para permitir ajuste */
+                max-width: 200px; /* Largura máxima para evitar botões muito largos */
+            }
+
+            /* Estilos para o contêiner de ações do Swal */
+            .swal2-actions {
+                display: flex;
+                flex-wrap: nowrap; /* Evita que os botões quebrem em múltiplas linhas */
+                justify-content: center; /* Centraliza os botões */
+                gap: 10px; /* Espaçamento entre os botões */
+            }
+
+            /* Estilos para o botão de "Desenho a mão livre" */
+            .leaflet-control-freehand {
+                background-color: white;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Estilos para o ícone dentro do botão */
+            .leaflet-control-freehand i {
+                font-size: 29px;
+                margin: 0;
+            }
+
+
+
+
+
+
+
+
+

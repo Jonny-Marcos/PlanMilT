@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.*
+bd.db
+*.log
+logs/
+storage/
+php-error.log

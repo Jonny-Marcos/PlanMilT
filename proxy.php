@@ -1,4 +1,8 @@
 <?php
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // proxy.php
 
 if (!isset($_GET['url'])) {
@@ -11,8 +15,7 @@ $url = $_GET['url'];
 
 // Conexão com o banco de dados SQLite
 try {
-    $db = new PDO('sqlite:bd.db');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db = ConnectionFactory::create();
 
     // Consulta todas as URLs da coluna URL da tabela sigs
     $stmt = $db->query('SELECT URL FROM sigs');

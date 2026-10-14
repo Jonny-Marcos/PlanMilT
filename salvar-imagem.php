@@ -1,10 +1,12 @@
 <?php
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+
+require_once __DIR__ . '/bootstrap.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
         // Conecta ao banco de dados SQLite
-        $db = new PDO('sqlite:bd.db');
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $db = ConnectionFactory::create();
 
         // Recebe os dados do formulário
         $imagemDataUrl = $_POST['imagem'] ?? '';

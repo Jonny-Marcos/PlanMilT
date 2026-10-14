@@ -1,13 +1,16 @@
 <?php
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+use PlanMilT\Infrastructure\Logging\Logger;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // tasks.php
 
 header('Content-Type: application/json');
 
 // Conecta ao banco de dados SQLite
 try {
-    $pdo = new PDO('sqlite:bd.db');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $pdo = ConnectionFactory::create();
 } catch (\PDOException $e) {
     echo json_encode(['success' => false, 'error' => 'Falha na conexão com o banco de dados.']);
     exit;
@@ -15,8 +18,7 @@ try {
 
 // Função de log (Inserir aqui)
 function writeLog($message) {
-    $logFile = __DIR__ . '/logfile.log'; // Define o caminho completo para o arquivo de log
-    file_put_contents($logFile, date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL, FILE_APPEND);
+    Logger::write($message);
 }
 
 // Manipular a ação

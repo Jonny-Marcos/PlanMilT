@@ -1,4 +1,8 @@
 <?php
+use PlanMilT\Infrastructure\Database\ConnectionFactory;
+
+require_once __DIR__ . '/bootstrap.php';
+
 // Verifica se o método de requisição é POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Recebe os dados via POST
@@ -9,7 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     try {
         // Conecta ao banco de dados SQLite
-        $db = new PDO('sqlite:bd.db');
+        $db = ConnectionFactory::create();
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         // Prepara a declaração SQL para selecionar sem usar senha
