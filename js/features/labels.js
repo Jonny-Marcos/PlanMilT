@@ -1,7 +1,21 @@
+/**
+ * @fileoverview Adiciona e atualiza rótulos de feições para o motor de posicionamento de labels.
+ * @requires Leaflet e labelgun carregados pela página.
+ */
+/**
+ * Oculta visualmente o rótulo fornecido pelo motor labelgun.
+ * @param {*} label - Rótulo e elemento DOM administrados pelo motor labelgun.
+ * @returns {void} Não retorna valor.
+ */
 var hideLabel = function(label) {
     label.labelObject.style.opacity = 0;
     label.labelObject.style.transition = 'opacity 0s';
 };
+/**
+ * Exibe visualmente o rótulo fornecido pelo motor labelgun.
+ * @param {*} label - Rótulo e elemento DOM administrados pelo motor labelgun.
+ * @returns {void} Não retorna valor.
+ */
 var showLabel = function(label) {
     label.labelObject.style.opacity = 1;
     label.labelObject.style.transition = 'opacity 1s';
@@ -12,6 +26,10 @@ var id = 0;
 var labels = [];
 var totalMarkers = 0;
 
+/**
+ * Reinicia e recalcula os rótulos das camadas fornecidas.
+ * @param {Array<*>} markers - Camadas Leaflet que contêm marcadores e rótulos.
+ */
 function resetLabels(markers) {
     labelEngine.reset();
     var i = 0;
@@ -23,6 +41,11 @@ function resetLabels(markers) {
   labelEngine.update();
 }
 
+/**
+ * Registra um rótulo de feição no motor de posicionamento de labels.
+ * @param {Object} layer - Camada Leaflet ou feição processada.
+ * @param {number} id - Identificador do elemento ou rótulo.
+ */
 function addLabel(layer, id) {
 
   // This is ugly but there is no getContainer method on the tooltip :(

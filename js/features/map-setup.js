@@ -1,6 +1,18 @@
+/**
+ * @fileoverview Inicializa camadas-base, camadas operacionais, controle de camadas e estado compartilhado do mapa.
+ * @exports window.PlanMilT.mapSetup
+ * @requires Mapa e Leaflet injetados
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.mapSetup = Object.freeze({
+    /**
+     * Inicializa as camadas, controles e registry do mapa e devolve o estado compartilhado.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
+     * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
+     * @returns {{layerControl: Object, layerRegistry: Object, planejamentoLayer: Object, addNewOverlayLayer: Function}} Controle, registro e camada de planejamento do mapa.
+     */
     attach({ map, leaflet }) {
         const L = leaflet;
 
@@ -250,6 +262,9 @@ window.PlanMilT.mapSetup = Object.freeze({
             L.DomEvent.on(buttonsDiv, 'mousedown dblclick click', L.DomEvent.stopPropagation);
 
 
+            /**
+             * Desmarca as camadas iniciais conforme o estado da interface.
+             */
             function deselecionarCamadasIniciais() {
                 // Lista das camadas a serem removidas (exceto OpenTopo)
                 var camadasParaRemover = [
@@ -281,6 +296,11 @@ window.PlanMilT.mapSetup = Object.freeze({
             deselecionarCamadasIniciais();
 
 
+            /**
+             * Registra uma sobreposição no mapa e no controle de camadas.
+             * @param {string} layerName - Nome identificador da camada.
+             * @param {Object} layer - Camada Leaflet ou feição processada.
+             */
             function addNewOverlayLayer(layerName, layer) {
                 // Verifica se o nome da camada já existe no registro
                 if (!layerRegistry.hasOwnProperty(layerName)) {
@@ -300,6 +320,9 @@ window.PlanMilT.mapSetup = Object.freeze({
 
 
             // Função para preencher o seletor com os layers disponíveis e inicializar o registro de camadas
+            /**
+             * Preenche o seletor de transparência com as camadas disponíveis.
+             */
             function fillLayerSelector() {
                 var layerRegistry = { // Variáveis de camadas declaradas diretamente
                     "OpenTopo": layer_OpenTopo_0,
@@ -323,6 +346,9 @@ window.PlanMilT.mapSetup = Object.freeze({
             var layers = fillLayerSelector();
 
             // Função para ajustar a transparência do layer selecionado
+            /**
+             * Aplica ao mapa a transparência escolhida para a camada selecionada.
+             */
             function adjustLayerTransparency() {
 
                 var selectedLayerKey = document.getElementById('layerSelector').value;

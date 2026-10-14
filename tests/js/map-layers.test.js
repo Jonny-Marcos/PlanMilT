@@ -31,7 +31,7 @@ global.DOMParser = class {
     }
 };
 
-require('../../js/api-client.js');
+require('../../js/features/api-client.js');
 require('../../js/features/map-layers.js');
 
 const apiClient = window.PlanMilT.apiClient;
@@ -50,12 +50,19 @@ test('getText returns a successful text response', async () => {
 
 test('getText rejects unsuccessful HTTP responses', async () => {
     const originalFetch = global.fetch;
+    const originalConsoleError = console.error;
+    const logged = [];
     global.fetch = async () => ({ ok: false, status: 502, text: async () => 'upstream error' });
+    console.error = (...args) => logged.push(args);
 
     try {
         await assert.rejects(apiClient.getText('/proxy.php'), /HTTP 502/);
+        assert.equal(logged.length, 1);
+        assert.equal(logged[0][1].status, 502);
+        assert.equal(logged[0][1].endpoint, '/proxy.php');
     } finally {
         global.fetch = originalFetch;
+        console.error = originalConsoleError;
     }
 });
 

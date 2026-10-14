@@ -1,9 +1,25 @@
+/**
+ * @fileoverview Monta formulários de parâmetros para tarefas e valida/coleta os valores preenchidos.
+ * @exports window.PlanMilT.taskParameters
+ * @requires API client e SweetAlert injetados
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.taskParameters = Object.freeze({
+    /**
+     * Prepara as operações de formulário de parâmetros com as dependências injetadas.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Object} dependencies.apiClient - Cliente compartilhado para chamadas à API.
+     * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     */
     attach({ apiClient, sweetAlert }) {
         const Swal = sweetAlert;
 
+                /**
+                 * Monta o formulário HTML apropriado para o tipo de tarefa selecionado.
+                 * @param {string} selectedTask - Identificador do tipo de tarefa selecionado.
+                 * @param {*} existingParameters - Parâmetros já salvos para preencher ou editar.
+                 */
                 async function getTaskParametersHtml(selectedTask, existingParameters = {}) {
                     switch (selectedTask) {
                         case 'findHighestPoint':
@@ -503,6 +519,11 @@ ${iconTypesToCoverOptions}
                                         }
                 }
 
+                /**
+                 * Valida e extrai os parâmetros preenchidos para a tarefa selecionada.
+                 * @param {string} selectedTask - Identificador do tipo de tarefa selecionado.
+                 * @param {*} existingParameters - Parâmetros já salvos para preencher ou editar.
+                 */
                 async function getTaskParametersValues(selectedTask, existingParameters) {
                     const popup = Swal.getPopup();
                     switch (selectedTask) {

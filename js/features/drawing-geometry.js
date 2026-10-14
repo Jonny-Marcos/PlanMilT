@@ -1,6 +1,18 @@
+/**
+ * @fileoverview Fornece cálculos geográficos puros usados ao desenhar formas no mapa.
+ * @exports window.PlanMilT.drawingGeometry
+ * @requires Leaflet LatLng ou objetos {lat, lng}
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.drawingGeometry = Object.freeze({
+    /**
+     * Gera as coordenadas de um polígono que aproxima um círculo geográfico.
+     * @param {L.LatLng|{lat: number, lng: number}} center - Centro geográfico da forma ou simulação.
+     * @param {number} radius - Raio da forma ou área em metros.
+     * @param {number} numPoints - Número de vértices usados para aproximar a forma.
+     * @returns {number[][][]} Anel de coordenadas latitude/longitude dentro do polígono.
+     */
     createCirclePolygon(center, radius, numPoints = 64) {
         const coordinates = [];
         const degreesToRadians = Math.PI / 180;

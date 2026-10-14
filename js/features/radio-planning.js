@@ -1,6 +1,21 @@
+/**
+ * @fileoverview Implementa simulações de enlace de rádio e visada ótica, desenha resultados e apresenta gráficos.
+ * @exports window.PlanMilT.radioPlanning
+ * @requires Leaflet, Turf, Chart, drawnItems e SweetAlert injetados
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.radioPlanning = Object.freeze({
+    /**
+     * Conecta a interface de simulação e os eventos de planejamento ao mapa.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
+     * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
+     * @param {Object} dependencies.turf - Biblioteca Turf para operações geoespaciais.
+     * @param {Object} dependencies.drawnItems - Grupo Leaflet com os elementos desenhados pelo usuário.
+     * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     * @param {*} dependencies.chartConstructor - Construtor Chart.js usado para renderizar gráficos.
+     */
     attach({ map, leaflet, turf, drawnItems, sweetAlert, chartConstructor }) {
         const L = leaflet;
         const Swal = sweetAlert;
@@ -98,6 +113,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         confirmButtonText: 'Ativar Ferramenta',
                         cancelButtonText: 'Cancelar',
                         didOpen: () => {
+                            /**
+                             * Atualiza a indicação de potência em watts a partir do valor em dBm.
+                             * @returns {void} Não retorna valor.
+                             */
                             const updateWatts = () => {
                                 let dbm = parseFloat(document.getElementById('rfTxPower').value) || 0;
                                 let watts = Math.pow(10, (dbm - 30) / 10);
@@ -196,6 +215,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     }
                 });
 
+                /**
+                 * Desativa temporariamente uma ação concorrente e executa o callback fornecido.
+                 * @param {Function} callback - Função chamada após a operação configurada.
+                 */
                 function desativarEExecutar(callback) {
                     map.getContainer().style.cursor = '';
                     document.getElementById('linkPredictionBtn').style.color = '';
@@ -207,6 +230,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 // ==========================================
                 // 1. CÁLCULO PONTO A PONTO (PTP E ÓTICO)
                 // ==========================================
+                /**
+                 * Calcula o orçamento e as condições do enlace ponto a ponto.
+                 * @param {Object} pt1 - Primeiro ponto do enlace.
+                 * @param {Object} pt2 - Segundo ponto do enlace.
+                 * @param {Object} p - Parâmetros de configuração da simulação.
+                 */
                 async function calcularPTP(pt1, pt2, p) {
                     Swal.fire({ title: 'Simulando Enlace...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     try {
@@ -295,6 +324,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 // ==========================================
                 // 2. CÁLCULO DE COBERTURA (HEATMAP RF E ÓTICO)
                 // ==========================================
+                /**
+                 * Calcula a cobertura RF a partir do centro e dos parâmetros da simulação.
+                 * @param {Object} center - Centro geográfico da forma ou simulação.
+                 * @param {Object} p - Parâmetros de configuração da simulação.
+                 */
                 async function calcularCobertura(center, p) {
                     Swal.fire({ title: 'Realizando predição de enlace... Aguarde.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     try {
@@ -324,6 +358,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         let isMicrowave = p.freq > 1000;
                         let fresnelClearance = p.isOptical ? 0.0 : (isMicrowave ? 0.6 : 0.0);
                         
+                        /**
+                         * Determina a cor de apresentação segundo o nível e a sensibilidade do sinal.
+                         * @param {number} rx - Nível de potência recebida em dBm.
+                         * @param {number} sens - Sensibilidade mínima do receptor em dBm.
+                         */
                         function getSignalColor(rx, sens) {
                             let margin = rx - sens;
                             if (margin >= 35) return '#00ff00'; 
@@ -450,6 +489,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 // ==========================================
                 // FUNÇÕES AUXILIARES
                 // ==========================================
+                /**
+                 * Solicita os dados de elevação para os pontos especificados.
+                 * @param {Array<*>} pointsArray - Valor de entrada usado durante esta operação.
+                 */
                 async function requestElevation(pointsArray) {
                     const response = await fetch('elevation_profile.php', {
                         method: 'POST',
@@ -462,6 +505,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     return data;
                 }
 
+                /**
+                 * Apresenta e registra uma falha ocorrida durante a simulação de rádio.
+                 * @param {Error} error - Erro recebido durante a operação.
+                 */
                 function handleRFError(error) {
                     console.error(error);
                     Swal.fire('Erro', 'Não foi possível calcular. Verifique se possui os arquivos HGT para esta coordenada.', 'error');
@@ -469,6 +516,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 }
 
                 var linkChartInstance = null;
+                /**
+                 * Apresenta o gráfico de perfil e indicadores do enlace calculado.
+                 * @param {Array<string>} labels - Rótulos usados no eixo do gráfico.
+                 * @param {Array<number>} topo - Perfil de elevação ao longo do terreno.
+                 * @param {Array<number>} los - Valores calculados para a linha de visada.
+                 * @param {Array<number>} fresnelLower - Limite inferior da zona de Fresnel.
+                 * @param {Array<number>} fresnelUpper - Limite superior da zona de Fresnel.
+                 * @param {number} freqMHz - Frequência de operação em MHz.
+                 * @param {number} dist - Distância calculada para o enlace.
+                 * @param {boolean} isOptical - Indica se a simulação usa o modo ótico.
+                 */
                 function exibirGraficoEnlace(labels, topo, los, fresnelLower, fresnelUpper, freqMHz, dist, isOptical) {
                     var container = document.getElementById('elevation-profile-container');
                     container.style.display = 'block'; 

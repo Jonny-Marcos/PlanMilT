@@ -8,17 +8,75 @@ O idioma da interface e do conteúdo visível ao usuário é português. A insta
 
 ## Estado atual
 
-- `index.html` agora é um shell HTML com aproximadamente 140 linhas. O legado JavaScript principal foi movido para `js/main.js` sem reescrita; esse arquivo ainda contém milhares de linhas e estado compartilhado. O CSS principal está em `css/app.css`.
-- `criador-tema.html` contém outra interface com CSS e JavaScript embutidos para trabalhar com imagens sobre o mapa.
-- `js/api-client.js` centraliza respostas JSON e texto; `js/features/map-layers.js` contém o carregamento/parsing WMS; `js/features/map-setup.js` inicializa camadas-base, registry e controles; `js/features/elevation-profile.js` contém cálculos do perfil; `js/features/geolocation.js` gerencia rastreamento; `js/features/drawing-geometry.js` fornece geometria pura; `js/features/freehand-drawing.js` encapsula desenho livre; `js/features/icon-selector.js` mantém o seletor e o estado do ícone escolhido; `js/features/kmz-export.js` contém exportação KMZ, conversão GeoJSON-KML e captura opcional BDGEx; `js/features/radio-planning.js` contém a interface e os cálculos de predição RF/ótica. `js/main.js` carrega as integrações e funcionalidades legadas ainda não extraídas.
-- `docs/api-contracts.md` registra os contratos legados dos endpoints e a migração piloto de `get_sigs.php`.
-- Scripts PHP na raiz implementam operações de desenhos, imagens, tarefas, elevação, serviços de mapa e proxy. Muitos endpoints acessam SQLite e geram suas próprias respostas.
-- Os endpoints carregam `bootstrap.php`, que carrega a fábrica SQLite e o logger compartilhados. No Docker, as classes em `src/` ficam em `/var/www/planmilt/src`, fora do document root; localmente, o bootstrap usa `src/` na raiz do projeto.
-- `ConnectionFactory` aceita `PLANMILT_DB_PATH` e, por padrão, usa `bd.db` na raiz do repositório. `Logger` aceita `PLANMILT_LOG_DIR` e, por padrão, grava no diretório temporário do sistema.
-- O Docker experimental monta `bd.db` em `/var/lib/planmilt/bd.db`; logs de aplicação e tiles de elevação usam volumes persistentes. `php.ini` é usado pelo container, não substitui a configuração PHP do servidor LAMP/XAMPP.
-- Bibliotecas de terceiros estão armazenadas localmente em `js/`, `css/` e outras pastas de assets. Arquivos como `js/clustering.js` incluem código de terceiros; preserve os avisos de licença e não os trate como código da aplicação.
-- O banco SQLite usa tabelas e campos com nomes históricos em português e inglês. A compatibilidade com os dados existentes é importante.
-- Há testes JavaScript iniciais em `tests/js/`, executados com o runner nativo `node:test`; Node.js é necessário apenas para desenvolvimento. Ainda não há manifests Composer/npm.
+- A aplicação atual tem duas interfaces: `index.html`, shell da aplicação principal, e `criador-tema.html`, editor de imagens sobre o mapa. `css/app.css` contém os estilos próprios principais; há folhas de estilo locais de terceiros em `css/`.
+- O `main.js` legado tinha aproximadamente 4.000 linhas. Foi dividido por funcionalidade; o ponto de entrada atual é `js/features/main.js` (488 linhas), dentro da meta de 300–700 linhas. As outras funcionalidades continuam em scripts clássicos globais. A ordem das tags `<script>` em `index.html` é parte do contrato de execução: carregue bibliotecas primeiro, módulos que fornecem dependências em seguida e os consumidores depois. Não reordene sem verificar todos os usos.
+- O código JavaScript próprio está em `js/features/`; as bibliotecas importadas estão em `js/library/`, incluindo a distribuição completa do TinyMCE em `js/library/tinymce/`. Os caminhos são referenciados diretamente pelos documentos HTML.
+- A organização moveu o código próprio que antes ficava solto em `js/` para `js/features/` (`api-client.js`, `main.js`, `labels.js` e `qgis2web_expressions.js`) e separou as bibliotecas existentes em `js/library/`. Os scripts da aplicação extraídos de `main.js` também foram distribuídos por funcionalidade na pasta `features/`; consulte o inventário abaixo. Preserve avisos/licenças e não reescreva os arquivos de terceiros.
+- `js/features/api-client.js` centraliza requisições JSON/texto e registra erros de rede, HTTP/API e JSON inválido no console. Os registros indicam método, endpoint sem query string e status disponível, sem payloads nem conteúdo bruto de respostas.
+- Os módulos em `js/features/` têm cabeçalho `@fileoverview` com finalidade e contexto. Funções/métodos nomeados têm documentação JSDoc de propósito e parâmetros; as 180 expressões `fnc_*` de `qgis2web_expressions.js` documentam o contrato `values`/`context`. Callbacks anônimos inline não são documentados individualmente para evitar comentários repetitivos.
+- As implementações dos endpoints PHP ficam em `php/endpoints/`; os arquivos históricos da raiz e `symbols/icons.php` são adaptadores finos que preservam as URLs já usadas pelos clientes. `php/.htaccess` bloqueia acesso HTTP direto às implementações.
+- `bootstrap.php` carrega os serviços PHP compartilhados em `src/Infrastructure/`: `Database/ConnectionFactory.php` cria a conexão SQLite; `Logging/Logger.php` fornece logging. O bootstrap usa `PLANMILT_DB_PATH` (padrão `bd.db` na raiz) e `PLANMILT_LOG_DIR` (padrão diretório temporário do sistema). O Docker experimental coloca as classes em `/var/www/planmilt/src`, fora do document root, e monta o banco em `/var/lib/planmilt/bd.db`.
+- `php/src/Application/TaskSequencesService.php` é o primeiro serviço de aplicação: concentra persistência e regras das ações de sequências (`save`, `load`, `getSequence`, `exists`, `delete`), recebe PDO e logger por injeção e retorna os payloads usados pelo endpoint legado. `php/endpoints/tasks.php` mantém a tradução do POST `action` para o serviço.
+- `docs/api-contracts.md` registra contratos existentes entre frontend e endpoints, incluindo a migração piloto de `get_sigs.php`. Atualize-o quando contratos ou caminhos HTTP mudarem.
+- O banco SQLite tem tabelas e campos históricos em português e inglês. Preservar compatibilidade com dados implantados é requisito; não apagar, recriar ou renomear dados automaticamente.
+- Há testes JavaScript em `tests/js/` executados com `node --test tests/js/*.test.js` (última validação do frontend: 40/40) e um teste PHP isolado de sequências em `tests/php/task-sequences-service.test.php`, executado com `php tests/php/task-sequences-service.test.php`. Node é ferramenta de desenvolvimento; ainda não há manifests npm/Composer nem runner geral de testes PHP.
+
+## Mapa dos arquivos da aplicação
+
+### Frontend próprio: `js/features/`
+
+Os arquivos seguintes são código da aplicação (não bibliotecas vendorizadas):
+
+- Inicialização e mapa: `main.js` inicializa mapa, toolbar, cor e desenho; `map-setup.js` prepara camadas e controles; `map-layers.js` consulta/interpreta capacidades WMS; `map-tools.js` registra ferramentas de navegação; `map-popups.js` ajusta popups e limites de impressão; `labels.js` gerencia rótulos; `layer-management.js` gerencia camadas dinâmicas e consultas de feições; `shared-layers.js` carrega e compartilha camadas; `help-and-planning.js` apresenta ajuda e envia sugestões de planejamento.
+- Desenhos e intercâmbio: `drawing-geometry.js` contém geometria pura; `freehand-drawing.js` registra desenho livre; `drawing-storage.js` salva desenhos; `drawing-loading.js` carrega desenhos persistidos; `kmz-import.js` importa KMZ/KML; `kmz-export.js` converte para KML e gera KMZ.
+- Imagens: `image-overlays.js` localiza imagens e as exibe como sobreposições.
+- Elevação: `elevation-profile.js` fornece cálculos puros de amostragem e linha de visada; `elevation-tools.js` integra perfis e imagens georreferenciadas.
+- Localização e rádio: `geolocation.js` controla rastreamento no mapa; `radio-planning.js` simula enlaces de rádio e visada ótica.
+- Tarefas e sequências: `task-execution.js` executa tarefas e apresenta progresso; `task-parameters.js` monta/valida formulários; `task-terrain-analysis.js` analisa elevação; `task-icon-placement.js` posiciona ícones; `task-line-planning.js` cria linhas; `task-coverage-planning.js` planeja cobertura; `task-sequence-storage.js` persiste sequências; `task-sequence-editor.js` edita/reordena sequências; `task-sequence-controls.js` liga o controle de planejamento ao editor.
+- Suporte à interface e exportação: `icon-selector.js` seleciona ícones; `api-client.js` centraliza HTTP e logs de erro; `qgis2web_expressions.js` fornece expressões usadas pelo exportador QGIS.
+
+### Bibliotecas e assets
+
+- `js/library/`: JavaScript de terceiros, incluindo Leaflet e plugins, Turf, Chart.js, JSZip, jQuery, Fabric, html2canvas, SweetAlert2, proj4 e TinyMCE. `js/library/tinymce/` contém a distribuição do TinyMCE e seus plugins/temas.
+- `css/`: CSS da aplicação (`app.css`), folhas de estilo de terceiros, ícones/fontes e imagens usados pelos controles. Não editar ou substituir arquivos vendorizados como parte de uma mudança localizada no código próprio.
+- `symbols/`: ícones de unidades e símbolos, consumidos pelo mapa e pelos endpoints de símbolos.
+- `SRTM3/`: tiles de elevação utilizados pelos serviços de perfil/consulta de elevação.
+
+### Backend PHP existente
+
+Os adaptadores PHP da raiz preservam os pontos de entrada HTTP existentes. As implementações correspondentes ficam em `php/endpoints/`:
+
+- `carregar.php` e `salvar.php`: carregam e persistem desenhos/planejamentos.
+- `carregar-imagem.php` e `salvar-imagem.php`: listam/carregam imagens e persistem dados de imagem.
+- `tasks.php`: operações de salvar, listar, obter, verificar e excluir sequências de tarefas.
+- `get_elevation_data.php`, `elevation_profile.php` e `upload_elevation_files.php`: consulta/amostragem de elevação e upload de arquivos/tiles de elevação.
+- `get_sigs.php`: fornece a lista de SIGs/camadas ao frontend.
+- `proxy.php`: proxy de requisições externas, incluindo uso por serviços de mapa; requer revisão cuidadosa de destinos, redirecionamentos, limites e protocolos.
+- `icons.php`: fornece os ícones disponíveis em `symbols/`; seu adaptador continua em `symbols/icons.php`.
+- `php/.htaccess`: impede que implementações incluídas por adaptadores sejam invocadas diretamente via HTTP.
+
+`bootstrap.php` e `src/Infrastructure/` permanecem na raiz por enquanto; os endpoints migrados carregam o bootstrap por caminho explícito e localizam `SRTM3/` a partir da raiz do projeto.
+- `src/Infrastructure/Database/ConnectionFactory.php` e `src/Infrastructure/Logging/Logger.php`: implementação compartilhada da infraestrutura PHP; não são endpoints.
+
+### Testes e documentação
+
+- `tests/js/`: testes de regressão para cliente HTTP, geometria, perfil de elevação, desenho livre, geolocalização, seletor de ícones, exportação KMZ, WMS, configuração do mapa, planejamento de rádio, parâmetros e armazenamento de sequências.
+- `docs/api-contracts.md`: inventário dos contratos HTTP existentes; use-o para orientar a migração PHP sem quebrar clientes.
+- `.github/copilot-instructions.md`: este guia de arquitetura, estrutura, convenções e estado do trabalho.
+- `php/src/Application/TaskSequencesService.php`: lógica de aplicação das sequências, independente da requisição HTTP.
+- `tests/php/task-sequences-service.test.php`: regressões do serviço com SQLite em memória.
+
+## Continuação da modularização e documentação PHP
+
+As implementações já foram organizadas em `php/endpoints/`, com adaptadores preservando as URLs. `TaskSequencesService` é a primeira extração de lógica para `php/src/Application/`. Continue refatorando gradualmente os demais grupos, extraindo serviços onde houver responsabilidades reutilizáveis, e documente funções, parâmetros, entradas, saídas, erros e dependências. Antes de alterar contratos ou implementação:
+
+1. Leia `docs/api-contracts.md`, os endpoints relevantes e seus chamadores em `js/features/`, `index.html` e `criador-tema.html`. Registre método HTTP, parâmetros, autenticação, formatos JSON, códigos de status, efeitos no SQLite e arquivos acessados.
+2. Adicione ou preserve testes de regressão dos contratos e fluxos prioritários antes de reescrever implementação. Use os endpoints atuais como comportamento de referência, incluindo peculiaridades necessárias à compatibilidade.
+3. Preserve os adaptadores raiz enquanto consumidores atuais ou clientes implantados dependerem das URLs antigas. `php/endpoints/` contém implementações incluídas pelos adaptadores e não deve ser acessível diretamente via HTTP.
+4. Garanta que endpoints movidos ainda carreguem o bootstrap e resolvam `src/Infrastructure/`, banco, logs, uploads e `SRTM3/` por caminhos/configuração explícitos, sem depender do diretório de trabalho do processo.
+5. Documente o propósito de cada arquivo e de cada função PHP relevante, incluindo parâmetros, tipos, retorno/JSON, erros e efeitos colaterais. Mantenha comentários em português, nomes novos em inglês e PHP compatível com o runtime LAMP/XAMPP suportado.
+6. Preserve SQLite, SQL parametrizado, nomes históricos de tabelas/campos e formatos já usados pelo frontend. Não faça uma migração para framework/ORM nem altere todos os endpoints de uma só vez; trabalhe por funcionalidade e mantenha a aplicação executável.
+7. Depois de cada conjunto, rode `php -l` nos arquivos PHP alterados, testes relevantes e verificações de caminhos/contratos. Atualize `docs/api-contracts.md`, este arquivo e o README quando o comportamento ou a instalação mudarem.
 
 Trate esta seção como referência inicial. Confirme o estado real dos arquivos e chamadas antes de cada alteração.
 
@@ -63,7 +121,7 @@ tests/
 Responsabilidades esperadas:
 
 - `public/`: documentos, assets e pontos de entrada HTTP que precisam ser servidos pelo Apache.
-- `public/api/`: entrada dos endpoints. Controladores traduzem HTTP para chamadas da aplicação e produzem respostas HTTP.
+- `public/api/`: possível organização futura de endpoints caso a estrutura `public/` seja adotada.
 - `src/Application/`: casos de uso e coordenação das operações.
 - `src/Domain/`: regras puras de domínio quando houver complexidade suficiente para justificar essa camada.
 - `src/Infrastructure/Database/`: conexão SQLite e repositórios PDO.
@@ -73,6 +131,8 @@ Responsabilidades esperadas:
 No frontend, dividir o JavaScript por funcionalidade e carregar um ponto de entrada, por exemplo `main.js`. Cada módulo deve receber explicitamente as dependências necessárias, como mapa, camadas e cliente HTTP; evite introduzir novos globais. Migre handlers inline para eventos registrados pelos módulos. Mantenha as bibliotecas atuais enquanto a aplicação é modularizada.
 
 No backend, centralizar criação da conexão PDO, configuração, validação de entrada, serialização JSON e tratamento de erros. Manter SQLite e PDO inicialmente; não adicionar ORM por padrão. Uma rota consistente, como `/api/v1/drawings`, `/api/v1/images` e `/api/v1/task-sequences`, é um destino possível, não requisito para uma primeira alteração. Preserve temporariamente os endpoints existentes ou forneça adaptadores enquanto os consumidores são migrados.
+
+**Próxima prioridade:** extrair e testar gradualmente os serviços de desenhos, imagens e elevação, mantendo contratos e adaptadores. A estrutura `public/api/` e as rotas `/api/v1/...` acima são possibilidades futuras, ainda não adotadas; não as implemente sem solicitação explícita.
 
 ## Convenções de idioma e nomes
 

@@ -1,4 +1,16 @@
+/**
+ * @fileoverview Interpreta respostas de capacidades WMS e consulta camadas via proxy.
+ * @exports window.PlanMilT.mapLayers
+ * @requires window.PlanMilT.apiClient
+ */
 window.PlanMilT.mapLayers = Object.freeze({
+    /**
+     * Converte o XML GetCapabilities em camadas ordenadas por título.
+     * @param {string} xmlText - Conteúdo XML retornado pelo serviço WMS.
+     * @param {typeof DOMParser} [Parser=DOMParser] - Parser de XML, substituível nos testes.
+     * @returns {Array<{Name: string, Title: string}>} Camadas com nome e título.
+     * @throws {Error} Quando a resposta contém XML inválido.
+     */
     parseWMSCapabilities(xmlText, Parser = DOMParser) {
         const xmlDocument = new Parser().parseFromString(xmlText, 'application/xml');
 
@@ -32,6 +44,14 @@ window.PlanMilT.mapLayers = Object.freeze({
         });
     },
 
+    /**
+     * Consulta GetCapabilities pelo proxy e interpreta as camadas retornadas.
+     * @param {string} wmsURL - URL base do serviço WMS.
+     * @param {Object} dependencies - Dependências de rede e tratamento de erros.
+     * @param {Object} dependencies.apiClient - Cliente que fornece getText(url).
+     * @param {Function} dependencies.onError - Callback que recebe falhas da consulta.
+     * @returns {Promise<Array<{Name: string, Title: string}>|null>} Camadas ordenadas ou null após falha.
+     */
     async getWMSLayers(wmsURL, { apiClient, onError }) {
         const capabilitiesURL = '/proxy.php?url=' + encodeURIComponent(`${wmsURL}?service=WMS&request=GetCapabilities`);
 

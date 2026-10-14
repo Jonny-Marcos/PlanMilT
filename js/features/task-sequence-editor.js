@@ -1,11 +1,30 @@
+/**
+ * @fileoverview Apresenta, edita, reordena e executa tarefas que compõem uma sequência de planejamento.
+ * @exports window.PlanMilT.taskSequenceEditor
+ * @requires Estado de tarefas, armazenamento, parâmetros, mapa e SweetAlert injetados
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.taskSequenceEditor = Object.freeze({
+    /**
+     * Conecta estado, armazenamento e interface para editar uma sequência de tarefas.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Function} dependencies.getTasks - Função que fornece a lista atual de tarefas.
+     * @param {Function} dependencies.setTasks - Função que substitui a lista atual de tarefas.
+     * @param {Object} dependencies.taskParameters - Controlador dos formulários de parâmetros das tarefas.
+     * @param {Function} dependencies.getStorage - Função que fornece o armazenamento da sequência.
+     * @param {Function} dependencies.drawSelectionArea - Função que permite selecionar uma área no mapa.
+     * @param {Function} dependencies.executeSequence - Função que executa a sequência de tarefas.
+     * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     */
     attach({ getTasks, setTasks, taskParameters, getStorage, drawSelectionArea, executeSequence, sweetAlert }) {
         const Swal = sweetAlert;
         let existingParameters = {};
         let selectedTask = '';
 
+                /**
+                 * Conduz a criação e execução de uma sequência de planejamento.
+                 */
                 async function startPlanning() {
                     // Pergunta ao usuário se deseja limpar a camada de planejamento
                     const { isConfirmed } = await Swal.fire({
@@ -28,6 +47,9 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
 
 
                 // Função para definir tarefas na tela
+                /**
+                 * Apresenta o fluxo de edição da sequência de tarefas em uma tela.
+                 */
                 async function defineTasksInSingleScreen() {
                     // Obter os tipos de tarefas disponíveis
                     const taskOptions = {
@@ -97,6 +119,9 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             }
 
                             // Função para atualizar a lista de tarefas
+                            /**
+                             * Atualiza a lista visual de tarefas da sequência.
+                             */
                             function updateTaskSequenceList() {
                                 if (getTasks().length === 0) {
                                     taskSequenceList.innerHTML = '<p>Nenhuma tarefa adicionada.</p>';
@@ -218,6 +243,10 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             });
 
                             // Função para visualizar detalhes da tarefa
+                            /**
+                             * Apresenta os detalhes da tarefa no índice informado.
+                             * @param {number} index - Índice da tarefa ou elemento na lista.
+                             */
                             function viewTask(index) {
                                 const task = getTasks()[index];
                                 if (!task) {
@@ -251,6 +280,10 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             }
 
                             // Função para editar uma tarefa na sequência
+                            /**
+                             * Abre a edição dos parâmetros da tarefa no índice informado.
+                             * @param {number} index - Índice da tarefa ou elemento na lista.
+                             */
                             async function editTask(index) {
                                 const task = getTasks()[index];
                                 if (!task) {
@@ -270,6 +303,10 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             }
 
                             // Função para remover uma tarefa da sequência
+                            /**
+                             * Remove do estado da sequência a tarefa indicada pelo índice.
+                             * @param {number} index - Índice da tarefa ou elemento na lista.
+                             */
                             function removeTask(index) {
                                 Swal.fire({
                                     title: 'Confirmar Remoção',

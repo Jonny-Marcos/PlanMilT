@@ -13,6 +13,7 @@ RUN echo "ServerName PlanMilT" >> /etc/apache2/apache2.conf
 
 # Copiar somente os arquivos necessários para servir a aplicação
 COPY --chown=root:root *.php /var/www/html/
+COPY --chown=root:root php/ /var/www/html/php/
 COPY --chown=root:root index.html criador-tema.html favicon.ico /var/www/html/
 COPY --chown=root:root css/ /var/www/html/css/
 COPY --chown=root:root js/ /var/www/html/js/

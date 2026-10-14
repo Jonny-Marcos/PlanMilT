@@ -1,11 +1,30 @@
+/**
+ * @fileoverview Converte desenhos e camadas selecionadas para KML e gera o arquivo KMZ para download.
+ * @exports window.PlanMilT.kmzExport
+ * @requires Leaflet, JSZip e recursos opcionais de captura
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.kmzExport = Object.freeze({
+    /**
+     * Conecta o botão de exportação e prepara a conversão e o download KMZ.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
+     * @param {Object} dependencies.drawnItems - Grupo Leaflet com os elementos desenhados pelo usuário.
+     * @param {Object} dependencies.layerRegistry - Registro das camadas disponíveis no mapa.
+     * @param {HTMLElement} dependencies.button - Botão DOM que aciona o recurso.
+     * @param {Object} dependencies.zipArchive - Biblioteca JSZip usada para gerar o arquivo compactado.
+     * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     * @param {Function} dependencies.captureCanvas - Função que captura canvas para incluí-los na exportação.
+     */
     attach({ map, drawnItems, layerRegistry, button, zipArchive, sweetAlert, captureCanvas }) {
         const JSZip = zipArchive;
         const Swal = sweetAlert;
         const html2canvas = captureCanvas;
 
+            /**
+             * Serializa os desenhos e inicia o download de um arquivo KMZ.
+             */
             async function exportDrawingsToKMZ() {
                 try {
                     console.log("Iniciando a exportação para KMZ...");
@@ -172,6 +191,10 @@ window.PlanMilT.kmzExport = Object.freeze({
 
 
 
+                /**
+                 * Adiciona ao arquivo KMZ uma captura georreferenciada opcional da camada BDGEx.
+                 * @param {Object} zip - Arquivo ZIP/KMZ atualmente processado.
+                 */
                 async function addBDGExLayerToKMZ(zip) {
                     // Utiliza SweetAlert2 para a escolha da qualidade
                     const { value: qualityOption } = await Swal.fire({
@@ -364,6 +387,11 @@ window.PlanMilT.kmzExport = Object.freeze({
 
 
 
+                /**
+                 * Converte uma estrutura GeoJSON para a representação textual KML.
+                 * @param {Object} geojson - Objeto GeoJSON a converter.
+                 * @param {Object} options - Opções adicionais que personalizam a operação.
+                 */
                 function geojsontokml(geojson, options) {
                     const kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -373,6 +401,11 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                     const kmlFooter = `</Document></kml>`;
 
+                    /**
+                     * Converte uma cor hexadecimal e opacidade para o formato KML.
+                     * @param {string} hex - Cor hexadecimal de origem.
+                     * @param {number} opacity - Opacidade numérica entre zero e um.
+                     */
                     function adjustColorOpacity(hex, opacity) {
                         const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
                         const red = hex.slice(1, 3);
@@ -381,12 +414,20 @@ window.PlanMilT.kmzExport = Object.freeze({
                         return alpha + blue + green + red; // AABBGGRR
                     }
 
+                    /**
+                     * Remove marcação HTML para obter texto simples para o KML.
+                     * @param {string} html - Marcação HTML a processar.
+                     */
                     function stripHTML(html) {
                         let tmp = document.createElement("DIV");
                         tmp.innerHTML = html;
                         return tmp.textContent || tmp.innerText || "";
                     }
 
+                    /**
+                     * Serializa uma feição GeoJSON como um Placemark KML.
+                     * @param {Object} feature - Feição GeoJSON associada à camada.
+                     */
                     function createPlacemark(feature) {
                         const geometryType = feature.geometry.type;
                         const coordinates = feature.geometry.coordinates;
@@ -467,6 +508,10 @@ ${styleUrl}
                         }
                     }
 
+                    /**
+                     * Gera definições de estilo KML para os tipos de feição encontrados.
+                     * @param {Array<*>} features - Feições GeoJSON a converter ou estilizar.
+                     */
                     function createStyles(features) {
                         const uniqueIcons = [...new Set(features.map(f => f.properties.iconUrl).filter(Boolean))];
                         return uniqueIcons.map(iconUrl => {

@@ -1,16 +1,34 @@
+/**
+ * @fileoverview Cria o controle Leaflet de desenho livre e converte gestos em eventos de desenho padrão.
+ * @exports window.PlanMilT.freehandDrawing
+ * @requires Recebe mapa, Leaflet e provedor da cor atual
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.freehandDrawing = Object.freeze({
+    /**
+     * Cria o controle Leaflet de desenho à mão livre e registra seus eventos.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
+     * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
+     * @param {Function} dependencies.getDefaultColor - Função que fornece a cor padrão para os desenhos.
+     */
     createControl({ map, leaflet, getDefaultColor }) {
         let isDrawing = false;
         let freehandPolyline = null;
         let freehandDrawingEnabled = false;
         let freehandButton = null;
 
+        /**
+         * Atualiza o estilo visual do botão de desenho livre.
+         */
         function updateButtonAppearance() {
             freehandButton.style.backgroundColor = freehandDrawingEnabled ? '#bada55' : 'white';
         }
 
+        /**
+         * Alterna a ferramenta de desenho livre e seus listeners.
+         */
         function toggleDrawing() {
             const mapContainer = map.getContainer();
 
@@ -37,12 +55,20 @@ window.PlanMilT.freehandDrawing = Object.freeze({
             updateButtonAppearance();
         }
 
+        /**
+         * Obtém a coordenada do mapa associada a um evento de mouse ou toque.
+         * @param {Event} event - Valor de entrada usado durante esta operação.
+         */
         function getEventLatLng(event) {
             if (event.latlng) return event.latlng;
             const touch = event.touches && event.touches[0];
             return touch ? map.mouseEventToLatLng(touch) : null;
         }
 
+        /**
+         * Inicia o traço livre e suspende interações concorrentes do mapa.
+         * @param {Event} event - Valor de entrada usado durante esta operação.
+         */
         function onStartDrawing(event) {
             if (!freehandDrawingEnabled) return;
 
@@ -62,6 +88,10 @@ window.PlanMilT.freehandDrawing = Object.freeze({
             }
         }
 
+        /**
+         * Acrescenta posições ao traço livre enquanto o usuário desenha.
+         * @param {Event} event - Valor de entrada usado durante esta operação.
+         */
         function onDrawing(event) {
             if (!isDrawing) return;
 
@@ -70,6 +100,10 @@ window.PlanMilT.freehandDrawing = Object.freeze({
             if (latLng) freehandPolyline.addLatLng(latLng);
         }
 
+        /**
+         * Finaliza o traço e emite um evento de desenho Leaflet.
+         * @param {Event} event - Valor de entrada usado durante esta operação.
+         */
         function onEndDrawing(event) {
             if (!isDrawing) return;
 
@@ -119,6 +153,10 @@ window.PlanMilT.freehandDrawing = Object.freeze({
             options: {
                 position: 'topleft'
             },
+            /**
+             * Cria e devolve o elemento DOM do controle de desenho livre.
+             * @returns {HTMLElement} Elemento Leaflet que ativa o desenho livre.
+             */
             onAdd() {
                 freehandButton = leaflet.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-freehand');
                 freehandButton.innerHTML = '<i class="fas fa-pencil-alt"></i>';

@@ -1,11 +1,27 @@
+/**
+ * @fileoverview Carrega ícones do servidor, monta o seletor da toolbar e expõe o ícone atualmente escolhido.
+ * @exports window.PlanMilT.iconSelector
+ * @requires Container, preview, Leaflet e API client
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.iconSelector = Object.freeze({
+    /**
+     * Carrega e conecta o seletor de ícones à toolbar e à prévia.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {HTMLElement} dependencies.container - Elemento DOM que recebe a interface do recurso.
+     * @param {HTMLElement} dependencies.preview - Elemento DOM que exibe a pré-visualização do ícone.
+     * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
+     * @param {Object} dependencies.apiClient - Cliente compartilhado para chamadas à API.
+     */
     attach({ container, preview, leaflet, apiClient }) {
         const icons = Object.create(null);
         const iconPaths = Object.create(null);
         let selectedIconKey = 'null';
 
+        /**
+         * Carrega os dados de ícones e prepara o seletor.
+         */
         async function load() {
             const paths = await apiClient.getJson('symbols/icons.php');
 
@@ -28,6 +44,9 @@ window.PlanMilT.iconSelector = Object.freeze({
             buildSelector();
         }
 
+        /**
+         * Monta no DOM as opções do seletor de ícones.
+         */
         function buildSelector() {
             container.innerHTML = '';
 
@@ -106,9 +125,15 @@ window.PlanMilT.iconSelector = Object.freeze({
 
         return Object.freeze({
             load,
+            /**
+             * Retorna a chave do ícone atualmente selecionado.
+             */
             getSelectedIconKey() {
                 return selectedIconKey;
             },
+            /**
+             * Retorna o objeto Leaflet do ícone atualmente selecionado.
+             */
             getSelectedIcon() {
                 return icons[selectedIconKey] || null;
             }

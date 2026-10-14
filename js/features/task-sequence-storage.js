@@ -1,9 +1,26 @@
+/**
+ * @fileoverview Executa operações de listar, carregar, salvar e excluir sequências de tarefas no servidor.
+ * @exports window.PlanMilT.taskSequenceStorage
+ * @requires Funções de estado, renderização, requisição e SweetAlert injetadas
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.taskSequenceStorage = Object.freeze({
+    /**
+     * Prepara as operações de persistência com os callbacks de estado e interface.
+     * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
+     * @param {Function} dependencies.getTasks - Função que fornece a lista atual de tarefas.
+     * @param {Function} dependencies.setTasks - Função que substitui a lista atual de tarefas.
+     * @param {Function} dependencies.renderTasks - Função que atualiza a lista de tarefas na interface.
+     * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     * @param {Function} dependencies.request - Função que envia requisições ao servidor.
+     */
     attach({ getTasks, setTasks, renderTasks, sweetAlert, request }) {
         const Swal = sweetAlert;
 
+                /**
+                 * Solicita confirmação e exclui a sequência selecionada no servidor.
+                 */
                 async function deleteTaskSequence() {
                     // Passo 1: Solicitar a lista de sequências para deletar
                     const formDataLoad = new FormData();
@@ -116,6 +133,9 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
 
 
                 // Função para salvar a sequência de tarefas
+                /**
+                 * Prepara as operações de persistência com os callbacks de estado e interface.
+                 */
                 async function saveTaskSequence() {
                     // Passo 1: Solicitar Nome da Sequência
                     const { value: sequenceName } = await Swal.fire({
@@ -225,6 +245,9 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                 }
 
 
+                /**
+                 * Carrega as sequências disponíveis no servidor.
+                 */
                 async function loadTaskSequences() {
                     // Solicita a lista de sequências salvas
                     const formData = new FormData();
@@ -271,6 +294,10 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                     }
                 }
 
+                /**
+                 * Carrega e aplica os detalhes de uma sequência pelo nome.
+                 * @param {string} sequenceName - Nome da sequência armazenada.
+                 */
                 async function loadTaskSequenceDetails(sequenceName) {
                     const formData = new FormData();
                     formData.append('action', 'get_sequence');

@@ -1,6 +1,17 @@
+/**
+ * @fileoverview Contém cálculos puros para amostragem de perfil e linha de visada.
+ * @exports window.PlanMilT.elevationProfile
+ * @requires Coordenadas geográficas e elevações numéricas
+ */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.elevationProfile = Object.freeze({
+    /**
+     * Gera pontos interpolados entre as extremidades de um perfil topográfico.
+     * @param {*} start - Coordenada geográfica inicial.
+     * @param {*} end - Coordenada geográfica final.
+     * @param {number} intervalCount - Número de intervalos entre as extremidades.
+     */
     createProfileSamples(start, end, intervalCount = 100) {
         if (!Number.isInteger(intervalCount) || intervalCount < 1) {
             throw new RangeError('A quantidade de intervalos deve ser um inteiro positivo.');
@@ -24,6 +35,11 @@ window.PlanMilT.elevationProfile = Object.freeze({
         };
     },
 
+    /**
+     * Interpola o perfil da linha de visada entre as elevações dos extremos.
+     * @param {Array<number>} elevations - Elevações ordenadas ao longo do perfil.
+     * @param {number} antennaHeight - Altura da antena adicionada à elevação dos extremos.
+     */
     createLineOfSight(elevations, antennaHeight = 12) {
         if (!Array.isArray(elevations) || elevations.length === 0) {
             throw new TypeError('O perfil precisa conter pelo menos uma elevação.');
