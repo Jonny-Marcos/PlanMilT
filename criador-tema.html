@@ -472,7 +472,7 @@
             formData.append('localizacao', JSON.stringify(canvasBounds));
 
             try {
-                const response = await window.PlanMilT.apiClient.request('salvar-imagem.php', {
+                const response = await window.PlanMilT.apiClient.request('image-save.php', {
                     method: 'POST',
                     body: formData
                 });

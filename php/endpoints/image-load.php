@@ -13,7 +13,7 @@ header("Content-Type: application/json");
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['id'])) {
         $id = $_POST['id'];
-        $senhaInformada = $_POST['senha'] ?? '';
+        $providedPassword = $_POST['senha'] ?? '';
 
         try {
             // Conecta ao banco de dados SQLite
@@ -21,35 +21,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar os dados da imagem pelo ID
-            $stmt = $db->prepare("SELECT imagem, localizacao, descricao, senha, compartilhavel FROM imagens WHERE id = :id");
+            $stmt = $db->prepare(
+                'SELECT image, location, description, password_hash, is_shared FROM images WHERE id = :id'
+            );
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
             // Busca o resultado
             $image = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($image && $image['imagem']) {
-                $senhaNoBanco = $image['senha'];
-                $compartilhavel = (int)$image['compartilhavel'];
+            if ($image && $image['image']) {
+                $storedPasswordHash = $image['password_hash'];
+                $isShared = (int) $image['is_shared'];
 
                 // Verifica se a imagem requer senha
-                if ($compartilhavel === 0 && !empty($senhaNoBanco)) {
+                if ($isShared === 0 && !empty($storedPasswordHash)) {
                     // Imagem requer senha
-                    if (empty($senhaInformada) || !password_verify($senhaInformada, $senhaNoBanco)) {
+                    if (empty($providedPassword) || !password_verify($providedPassword, $storedPasswordHash)) {
                         echo json_encode(['error' => 'Senha incorreta ou não fornecida.']);
                         exit;
                     }
                 }
 
                 // Converte o BLOB para base64 para ser enviado e utilizado diretamente no JavaScript
-                $base64 = base64_encode($image['imagem']);
+                $base64 = base64_encode($image['image']);
                 $imgSrc = 'data:image/png;base64,' . $base64;
-                $descricao = $image['descricao'];
 
                 echo json_encode([
                     'url' => $imgSrc,
-                    'bounds' => json_decode($image['localizacao'], true),
-                    'descricao' => $descricao
+                    'bounds' => json_decode($image['location'], true),
+                    'descricao' => $image['description']
                 ]);
             } else {
                 echo json_encode(['error' => 'Imagem não encontrada.']);
@@ -65,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar a lista de imagens
-            $stmt = $db->prepare("SELECT id, descricao FROM imagens ORDER BY id DESC");
+            $stmt = $db->prepare('SELECT id, description AS descricao FROM images ORDER BY id DESC');
             $stmt->execute();
 
             // Busca o resultado
@@ -86,7 +87,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // Prepara a consulta SQL para buscar a descrição e se a imagem requer senha
-            $stmt = $db->prepare("SELECT descricao, senha, compartilhavel FROM imagens WHERE id = :id");
+            $stmt = $db->prepare(
+                'SELECT description, password_hash, is_shared FROM images WHERE id = :id'
+            );
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
@@ -94,9 +97,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $image = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($image) {
-                $requiresPassword = !empty($image['senha']) && (int)$image['compartilhavel'] === 0;
+                $requiresPassword = !empty($image['password_hash']) && (int) $image['is_shared'] === 0;
                 echo json_encode([
-                    'descricao' => $image['descricao'],
+                    'descricao' => $image['description'],
                     'requiresPassword' => $requiresPassword
                 ]);
             } else {

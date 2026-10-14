@@ -19,16 +19,16 @@ test('postJson sends a JSON POST with the standard content type', async () => {
 
     try {
         const payload = { points: [{ latitude: 1, longitude: 2 }] };
-        const result = await apiClient.postJson('elevation_profile.php', payload);
+        const result = await apiClient.postJson('elevation-profile.php', payload);
 
-        assert.equal(request.url, 'elevation_profile.php');
+        assert.equal(request.url, 'elevation-profile.php');
         assert.equal(request.options.method, 'POST');
         assert.equal(request.options.headers['Content-Type'], 'application/json');
         assert.equal(request.options.body, JSON.stringify(payload));
         assert.deepEqual(result, { points: [] });
         assert.deepEqual(logged, [[
             '[PlanMilT][API] Resposta HTTP recebida.',
-            { method: 'POST', endpoint: 'elevation_profile.php', status: 200, ok: true }
+            { method: 'POST', endpoint: 'elevation-profile.php', status: 200, ok: true }
         ]]);
     } finally {
         global.fetch = originalFetch;

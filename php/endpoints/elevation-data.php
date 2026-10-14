@@ -6,7 +6,7 @@
  */
 require_once dirname(__DIR__) . '/bootstrap.php';
 
-// get_elevation_data.php
+// elevation-data.php
 
 header('Content-Type: application/json');
 ini_set('display_errors', 0);

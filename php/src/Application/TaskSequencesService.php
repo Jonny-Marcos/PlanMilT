@@ -42,18 +42,18 @@ final class TaskSequencesService
 
         try {
             $statement = $this->database->prepare(
-                'SELECT id, password FROM task_sequences WHERE name = ?'
+                'SELECT id, password_hash FROM task_sequences WHERE name = ?'
             );
             $statement->execute([$name]);
             $existingSequence = $statement->fetch(PDO::FETCH_ASSOC);
 
             if ($existingSequence) {
-                if (!password_verify($password, $existingSequence['password'])) {
+                if (!password_verify($password, $existingSequence['password_hash'])) {
                     return ['success' => false, 'error' => 'Senha incorreta para a sequência existente.'];
                 }
 
                 $statement = $this->database->prepare(
-                    'UPDATE task_sequences SET sequence = ?, description = ?, date_modified = datetime(\'now\') WHERE id = ?'
+                    'UPDATE task_sequences SET sequence = ?, description = ?, updated_at = datetime(\'now\') WHERE id = ?'
                 );
                 $statement->execute([$sequence, $description, $existingSequence['id']]);
 
@@ -62,7 +62,7 @@ final class TaskSequencesService
 
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $statement = $this->database->prepare(
-                'INSERT INTO task_sequences (name, password, sequence, description, date_created, date_modified) '
+                'INSERT INTO task_sequences (name, password_hash, sequence, description, created_at, updated_at) '
                 . 'VALUES (?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
             );
             $statement->execute([$name, $passwordHash, $sequence, $description]);
@@ -165,7 +165,7 @@ final class TaskSequencesService
 
         try {
             $statement = $this->database->prepare(
-                'SELECT id, password FROM task_sequences WHERE name = ?'
+                'SELECT id, password_hash FROM task_sequences WHERE name = ?'
             );
             $statement->execute([$name]);
             $existingSequence = $statement->fetch(PDO::FETCH_ASSOC);
@@ -174,7 +174,7 @@ final class TaskSequencesService
                 return ['success' => false, 'error' => 'Sequência não encontrada.'];
             }
 
-            if (!password_verify($password, $existingSequence['password'])) {
+            if (!password_verify($password, $existingSequence['password_hash'])) {
                 return ['success' => false, 'error' => 'Senha incorreta para deletar a sequência.'];
             }
 

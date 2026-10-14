@@ -17,11 +17,12 @@ O idioma da interface e do conteúdo visível ao usuário é português. A insta
 - Todo o código PHP da aplicação está em `php/`: endpoints HTTP em `php/endpoints/`, bootstrap em `php/bootstrap.php`, serviços em `php/src/Application/` e infraestrutura em `php/src/Infrastructure/`. Não mantenha PHP da aplicação na raiz.
 - As URLs legadas continuam funcionando por regras de rewrite no `.htaccess` da raiz; não existem adaptadores PHP na raiz. `php/.htaccess` bloqueia acesso direto ao bootstrap e às classes internas de `php/src/`, mas permite executar endpoints públicos.
 - `php/bootstrap.php` carrega `php/src/Infrastructure/Database/ConnectionFactory.php` para criar a conexão SQLite. O bootstrap usa `PLANMILT_DB_PATH` (padrão `bd.db` na raiz); logs de execução da aplicação aparecem no console do navegador por meio dos resultados HTTP e do cliente JavaScript, sem gravar logs da aplicação em arquivos.
-- `php/src/Application/TaskSequencesService.php` é o primeiro serviço de aplicação: concentra persistência e regras das ações de sequências (`save`, `load`, `getSequence`, `exists`, `delete`), recebe PDO por injeção e retorna os payloads usados pelo endpoint legado. `php/endpoints/tasks.php` mantém a tradução do POST `action` para o serviço.
-- `php/src/Application/DrawingsService.php` concentra leitura/gravação na tabela legada `desenhos` (`load`, `save`), valida hashes de senha e preserva o JSON do desenho sem decodificá-lo. `php/endpoints/carregar.php` e `salvar.php` traduzem as requisições legadas para o serviço sem alterar URLs ou formatos de sucesso.
-- `docs/api-contracts.md` registra contratos existentes entre frontend e endpoints, incluindo a migração piloto de `get_sigs.php`. Atualize-o quando contratos ou caminhos HTTP mudarem.
-- O banco SQLite tem tabelas e campos históricos em português e inglês. Preservar compatibilidade com dados implantados é requisito; não apagar, recriar ou renomear dados automaticamente.
-- Há testes JavaScript em `tests/js/` executados com `node --test tests/js/*.test.js` e testes PHP isolados para sequências e desenhos em `tests/php/`, executados com `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`. Node é ferramenta de desenvolvimento; ainda não há manifests npm/Composer nem runner geral de testes PHP.
+- `php/src/Infrastructure/Database/SchemaMigrator.php` aplica migrações SQLite versionadas por `PRAGMA user_version`: cria índices únicos e renomeia as tabelas para `drawings`, `images`, `map_services` e `task_sequences`, com colunas em inglês e timestamps padronizados. Migrações preservam registros; duplicatas ou conflitos interrompem a operação sem exclusão automática. Teste isolado: `tests/php/schema-migrator.test.php`.
+- `php/src/Application/TaskSequencesService.php` é o primeiro serviço de aplicação: concentra persistência e regras das ações de sequências (`save`, `load`, `getSequence`, `exists`, `delete`), recebe PDO por injeção e retorna os payloads usados pelo endpoint. `php/endpoints/task-sequences.php` mantém a tradução do POST `action` para o serviço.
+- `php/src/Application/DrawingsService.php` concentra leitura/gravação na tabela `drawings` (`load`, `save`), valida hashes de senha e preserva o GeoJSON sem decodificá-lo. `php/endpoints/drawing-load.php` e `drawing-save.php` traduzem as requisições para o serviço; nomes portugueses dos campos HTTP permanecem temporariamente compatíveis.
+- `docs/api-contracts.md` registra contratos existentes entre frontend e endpoints, incluindo a migração piloto de `sigs.php`. Atualize-o quando contratos ou caminhos HTTP mudarem.
+- O banco usa SQLite; tabelas e colunas atuais estão em inglês. A `SchemaMigrator` renomeia o esquema legado em transação, preservando os dados e índices existentes; nunca exclua tabela sem localizar consumidores e obter confirmação explícita. `created_at` e `updated_at` são os timestamps padrão nas tabelas de aplicação; preservar compatibilidade dos payloads HTTP até que seus consumidores sejam migrados.
+- Há testes JavaScript em `tests/js/` executados com `node --test tests/js/*.test.js` e testes PHP isolados para sequências, desenhos e migrações em `tests/php/`, executados com `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php` e `php tests/php/schema-migrator.test.php`. Node é ferramenta de desenvolvimento; ainda não há manifests npm/Composer nem runner geral de testes PHP.
 
 ## Mapa dos arquivos da aplicação
 
@@ -48,15 +49,16 @@ Os arquivos seguintes são código da aplicação (não bibliotecas vendorizadas
 
 Todo o PHP da aplicação fica em `php/`. Os endpoints públicos ficam em `php/endpoints/`; regras no `.htaccess` da raiz encaminham as URLs legadas sem manter scripts PHP adaptadores na raiz:
 
-- `carregar.php` e `salvar.php`: carregam e persistem desenhos/planejamentos.
-- `carregar-imagem.php` e `salvar-imagem.php`: listam/carregam imagens e persistem dados de imagem.
-- `tasks.php`: operações de salvar, listar, obter, verificar e excluir sequências de tarefas.
-- `get_elevation_data.php`, `elevation_profile.php` e `upload_elevation_files.php`: consulta/amostragem de elevação e upload de arquivos/tiles de elevação.
-- `get_sigs.php`: fornece a lista de SIGs/camadas ao frontend.
+- `drawing-load.php` e `drawing-save.php`: carregam e persistem desenhos/planejamentos; as URLs antigas continuam funcionando por rewrite.
+- `image-load.php` e `image-save.php`: listam/carregam imagens e persistem dados de imagem.
+- `task-sequences.php`: operações de salvar, listar, obter, verificar e excluir sequências de tarefas.
+- `elevation-data.php`, `elevation-profile.php` e `elevation-upload.php`: consulta/amostragem de elevação e upload de arquivos/tiles de elevação.
+- `sigs.php`: fornece a lista de SIGs/camadas ao frontend.
 - `proxy.php`: proxy de requisições externas, incluindo uso por serviços de mapa; requer revisão cuidadosa de destinos, redirecionamentos, limites e protocolos.
 - `icons.php`: fornece os ícones disponíveis em `symbols/`; a URL histórica `/symbols/icons.php` é reescrita para esse endpoint.
 - `php/bootstrap.php`: carrega os serviços compartilhados.
 - `php/src/Infrastructure/Database/ConnectionFactory.php`: conexão SQLite.
+- `php/src/Infrastructure/Database/SchemaMigrator.php`: migrações versionadas para nomes ingleses, timestamps e índices únicos, sem exclusão automática de dados.
 - `php/.htaccess`: bloqueia o bootstrap e as classes internas; endpoints permanecem públicos.
 
 Os endpoints carregam `php/bootstrap.php` por caminho explícito e localizam `SRTM3/` a partir da raiz do projeto.
@@ -79,7 +81,7 @@ As implementações estão organizadas em `php/`; regras de rewrite preservam as
 3. Preserve as regras de rewrite da raiz enquanto clientes dependerem das URLs legadas. `php/endpoints/` são pontos de entrada públicos; `php/src/` e `php/bootstrap.php` devem permanecer inacessíveis diretamente via HTTP.
 4. Garanta que endpoints carreguem `php/bootstrap.php` e resolvam `php/src/Infrastructure/`, banco, uploads e `SRTM3/` por caminhos/configuração explícitos, sem depender do diretório de trabalho do processo. Erros de aplicação devem ser retornados no contrato HTTP/JSON para que o frontend os registre no console; não crie arquivos de log da aplicação.
 5. Documente o propósito de cada arquivo e de cada função PHP relevante, incluindo parâmetros, tipos, retorno/JSON, erros e efeitos colaterais. Mantenha comentários em português, nomes novos em inglês e PHP compatível com o runtime LAMP/XAMPP suportado.
-6. Preserve SQLite, SQL parametrizado, nomes históricos de tabelas/campos e formatos já usados pelo frontend. Não faça uma migração para framework/ORM nem altere todos os endpoints de uma só vez; trabalhe por funcionalidade e mantenha a aplicação executável.
+6. Preserve SQLite e SQL parametrizado. Use inglês em tabelas/colunas do esquema migrado; preserve nomes de campos e formatos já usados nos contratos HTTP até migrar seus consumidores. Não faça uma migração para framework/ORM nem altere todos os endpoints de uma só vez.
 7. Depois de cada conjunto, rode `php -l` nos arquivos PHP alterados, testes relevantes e verificações de caminhos/contratos. Atualize `docs/api-contracts.md`, este arquivo e o README quando o comportamento ou a instalação mudarem.
 
 Trate esta seção como referência inicial. Confirme o estado real dos arquivos e chamadas antes de cada alteração.

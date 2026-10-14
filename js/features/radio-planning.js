@@ -494,7 +494,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Array<*>} pointsArray - Valor de entrada usado durante esta operação.
                  */
                 async function requestElevation(pointsArray, allowUpload = true) {
-                    const response = await window.PlanMilT.apiClient.request('elevation_profile.php', {
+                    const response = await window.PlanMilT.apiClient.request('elevation-profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ points: pointsArray })
@@ -565,7 +565,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     });
                     if (!formData) return false;
 
-                    const uploadResponse = await window.PlanMilT.apiClient.request('upload_elevation_files.php', {
+                    const uploadResponse = await window.PlanMilT.apiClient.request('elevation-upload.php', {
                         method: 'POST',
                         body: formData
                     });

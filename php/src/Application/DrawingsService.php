@@ -8,7 +8,7 @@ use PDO;
 /**
  * Encapsula leitura e persistência de desenhos armazenados no SQLite.
  *
- * O serviço preserva o conteúdo JSON de `leaflet` sem decodificá-lo.
+ * O serviço preserva o conteúdo GeoJSON sem decodificá-lo.
  */
 final class DrawingsService
 {
@@ -27,22 +27,22 @@ final class DrawingsService
     /**
      * Localiza o desenho pelo usuário e link.
      *
-     * @param string $user Identificador armazenado na coluna `usuario`.
+     * @param string $user Identificador armazenado na coluna `username`.
      * @param string $link Identificador do desenho armazenado na coluna `link`.
-     * @return string|null JSON bruto da coluna `leaflet`, ou null se não houver registro.
+     * @return string|null JSON bruto da coluna `geojson`, ou null se não houver registro.
      */
     public function load(string $user, string $link): ?string
     {
         $statement = $this->database->prepare(
-            'SELECT leaflet FROM desenhos WHERE usuario = :usuario AND link = :link'
+            'SELECT geojson FROM drawings WHERE username = :username AND link = :link'
         );
         $statement->execute([
-            ':usuario' => $user,
+            ':username' => $user,
             ':link' => $link
         ]);
 
         $drawing = $statement->fetch(PDO::FETCH_ASSOC);
-        return $drawing === false ? null : (string) $drawing['leaflet'];
+        return $drawing === false ? null : (string) $drawing['geojson'];
     }
 
     /**
@@ -51,34 +51,31 @@ final class DrawingsService
      * @param string $user Identificador do usuário proprietário do desenho.
      * @param string $password Senha em texto claro para validar ou armazenar com hash.
      * @param string $link Identificador do desenho.
-     * @param string $leaflet JSON serializado do conteúdo do desenho.
+     * @param string $geoJson JSON serializado do conteúdo do desenho.
      * @return string Mensagem de sucesso ou de senha incorreta esperada pelo endpoint legado.
      */
-    public function save(string $user, string $password, string $link, string $leaflet): string
+    public function save(string $user, string $password, string $link, string $geoJson): string
     {
         $statement = $this->database->prepare(
-            'SELECT senha FROM desenhos WHERE usuario = :usuario AND link = :link'
+            'SELECT id, password_hash FROM drawings WHERE username = :username AND link = :link'
         );
         $statement->execute([
-            ':usuario' => $user,
+            ':username' => $user,
             ':link' => $link
         ]);
         $existingDrawing = $statement->fetch(PDO::FETCH_ASSOC);
 
         if ($existingDrawing !== false) {
-            if (!password_verify($password, $existingDrawing['senha'])) {
+            if (!password_verify($password, $existingDrawing['password_hash'])) {
                 return 'Senha incorreta.';
             }
 
             $statement = $this->database->prepare(
-                'UPDATE desenhos SET link = :link, leaflet = :leaflet '
-                . 'WHERE usuario = :usuario AND senha = :senhaHash'
+                'UPDATE drawings SET geojson = :geojson, updated_at = datetime(\'now\') WHERE id = :id'
             );
             $statement->execute([
-                ':usuario' => $user,
-                ':senhaHash' => $existingDrawing['senha'],
-                ':link' => $link,
-                ':leaflet' => $leaflet
+                ':id' => $existingDrawing['id'],
+                ':geojson' => $geoJson
             ]);
 
             return 'Desenho atualizado com sucesso!';
@@ -86,14 +83,14 @@ final class DrawingsService
 
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         $statement = $this->database->prepare(
-            'INSERT INTO desenhos (usuario, senha, link, leaflet) '
-            . 'VALUES (:usuario, :senhaHash, :link, :leaflet)'
+            'INSERT INTO drawings (username, password_hash, link, geojson, created_at, updated_at) '
+            . 'VALUES (:username, :passwordHash, :link, :geojson, datetime(\'now\'), datetime(\'now\'))'
         );
         $statement->execute([
-            ':usuario' => $user,
-            ':senhaHash' => $passwordHash,
+            ':username' => $user,
+            ':passwordHash' => $passwordHash,
             ':link' => $link,
-            ':leaflet' => $leaflet
+            ':geojson' => $geoJson
         ]);
 
         return 'Desenho salvo com sucesso!';

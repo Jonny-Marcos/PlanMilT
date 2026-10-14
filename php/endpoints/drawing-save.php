@@ -21,16 +21,16 @@ if ($method !== 'POST') {
 $user = $_POST['usuario'] ?? '';
 $password = $_POST['senha'] ?? '';
 $link = $_POST['link'] ?? '';
-$leaflet = $_POST['leaflet'] ?? '';
+$geoJson = $_POST['leaflet'] ?? '';
 
-if (!is_string($user) || !is_string($password) || !is_string($link) || !is_string($leaflet)) {
+if (!is_string($user) || !is_string($password) || !is_string($link) || !is_string($geoJson)) {
     echo 'Erro na conexão com o banco de dados: parâmetros inválidos.';
     exit;
 }
 
 try {
     $service = new DrawingsService(ConnectionFactory::create());
-    echo $service->save($user, $password, $link, $leaflet);
+    echo $service->save($user, $password, $link, $geoJson);
 } catch (PDOException $error) {
     echo 'Não foi possível salvar os desenhos.';
 }

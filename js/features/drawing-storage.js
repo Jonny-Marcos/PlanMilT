@@ -34,7 +34,7 @@
                 // Envio dos dados via AJAX
                 $.ajax({
                     type: "POST",
-                    url: "/salvar.php", // Substitua pelo caminho correto para sua página PHP
+                    url: "/drawing-save.php",
                     data: data,
                     success: function(response) {
                         // Verifica se a resposta contém a frase "Desenho atualizado com sucesso!"

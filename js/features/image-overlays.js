@@ -12,7 +12,7 @@
             async function loadImageWithPrompt() {
                 // Obtém a lista de imagens do servidor
                 try {
-                    const response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
+                    const response = await window.PlanMilT.apiClient.request('image-load.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
@@ -70,7 +70,7 @@
                 params.append('id', imageId);
 
                 try {
-                    const response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
+                    const response = await window.PlanMilT.apiClient.request('image-load.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: params.toString()
@@ -105,7 +105,7 @@
                             // Tenta carregar a imagem novamente com a senha fornecida
                             params.append('senha', senhaInput);
 
-                            const responseWithPassword = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
+                            const responseWithPassword = await window.PlanMilT.apiClient.request('image-load.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()
@@ -137,7 +137,6 @@
                     Swal.fire('Erro!', 'Erro ao carregar a imagem.', 'error');
                 }
             }
-
 
 
 

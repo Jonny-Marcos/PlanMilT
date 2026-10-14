@@ -11,9 +11,13 @@ final class ConnectionFactory
     {
         $databasePath = getenv('PLANMILT_DB_PATH') ?: dirname(__DIR__, 4) . '/bd.db';
 
-        return new PDO('sqlite:' . $databasePath, null, null, [
+        $database = new PDO('sqlite:' . $databasePath, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
+        require_once __DIR__ . '/SchemaMigrator.php';
+        SchemaMigrator::migrate($database);
+
+        return $database;
     }
 }

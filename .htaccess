@@ -3,7 +3,16 @@ Options -Indexes
 RewriteEngine On
 RewriteRule ^(?:src|storage|logs|tests|\.git|\.github)(?:/|$) - [F,L,NC]
 
-RewriteRule ^(carregar-imagem|carregar|elevation_profile|get_elevation_data|get_sigs|proxy|salvar-imagem|salvar|tasks|upload_elevation_files)\.php$ php/endpoints/$1.php [END,NC]
+RewriteRule ^(?:carregar-imagem|image-load)\.php$ php/endpoints/image-load.php [END,NC]
+RewriteRule ^(?:carregar|drawing-load)\.php$ php/endpoints/drawing-load.php [END,NC]
+RewriteRule ^(?:elevation_profile|elevation-profile)\.php$ php/endpoints/elevation-profile.php [END,NC]
+RewriteRule ^(?:get_elevation_data|elevation-data)\.php$ php/endpoints/elevation-data.php [END,NC]
+RewriteRule ^(?:get_sigs|sigs)\.php$ php/endpoints/sigs.php [END,NC]
+RewriteRule ^(?:salvar-imagem|image-save)\.php$ php/endpoints/image-save.php [END,NC]
+RewriteRule ^(?:salvar|drawing-save)\.php$ php/endpoints/drawing-save.php [END,NC]
+RewriteRule ^(?:tasks|task-sequences)\.php$ php/endpoints/task-sequences.php [END,NC]
+RewriteRule ^(?:upload_elevation_files|elevation-upload)\.php$ php/endpoints/elevation-upload.php [END,NC]
+RewriteRule ^proxy\.php$ php/endpoints/proxy.php [END,NC]
 RewriteRule ^symbols/icons\.php$ php/endpoints/icons.php [END,NC]
 
 <FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|bootstrap\.php)$">

@@ -27,7 +27,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                     formDataLoad.append('action', 'load');
 
                     try {
-                        const responseLoad = await request('tasks.php', {
+                        const responseLoad = await request('task-sequences.php', {
                             method: 'POST',
                             body: formDataLoad
                         });
@@ -108,7 +108,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                         formDataDelete.append('name', selectedSequence);
                         formDataDelete.append('password', deletePassword);
 
-                        const responseDelete = await request('tasks.php', {
+                        const responseDelete = await request('task-sequences.php', {
                             method: 'POST',
                             body: formDataDelete
                         });
@@ -208,7 +208,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                     formDataCheck.append('name', sequenceName);
 
                     try {
-                        const responseCheck = await request('tasks.php', {
+                        const responseCheck = await request('task-sequences.php', {
                             method: 'POST',
                             body: formDataCheck
                         });
@@ -224,7 +224,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                         formData.append('sequence', JSON.stringify(getTasks()));
                         formData.append('password', overwritePassword || password);
 
-                        const response = await request('tasks.php', {
+                        const response = await request('task-sequences.php', {
                             method: 'POST',
                             body: formData
                         });
@@ -256,7 +256,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                     formData.append('action', 'load');
 
                     try {
-                        const response = await request('tasks.php', {
+                        const response = await request('task-sequences.php', {
                             method: 'POST',
                             body: formData
                         });
@@ -307,7 +307,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                     formData.append('name', sequenceName);
 
                     try {
-                        const response = await request('tasks.php', {
+                        const response = await request('task-sequences.php', {
                             method: 'POST',
                             body: formData
                         });

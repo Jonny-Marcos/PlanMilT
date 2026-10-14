@@ -294,7 +294,7 @@ ${!hasErrors(logMessages) ? "<p>Planejamento salvo na camada 'Sugestão de Plane
                  */
                 async function fetchElevationData(bounds) {
                     try {
-                        const response = await window.PlanMilT.apiClient.request(`get_elevation_data.php?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLon=${bounds.getWest()}&maxLon=${bounds.getEast()}`);
+                        const response = await window.PlanMilT.apiClient.request(`elevation-data.php?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLon=${bounds.getWest()}&maxLon=${bounds.getEast()}`);
 
                         if (!response.ok) {
                             const errorData = await response.json();
@@ -378,7 +378,7 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                                                 }
                                             });
 
-                                            const uploadResponse = await window.PlanMilT.apiClient.request('upload_elevation_files.php', {
+                                            const uploadResponse = await window.PlanMilT.apiClient.request('elevation-upload.php', {
                                                 method: 'POST',
                                                 body: uploadData
                                             });

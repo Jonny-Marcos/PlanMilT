@@ -54,7 +54,7 @@
                         points: points
                     };
 
-                    const data = await window.PlanMilT.apiClient.postJson('elevation_profile.php', payload);
+                    const data = await window.PlanMilT.apiClient.postJson('elevation-profile.php', payload);
 
 
                     // Verifica se a resposta contém as elevações
@@ -92,7 +92,7 @@
                 for (const id of calcoArray) {
                     try {
                         // Primeiro, fazer uma requisição GET para obter a descrição e verificar se a imagem requer senha
-                        let response = await window.PlanMilT.apiClient.request(`carregar-imagem.php?id=${id.trim()}`);
+                        let response = await window.PlanMilT.apiClient.request(`image-load.php?id=${id.trim()}`);
                         let data = await response.json();
 
                         if (data.error) {
@@ -122,7 +122,7 @@
                             params.append('id', id.trim());
                             params.append('senha', senha);
 
-                            response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
+                            response = await window.PlanMilT.apiClient.request('image-load.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()
@@ -133,7 +133,7 @@
                             const params = new URLSearchParams();
                             params.append('id', id.trim());
 
-                            response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
+                            response = await window.PlanMilT.apiClient.request('image-load.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()

@@ -2,7 +2,7 @@
 /**
  * Retorna a lista de serviços de informação geográfica cadastrados.
  *
- * Contrato GET que preserva os campos Nome e URL esperados pelo frontend.
+ * Contrato GET que preserva os campos Nome e URL esperados pelos consumidores legados.
  */
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
 
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     $db = ConnectionFactory::create();
-    $stmt = $db->query('SELECT Nome, URL FROM sigs');
+    $stmt = $db->query('SELECT name AS Nome, url AS URL FROM map_services');
     $results = $stmt->fetchAll();
 
     echo json_encode($results, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);

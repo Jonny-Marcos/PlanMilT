@@ -27,7 +27,7 @@
 
                     for (const layerName of selectedLayers) {
                         try {
-                            const response = await window.PlanMilT.apiClient.request("/carregar.php", {
+                            const response = await window.PlanMilT.apiClient.request("/drawing-load.php", {
                                 method: "POST",
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: `usuario=${encodeURIComponent(layerName)}`
@@ -406,5 +406,4 @@
 
                     });
                 }
-
 

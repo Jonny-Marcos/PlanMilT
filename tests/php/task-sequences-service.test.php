@@ -11,11 +11,11 @@ $database->exec(
     'CREATE TABLE task_sequences ('
     . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
     . 'name TEXT NOT NULL UNIQUE, '
-    . 'password TEXT NOT NULL, '
+    . 'password_hash TEXT NOT NULL, '
     . 'sequence TEXT NOT NULL, '
     . 'description TEXT, '
-    . 'date_created TEXT NOT NULL, '
-    . 'date_modified TEXT NOT NULL'
+    . 'created_at TEXT NOT NULL, '
+    . 'updated_at TEXT NOT NULL'
     . ')'
 );
 
@@ -29,6 +29,11 @@ $assert = static function (bool $condition, string $message): void {
 
 $created = $service->save('Alpha', 'correct horse battery staple', '[{"task":"survey"}]', 'First plan');
 $assert($created === ['success' => true, 'message' => 'Sequência salva com sucesso.'], 'Sequence creation payload changed.');
+$timestamps = $database->query('SELECT created_at, updated_at FROM task_sequences WHERE name = \'Alpha\'')->fetch(PDO::FETCH_ASSOC);
+$assert(
+    !empty($timestamps['created_at']) && !empty($timestamps['updated_at']),
+    'Sequence creation did not populate standard timestamps.'
+);
 $assert($service->exists('Alpha') === ['success' => true, 'exists' => true], 'Saved sequence was not found.');
 $assert($service->exists('Missing') === ['success' => true, 'exists' => false], 'Missing sequence was reported as present.');
 

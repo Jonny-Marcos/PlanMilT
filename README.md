@@ -49,6 +49,8 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 4. Garanta que o usuário do Apache possa ler os arquivos do projeto e gravar em `bd.db`, no diretório que contém esse banco e em `SRTM3/`.
 5. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
 
+Antes de atualizar uma instalação existente, faça uma cópia de segurança de `bd.db`. Na primeira conexão ao banco após a atualização, o PlanMilT aplica migrações versionadas que renomeiam tabelas e colunas para inglês e adicionam timestamps, preservando os registros. Se encontrar chaves duplicadas que impeçam os índices únicos, a migração falha sem apagar registros; corrija o conflito manualmente após backup e tente novamente.
+
 Não há um arquivo de configuração PHP específico do projeto: ajuste os limites de upload e execução no `php.ini` ativo do servidor conforme a necessidade e reinicie o Apache. Falhas das requisições da aplicação são exibidas no console do navegador; erros internos do PHP permanecem sujeitos à configuração de diagnóstico do servidor.
 
 ## Funcionalidades
@@ -121,6 +123,8 @@ The application is built with the following technologies and libraries:
 3. Enable Apache's `mod_rewrite` module and allow the required `.htaccess` directives in the VirtualHost or server configuration.
 4. Ensure the Apache user can read the project files and write to `bd.db`, its containing directory, and `SRTM3/`.
 5. Open `http://localhost/PlanMilT/` or the address configured on the server.
+
+Back up `bd.db` before updating an existing installation. On the first database connection after the update, PlanMilT applies versioned migrations that rename tables and columns to English and add timestamps while preserving records. If duplicate keys prevent unique indexes, migration fails without deleting records; resolve the conflict manually after backing up, then retry.
 
 There is no project-specific PHP configuration file; adjust upload and execution limits in the server's active `php.ini` as needed, then restart Apache. Application request failures appear in the browser console; internal PHP diagnostics remain subject to the server's own configuration.
 

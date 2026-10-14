@@ -1,6 +1,6 @@
 <?php
 /**
- * Proxy legado de mapas, limitado aos hosts cadastrados na tabela sigs.
+ * Proxy legado de mapas, limitado aos hosts cadastrados na tabela map_services.
  *
  * Preserva o formato de consulta atual; a validação de destinos será revisada
  * em uma etapa própria antes de alterar o comportamento de rede.
@@ -23,22 +23,22 @@ $url = $_GET['url'];
 try {
     $db = ConnectionFactory::create();
 
-    // Consulta todas as URLs da coluna URL da tabela sigs
-    $stmt = $db->query('SELECT URL FROM sigs');
+    // Consulta os serviços cadastrados na tabela de configuração de mapas.
+    $stmt = $db->query('SELECT url FROM map_services');
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Extrai os hosts das URLs e os adiciona ao array $allowed_hosts
-    $allowed_hosts = [];
+    $allowedHosts = [];
     foreach ($results as $row) {
-        $sig_url = $row['URL'];
-        $parsed_url = parse_url($sig_url);
-        if (isset($parsed_url['host'])) {
-            $allowed_hosts[] = $parsed_url['host'];
+        $serviceUrl = $row['url'];
+        $parsedUrl = parse_url($serviceUrl);
+        if (isset($parsedUrl['host'])) {
+            $allowedHosts[] = $parsedUrl['host'];
         }
     }
 
     // Remove duplicatas, se houver
-    $allowed_hosts = array_unique($allowed_hosts);
+    $allowedHosts = array_unique($allowedHosts);
 
 } catch (PDOException $e) {
     // Em caso de erro ao conectar ao banco de dados
@@ -48,8 +48,8 @@ try {
 }
 
 // Validação do host da URL solicitada
-$parsed_url = parse_url($url);
-if (!isset($parsed_url['host']) || !in_array($parsed_url['host'], $allowed_hosts)) {
+$parsedUrl = parse_url($url);
+if (!isset($parsedUrl['host']) || !in_array($parsedUrl['host'], $allowedHosts)) {
     header('HTTP/1.1 403 Forbidden');
     echo 'Acesso a este host não é permitido.';
     exit;

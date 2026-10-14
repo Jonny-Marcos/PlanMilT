@@ -117,7 +117,7 @@
                  * Carrega a lista de serviços de informação geográfica disponíveis.
                  */
                 function getSigsData() {
-                    return window.PlanMilT.apiClient.getJson('/get_sigs.php')
+                    return window.PlanMilT.apiClient.getJson('/sigs.php')
                         .catch(error => {
                             console.error('Erro ao carregar a lista de SIGs:', error);
                             Swal.fire('Erro!', 'Não foi possível carregar a lista de SIGs.', 'error');

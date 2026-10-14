@@ -6,7 +6,7 @@
  */
 require_once dirname(__DIR__) . '/bootstrap.php';
 
-// upload_elevation_files.php
+// elevation-upload.php
 
 error_reporting(E_ALL);
 
