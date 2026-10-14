@@ -38,7 +38,7 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
 
                     if (isConfirmed) {
                         planejamentoLayer.clearLayers();
-                        console.log('Camada de planejamento limpa.');
+                        console.info('[PlanMilT][Planejamento] Camada de planejamento limpa.');
                     }
 
                     // Inicia a definição de tarefas em uma única tela
@@ -128,7 +128,7 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                 } else {
                                     taskSequenceList.innerHTML = getTasks().map((task, index) => {
                                         if (!task || !task.task || !task.parameters) {
-                                            console.error(`Tarefa no índice ${index} está incompleta:`, task);
+                                            console.error('[PlanMilT][Sequências] Tarefa incompleta na lista.', { index });
                                             return '';
                                         }
                                         return `<div style="margin-bottom: 10px;">

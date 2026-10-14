@@ -9,29 +9,20 @@
              * @param {Object} drawnData - Dados GeoJSON dos desenhos a persistir.
              * @param {string} diretorio - Diretório lógico associado à camada compartilhada.
              */
-            function salvarDesenhos(usuario, senha, drawnData, diretorio) {
-                console.log('--- Iniciando salvarDesenhos ---');
-                console.log('Usuário:', usuario);
-                console.log('Diretório:', diretorio);
-                console.log('Dados dos desenhos antes de personalizar:', drawnData);
-
-                // Itera por cada feature para incluir propriedades personalizadas
-                drawnData.features.forEach(function(feature) {
+             function salvarDesenhos(usuario, senha, drawnData, diretorio) {
+                 // Itera por cada feature para incluir propriedades personalizadas
+                 drawnData.features.forEach(function(feature) {
                     var layer = drawnItems.getLayer(feature.properties._leaflet_id);
                     if (layer && layer.options) {
                         if (layer.options.icon) {
                             feature.properties.iconUrl = layer.options.icon.options.iconUrl;
-                            console.log('iconUrl adicionado:', feature.properties.iconUrl);
                         }
                         // Para formas que não são marcadores, salvar a cor
                         if (layer.options.color) {
                             feature.properties.color = layer.options.color;
-                            console.log('Cor adicionada:', feature.properties.color);
                         }
                     }
                 });
-
-                console.log('Dados dos desenhos após personalização:', drawnData);
 
                 var data = {
                     usuario: usuario,
@@ -40,28 +31,29 @@
                     leaflet: JSON.stringify(drawnData) // Converte os dados desenhados para uma string JSON
                 };
 
-                console.log('Dados a serem enviados via AJAX:', data);
-
                 // Envio dos dados via AJAX
                 $.ajax({
                     type: "POST",
                     url: "/salvar.php", // Substitua pelo caminho correto para sua página PHP
                     data: data,
                     success: function(response) {
-                        console.log('Resposta recebida do servidor:', response);
-
                         // Verifica se a resposta contém a frase "Desenho atualizado com sucesso!"
                         if (response.includes("Desenho atualizado com sucesso!") || response.includes("Desenho salvo com sucesso!")) {
                             Swal.fire('Sucesso!', 'Desenhos salvos com sucesso!', 'success');
-                            console.log('Desenhos salvos com sucesso!');
+                            console.info('[PlanMilT][Desenhos] Salvamento concluído.', {
+                                featureCount: drawnData.features.length
+                            });
                         } else {
                             // Se a resposta não contém a frase esperada, trata como erro
                             Swal.fire('Erro!', response, 'error');
-                            console.error('Erro ao salvar desenhos:', response);
+                            console.error('[PlanMilT][Desenhos] Servidor recusou o salvamento.');
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error("Erro ao salvar desenhos via AJAX:", error);
+                        console.error('[PlanMilT][Desenhos] Falha na requisição de salvamento.', {
+                            status: xhr.status,
+                            error
+                        });
                         Swal.fire('Erro!', 'Não foi possível salvar os desenhos.', 'error');
                     }
                 });

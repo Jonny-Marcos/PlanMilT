@@ -7,7 +7,7 @@
  */
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
 
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 // proxy.php
 

@@ -25,7 +25,7 @@
                 const diretorio = resultado ? resultado[1] : '';
 
                 try {
-                    const response = await fetch("/carregar.php", {
+                    const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                         method: "POST",
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: `usuario=${encodeURIComponent(usuario)}&link=${encodeURIComponent(diretorio)}`
@@ -34,12 +34,16 @@
                     if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
 
                     const geoJsonData = await response.json();
-                    console.log("Geojson carregado:", geoJsonData);
 
                     if (!isValidGeoJson(geoJsonData)) {
+                        console.error('[PlanMilT][Desenhos] Resposta inválida ao carregar desenhos.');
                         Swal.fire('Erro', 'Erro ao carregar os desenhos. Verifique o usuário e o link!', 'error');
                         return;
                     }
+
+                    console.info('[PlanMilT][Desenhos] Desenhos carregados.', {
+                        featureCount: geoJsonData.features.length
+                    });
 
                     const { isConfirmed: escolha } = await Swal.fire({
                         title: 'Como deseja carregar os desenhos?',
@@ -228,7 +232,4 @@
                     Swal.fire('Erro HTTP', `Erro: ${error.message}`, 'error');
                 }
             });
-
-
-
 

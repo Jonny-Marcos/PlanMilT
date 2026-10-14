@@ -6,9 +6,8 @@
  */
 use PlanMilT\Application\TaskSequencesService;
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
-use PlanMilT\Infrastructure\Logging\Logger;
 
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 require_once dirname(__DIR__) . '/src/Application/TaskSequencesService.php';
 
 header('Content-Type: application/json');
@@ -16,7 +15,6 @@ header('Content-Type: application/json');
 try {
     $service = new TaskSequencesService(ConnectionFactory::create());
 } catch (PDOException $error) {
-    Logger::write('Falha ao conectar ao banco ao processar sequências: ' . $error->getMessage());
     echo json_encode(['success' => false, 'error' => 'Falha na conexão com o banco de dados.']);
     exit;
 }

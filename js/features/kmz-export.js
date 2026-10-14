@@ -27,33 +27,21 @@ window.PlanMilT.kmzExport = Object.freeze({
              */
             async function exportDrawingsToKMZ() {
                 try {
-                    console.log("Iniciando a exportação para KMZ...");
-
                     // Obtém os dados dos desenhos existentes
                     var geoJsonData = drawnItems.toGeoJSON();
-                    console.log("geoJsonData inicial:", geoJsonData);
-
-                    // Verifica as chaves presentes em layerRegistry
-                    console.log("Chaves em layerRegistry:", Object.keys(layerRegistry));
 
                     // Verifica se a camada "Sugestão de Planejamento" existe no layerRegistry
                     if (layerRegistry.hasOwnProperty("Sugestão de Planejamento")) {
-                        console.log("A camada 'Sugestão de Planejamento' está presente no layerRegistry.");
                         var sugestaoLayer = layerRegistry["Sugestão de Planejamento"];
-                        console.log("sugestaoLayer:", sugestaoLayer);
 
                         // Verifica se a camada possui layers internos
                         if (sugestaoLayer.getLayers && sugestaoLayer.getLayers().length > 0) {
-                            console.log("'Sugestão de Planejamento' possui layers:", sugestaoLayer.getLayers().length);
 
                             // Obtém os dados da camada "Sugestão de Planejamento"
                             var sugestaoGeoJSON = sugestaoLayer.toGeoJSON();
-                            console.log("sugestaoGeoJSON:", sugestaoGeoJSON);
 
                             // Verifica se há features no GeoJSON
                             if (sugestaoGeoJSON.features && sugestaoGeoJSON.features.length > 0) {
-                                console.log("sugestaoGeoJSON possui features:", sugestaoGeoJSON.features.length);
-
                                 // Adiciona uma propriedade 'folderName' para agrupar em uma pasta
                                 sugestaoGeoJSON.features.forEach(feature => {
                                     feature.properties.folderName = "Sugestão de Planejamento";
@@ -64,18 +52,9 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                                 // Combina as features dos desenhos com as da camada "Sugestão de Planejamento"
                                 geoJsonData.features = geoJsonData.features.concat(sugestaoGeoJSON.features);
-                                console.log("Após concatenação, geoJsonData.features.length:", geoJsonData.features.length);
-                            } else {
-                                console.log("sugestaoGeoJSON não possui features.");
                             }
-                        } else {
-                            console.log("'Sugestão de Planejamento' não possui layers ou getLayers() não está disponível.");
                         }
-                    } else {
-                        console.log("A camada 'Sugestão de Planejamento' NÃO está presente no layerRegistry.");
                     }
-
-                    console.log("geoJsonData final:", geoJsonData);
 
                     // Função para inserir o Folder "Sugestão de Planejamento" no KML
                             // Converte GeoJSON para KML com suporte para ícones e estilos usando geojsontokml
@@ -112,10 +91,8 @@ window.PlanMilT.kmzExport = Object.freeze({
                         kmlData = kmlData.replace('</Document>', `${folderKml}\n</Document>`);
 
                         // Continua com a criação do ZIP e download
-                        console.log("kmlData com Folder inserido:", kmlData);
                         var zip = new JSZip();
                         zip.file("doc.kml", kmlData);
-                        console.log("Arquivo 'doc.kml' adicionado ao ZIP.");
 
                         // Pergunta ao usuário se ele deseja adicionar imagens da camada atual
                         const result = await Swal.fire({
@@ -128,24 +105,20 @@ window.PlanMilT.kmzExport = Object.freeze({
                         });
 
                         if (result.isConfirmed) {
-                            console.log("Usuário escolheu adicionar imagens da camada BDGEx.");
                             await addBDGExLayerToKMZ(zip);
                         }
 
                         // Baixa os ícones necessários, converte para PNG e adiciona ao zip
                         var uniqueIcons = [...new Set(geoJsonData.features.map(f => f.properties.iconUrl).filter(Boolean))];
-                        console.log("uniqueIcons:", uniqueIcons);
 
                         await Promise.all(uniqueIcons.map(async (iconUrl) => {
                             try {
-                                console.log("Processando ícone:", iconUrl);
-                                const response = await fetch(iconUrl);
+                                const response = await window.PlanMilT.apiClient.request(iconUrl);
                                 if (!response.ok) {
-                                    throw new Error(`Failed to fetch ${iconUrl}`);
+                                    throw new Error(`Falha ao carregar o ícone (HTTP ${response.status}).`);
                                 }
                                 const iconBlob = await response.blob();
                                 const iconName = iconUrl.split('/').pop().replace(/\.\w+$/, '.png');
-                                console.log("iconName:", iconName);
 
                                 // Converte a imagem para PNG
                                 const img = document.createElement('img');
@@ -163,7 +136,6 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                                 const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                                 zip.file(`files/${iconName}`, pngBlob);
-                                console.log(`Ícone ${iconName} adicionado ao KMZ.`);
                             } catch (error) {
                                 console.error('Erro ao processar o ícone:', error);
                             }
@@ -176,7 +148,10 @@ window.PlanMilT.kmzExport = Object.freeze({
                             link.href = URL.createObjectURL(content);
                             link.download = "aescoladatatica.kmz";
                             link.click();
-                            console.log("KMZ gerado e download iniciado.");
+                            console.info('[PlanMilT][KMZ] Exportação concluída.', {
+                                featureCount: geoJsonData.features.length,
+                                iconCount: uniqueIcons.length
+                            });
                         } catch (error) {
                             console.error("Erro ao gerar o KMZ:", error);
                         }

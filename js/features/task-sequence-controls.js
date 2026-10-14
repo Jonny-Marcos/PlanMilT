@@ -31,10 +31,9 @@
                     setTasks: tasks => { taskSequence = tasks; },
                     renderTasks: () => taskEditor.defineTasksInSingleScreen(),
                     sweetAlert: Swal,
-                    request: fetch
+                    request: window.PlanMilT.apiClient.request
                 });
                 var deleteTaskSequence = taskSequenceStorage.deleteTaskSequence;
                 var saveTaskSequence = taskSequenceStorage.saveTaskSequence;
                 var loadTaskSequences = taskSequenceStorage.loadTaskSequences;
                 var loadTaskSequenceDetails = taskSequenceStorage.loadTaskSequenceDetails;
-

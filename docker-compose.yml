@@ -5,13 +5,9 @@ services:
       - "8080:80"
     volumes:
       - ./bd.db:/var/lib/planmilt/bd.db
-      - ./logs:/var/log/apache2
-      - planmilt-logs:/var/log/planmilt
       - planmilt-elevation:/var/www/html/SRTM3
     environment:
-      APACHE_LOG_DIR: /var/log/apache2
       PLANMILT_DB_PATH: /var/lib/planmilt/bd.db
-      PLANMILT_LOG_DIR: /var/log/planmilt
     restart: always
     networks:
       - app-network
@@ -21,5 +17,4 @@ networks:
     driver: bridge
 
 volumes:
-  planmilt-logs:
   planmilt-elevation:

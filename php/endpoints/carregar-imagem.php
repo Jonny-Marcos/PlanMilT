@@ -6,7 +6,7 @@
  */
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
 
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 header("Content-Type: application/json");
 
@@ -55,7 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 echo json_encode(['error' => 'Imagem não encontrada.']);
             }
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['error' => 'Não foi possível carregar a imagem.']);
         }
     } else {
         // Se 'id' não for fornecido, retorna a lista de imagens
@@ -73,7 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             echo json_encode(['images' => $images]);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['error' => 'Não foi possível listar as imagens.']);
         }
     }
 } elseif ($_SERVER["REQUEST_METHOD"] == "GET") {
@@ -103,7 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 echo json_encode(['error' => 'Imagem não encontrada.']);
             }
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['error' => 'Não foi possível carregar os dados da imagem.']);
         }
     } else {
         echo json_encode(['error' => 'ID da imagem não fornecido.']);

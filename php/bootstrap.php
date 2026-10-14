@@ -7,9 +7,7 @@ if (PHP_SAPI !== 'cli' && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE
 }
 
 (static function (): void {
-    $applicationRoot = getenv('PLANMILT_APP_ROOT') ?: __DIR__;
-    $infrastructurePath = $applicationRoot . '/src/Infrastructure';
+    $infrastructurePath = __DIR__ . '/src/Infrastructure';
 
     require_once $infrastructurePath . '/Database/ConnectionFactory.php';
-    require_once $infrastructurePath . '/Logging/Logger.php';
 })();

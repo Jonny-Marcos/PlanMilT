@@ -117,6 +117,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
 
                         if (resultDelete.success) {
                             await Swal.fire('Sucesso', `Sequência "${selectedSequence}" deletada com sucesso.`, 'success');
+                            console.info('[PlanMilT][Sequências] Sequência excluída.', { name: selectedSequence });
                             // Atualizar a lista de tarefas no modal
                             setTasks(getTasks().filter(task => task.name !== selectedSequence));
                             renderTasks();
@@ -230,6 +231,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
                         const result = await response.json();
 
                         if (result.success) {
+                            console.info('[PlanMilT][Sequências] Sequência salva.', { name: sequenceName });
                             await Swal.fire('Sucesso', `Sequência salva com sucesso: ${sequenceName}`, 'success').then(() => {
                                 // Reabrir o modal principal após salvar
                                 renderTasks();
@@ -262,6 +264,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
 
                         if (result.success) {
                             const sequences = result.sequences;
+                            console.info('[PlanMilT][Sequências] Lista carregada.', { count: sequences.length });
 
                             if (sequences.length === 0) {
                                 await Swal.fire('Aviso', 'Não há sequências salvas.', 'info');
@@ -312,6 +315,7 @@ window.PlanMilT.taskSequenceStorage = Object.freeze({
 
                         if (result.success) {
                             setTasks(result.sequence);
+                            console.info('[PlanMilT][Sequências] Sequência carregada.', { name: sequenceName });
                             const description = result.description || 'Nenhuma descrição fornecida.';
 
                             await Swal.fire({

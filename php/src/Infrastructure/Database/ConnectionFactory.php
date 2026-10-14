@@ -9,7 +9,7 @@ final class ConnectionFactory
 {
     public static function create(): PDO
     {
-        $databasePath = getenv('PLANMILT_DB_PATH') ?: dirname(__DIR__, 3) . '/bd.db';
+        $databasePath = getenv('PLANMILT_DB_PATH') ?: dirname(__DIR__, 4) . '/bd.db';
 
         return new PDO('sqlite:' . $databasePath, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

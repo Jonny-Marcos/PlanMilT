@@ -4,7 +4,6 @@ declare(strict_types=1);
 use PlanMilT\Application\TaskSequencesService;
 
 require_once dirname(__DIR__, 2) . '/php/src/Application/TaskSequencesService.php';
-require_once dirname(__DIR__, 2) . '/src/Infrastructure/Logging/Logger.php';
 
 $database = new PDO('sqlite::memory:');
 $database->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -20,13 +19,7 @@ $database->exec(
     . ')'
 );
 
-$loggedMessages = [];
-$service = new TaskSequencesService(
-    $database,
-    static function (string $message) use (&$loggedMessages): void {
-        $loggedMessages[] = $message;
-    }
-);
+$service = new TaskSequencesService($database);
 
 $assert = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -77,10 +70,5 @@ $assert($service->save('', '', '', '') === [
     'success' => false,
     'error' => 'Nome, senha e sequência são obrigatórios.'
 ], 'Missing save fields were not rejected.');
-$assert($loggedMessages !== [], 'Service did not send diagnostics to its logger.');
-$assert(
-    strpos(implode("\n", $loggedMessages), 'correct horse battery staple') === false,
-    'Service diagnostics must not contain submitted passwords.'
-);
 
 echo "TaskSequencesService tests passed.\n";

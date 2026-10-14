@@ -4,18 +4,11 @@
  *
  * Lê os tiles SRTM locais e mantém a resposta legada com latitude, longitude e elevação.
  */
-use PlanMilT\Infrastructure\Logging\Logger;
-
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 // elevation_profile.php
 
 error_reporting(E_ALL);
-
-// Função para registrar logs
-function writeLog($message) {
-    Logger::write($message);
-}
 
 // Função para calcular a distância haversine entre dois pontos
 function haversine($lat1, $lon1, $lat2, $lon2) {
@@ -56,14 +49,12 @@ function getSRTMTile($lat, $lon) {
 // Função para obter a elevação de um ponto a partir de um tile SRTM
 function getElevationFromTile($tilePath, $lat, $lon) {
     if (!file_exists($tilePath)) {
-        writeLog("Arquivo não encontrado: $tilePath");
         return null;
     }
 
     // Abrir o arquivo .HGT em modo binário
     $handle = fopen($tilePath, "rb");
     if ($handle === false) {
-        writeLog("Falha ao abrir o arquivo: $tilePath");
         return null;
     }
 
@@ -89,7 +80,6 @@ function getElevationFromTile($tilePath, $lat, $lon) {
     // Verificar se o ponto está dentro dos limites do tile
     if ($relativeLat < 0 || $relativeLat > 1 || $relativeLon < 0 || $relativeLon > 1) {
         fclose($handle);
-        writeLog("Ponto fora dos limites do tile: lat=$lat, lon=$lon");
         return null;
     }
 
@@ -102,8 +92,6 @@ function getElevationFromTile($tilePath, $lat, $lon) {
     if ($col < 0) $col = 0;
     if ($col >= $size) $col = $size - 1;
 
-    writeLog("Ponto: lat=$lat, lon=$lon | Tile: $tilePath | Row: $row | Col: $col");
-
     // Cada ponto é representado por 2 bytes (big endian)
     $offset = ($row * $size + $col) * 2;
     fseek($handle, $offset);
@@ -111,7 +99,6 @@ function getElevationFromTile($tilePath, $lat, $lon) {
     fclose($handle);
 
     if (strlen($data) < 2) {
-        writeLog("Dados insuficientes no tile: $tilePath | Offset: $offset");
         return null;
     }
 
@@ -120,15 +107,12 @@ function getElevationFromTile($tilePath, $lat, $lon) {
         $elevation -= 65536;
     }
 
-    writeLog("Elevação obtida: $elevation metros | Ponto: lat=$lat, lon=$lon");
-
     return $elevation;
 }
 
 // Processa a requisição POST
 $rawData = file_get_contents("php://input");
 if (!$rawData) {
-    writeLog("Nenhum dado recebido.");
     header('HTTP/1.1 400 Bad Request');
     echo json_encode(['error' => 'No data received']);
     exit;
@@ -136,7 +120,6 @@ if (!$rawData) {
 
 $data = json_decode($rawData, true);
 if (!$data || !isset($data['points']) || !is_array($data['points'])) {
-    writeLog("Dados inválidos recebidos.");
     header('HTTP/1.1 400 Bad Request');
     echo json_encode(['error' => 'Invalid data format']);
     exit;
@@ -150,7 +133,6 @@ $srtmDirectory = dirname(__DIR__, 2) . "/SRTM3/";
 
 // Verifica se o diretório SRTM3 existe
 if (!is_dir($srtmDirectory)) {
-    writeLog("Diretório SRTM3 não encontrado: $srtmDirectory");
     header('HTTP/1.1 500 Internal Server Error');
     echo json_encode(['error' => 'SRTM3 directory not found']);
     exit;
@@ -159,7 +141,6 @@ if (!is_dir($srtmDirectory)) {
 // Processa cada ponto
 foreach ($points as $point) {
     if (!isset($point['latitude']) || !isset($point['longitude'])) {
-        writeLog("Ponto com dados incompletos: " . json_encode($point));
         $elevationResults[] = [
             'latitude' => isset($point['latitude']) ? $point['latitude'] : null,
             'longitude' => isset($point['longitude']) ? $point['longitude'] : null,
@@ -174,8 +155,6 @@ foreach ($points as $point) {
     // Obter o nome do tile SRTM correspondente
     $tileName = getSRTMTile($lat, $lon);
     $tilePath = $srtmDirectory . $tileName;
-
-    writeLog("Processando ponto: lat=$lat, lon=$lon | Tile: $tileName | Caminho: $tilePath");
 
     // Obter a elevação do ponto
     $elevation = getElevationFromTile($tilePath, $lat, $lon);

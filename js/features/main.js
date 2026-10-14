@@ -483,6 +483,4 @@
                     drawnItems.addLayer(layer);
                 }
 
-                // Exibir o GeoJSON gerado
-                console.log('GeoJSON com propriedades de estilo:', JSON.stringify(drawnItems.toGeoJSON()));
             });

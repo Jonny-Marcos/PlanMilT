@@ -27,7 +27,7 @@
 
                     for (const layerName of selectedLayers) {
                         try {
-                            const response = await fetch("/carregar.php", {
+                            const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                                 method: "POST",
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: `usuario=${encodeURIComponent(layerName)}`
@@ -380,7 +380,7 @@
                         // Codifica a URL completa e a passa para o proxy.php
                         var proxyURL = '/proxy.php?url=' + encodeURIComponent(fullURL);
 
-                        fetch(proxyURL)
+                        window.PlanMilT.apiClient.request(proxyURL)
                             .then(function(response) {
                             return response.text();
                         })
@@ -406,6 +406,5 @@
 
                     });
                 }
-
 
 

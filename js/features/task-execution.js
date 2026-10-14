@@ -237,7 +237,11 @@
                         return log.includes('Erro:');
                     }
 
-                    console.warn(logMessages);
+                    const logExecutionResult = hasErrors(logMessages) ? console.error : console.info;
+                    logExecutionResult.call(console, '[PlanMilT][Tarefas] Execução finalizada.', {
+                        taskCount: taskSequence.length,
+                        hasErrors: hasErrors(logMessages)
+                    });
 
                     // Modal de Planejamento Concluído aprimorado
                     await Swal.fire({
@@ -290,7 +294,7 @@ ${!hasErrors(logMessages) ? "<p>Planejamento salvo na camada 'Sugestão de Plane
                  */
                 async function fetchElevationData(bounds) {
                     try {
-                        const response = await fetch(`get_elevation_data.php?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLon=${bounds.getWest()}&maxLon=${bounds.getEast()}`);
+                        const response = await window.PlanMilT.apiClient.request(`get_elevation_data.php?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLon=${bounds.getWest()}&maxLon=${bounds.getEast()}`);
 
                         if (!response.ok) {
                             const errorData = await response.json();
@@ -374,7 +378,7 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                                                 }
                                             });
 
-                                            const uploadResponse = await fetch('upload_elevation_files.php', {
+                                            const uploadResponse = await window.PlanMilT.apiClient.request('upload_elevation_files.php', {
                                                 method: 'POST',
                                                 body: uploadData
                                             });
@@ -389,20 +393,22 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                                             if (uploadResult.success) {
                                                 Swal.fire('Sucesso', 'Arquivos enviados com sucesso. Tentando novamente obter os dados de elevação...', 'success');
                                                 addToLog('Arquivos de elevação enviados com sucesso.');
-                                                console.warn("Arquivos de elevação enviados com sucesso.");
+                                                console.info('[PlanMilT][Elevação] Upload concluído.');
 
                                                 // Tentar novamente obter os dados de elevação
                                                 return await fetchElevationData(bounds);
                                             } else {
                                                 Swal.fire('Erro', uploadResult.message || 'Falha ao enviar os arquivos de elevação.', 'error');
                                                 addToLog('Erro: Falha ao enviar os arquivos de elevação:', uploadResult.message);
-                                                console.warn("Falha ao enviar os arquivos de elevação");
+                                                console.error('[PlanMilT][Elevação] Upload recusado.', {
+                                                    message: uploadResult.message || 'Falha ao enviar os arquivos.'
+                                                });
                                                 return null;
                                             }
                                         } catch (uploadError) {
                                             Swal.fire('Erro', 'Erro ao enviar os arquivos de elevação.', 'error');
                                             addToLog('Erro ao enviar os arquivos de elevação:', uploadError);
-                                            console.warn("Erro ao enviar os arquivos de elevação.");
+                                            console.error('[PlanMilT][Elevação] Falha no upload.', uploadError);
                                             return null;
                                         }
                                     } else {
@@ -418,7 +424,9 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                                 }
                             } else {
                                 addToLog('Erro ao obter dados de elevação:', errorData.error);
-                                console.warn("Erro ao obter os dados de elevação.");
+                                console.error('[PlanMilT][Elevação] Falha ao consultar amostras.', {
+                                    message: errorData.error || 'Erro retornado pelo servidor.'
+                                });
                                 return null;
                             }
                         } else {
@@ -426,16 +434,19 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
 
                             if (!Array.isArray(elevationData) || elevationData.length === 0) {
                                 addToLog('Erro: Dados de elevação inválidos ou vazios.');
-                                console.warn("Erro: Dados de elevação inválidos ou vazios");
+                                console.error('[PlanMilT][Elevação] Resposta inválida ou sem amostras.');
                                 return null;
                             }
 
                             Swal.close();
+                            console.info('[PlanMilT][Elevação] Amostras carregadas.', {
+                                count: elevationData.length
+                            });
                             return elevationData;
                         }
                     } catch (error) {
                         addToLog('Erro ao obter os dados de elevação:', error);
-                        console.warn("Erro ao obter os dados de elevação.");
+                        console.error('[PlanMilT][Elevação] Falha ao consultar elevações.', error);
                         return null;
                     }
                 }

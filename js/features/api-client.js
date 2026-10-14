@@ -1,5 +1,5 @@
 /**
- * @fileoverview Centraliza chamadas HTTP do frontend, valida respostas e registra falhas de rede, HTTP e formato sem expor payloads ou query strings.
+ * @fileoverview Centraliza chamadas HTTP do frontend, registra respostas e problemas de rede, HTTP e formato sem expor payloads ou query strings.
  * @exports window.PlanMilT.apiClient
  * @requires fetch do navegador
  */
@@ -24,6 +24,47 @@
     }
 
     /**
+     * Registra uma resposta HTTP sem expor query strings ou conteúdo enviado.
+     * @param {string} url - URL ou caminho relativo do endpoint/recurso.
+     * @param {Object} options - Opções adicionais da requisição.
+     * @param {Response} response - Resposta HTTP recebida.
+     */
+    function logRequestResponse(url, options, response) {
+        const endpoint = String(url).split(/[?#]/, 1)[0];
+        const method = (options && options.method ? options.method : 'GET').toUpperCase();
+        const log = response.ok ? console.info : console.warn;
+
+        log.call(console, '[PlanMilT][API] Resposta HTTP recebida.', {
+            method,
+            endpoint,
+            status: response.status,
+            ok: response.ok
+        });
+    }
+
+    /**
+     * Executa fetch e registra falhas de rede sem modificar a resposta HTTP.
+     * @param {string} url - URL ou caminho relativo do endpoint/recurso.
+     * @param {Object} options - Opções adicionais da requisição.
+     * @returns {Promise<Response>} Resposta HTTP recebida.
+     */
+    async function fetchResponse(url, options) {
+        try {
+            return await fetch(url, options);
+        } catch (error) {
+            const safeError = new Error(getSafeErrorMessage(error));
+            const errorName = error instanceof Error ? error.name : 'Error';
+            safeError.name = errorName;
+            logRequestProblem(url, options, {
+                problem: 'Falha de rede.',
+                errorName,
+                errorMessage: getSafeErrorMessage(error)
+            });
+            throw safeError;
+        }
+    }
+
+    /**
      * Redige valores de query string de uma mensagem de erro antes do log.
      * @param {Error} error - Erro recebido durante a operação.
      */
@@ -33,6 +74,18 @@
     }
 
     window.PlanMilT.apiClient = Object.freeze({
+        /**
+         * Envia uma requisição HTTP e devolve a resposta para o chamador interpretar.
+         * @param {string} url - URL ou caminho relativo do endpoint/recurso.
+         * @param {Object} options - Opções de fetch, como método, cabeçalhos e corpo.
+         * @returns {Promise<Response>} Resposta HTTP recebida.
+         */
+        async request(url, options = {}) {
+            const response = await fetchResponse(url, options);
+            logRequestResponse(url, options, response);
+            return response;
+        },
+
         /**
          * Envia um objeto JSON e devolve os dados JSON da resposta.
          * @param {string} url - URL ou caminho relativo do endpoint/recurso.
@@ -59,17 +112,7 @@
          * @returns {Promise<string>} Corpo da resposta em texto.
          */
         async getText(url, options) {
-            let response;
-            try {
-                response = await fetch(url, options);
-            } catch (error) {
-                logRequestProblem(url, options, {
-                    problem: 'Falha de rede.',
-                    errorName: error.name,
-                    errorMessage: getSafeErrorMessage(error)
-                });
-                throw error;
-            }
+            const response = await fetchResponse(url, options);
 
             let text;
             try {
@@ -93,6 +136,7 @@
                 throw error;
             }
 
+            logRequestResponse(url, options, response);
             return text;
         },
 
@@ -103,17 +147,7 @@
          * @returns {Promise<*>} Dados interpretados da resposta JSON.
          */
         async getJson(url, options) {
-            let response;
-            try {
-                response = await fetch(url, options);
-            } catch (error) {
-                logRequestProblem(url, options, {
-                    problem: 'Falha de rede.',
-                    errorName: error.name,
-                    errorMessage: getSafeErrorMessage(error)
-                });
-                throw error;
-            }
+            const response = await fetchResponse(url, options);
 
             let data;
 
@@ -140,6 +174,7 @@
                 throw error;
             }
 
+            logRequestResponse(url, options, response);
             return data;
         }
     });

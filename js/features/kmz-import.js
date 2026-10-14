@@ -174,12 +174,13 @@
 
                                     // Adicionar a camada de importação ao controle de camadas com o nome do arquivo KMZ
                                     layerControl.addOverlay(importLayer, fileName);
-                                });
+                                }).catch(error => console.error('Falha ao ler o KML do arquivo KMZ:', error));
                             } else {
                                 console.error("Nenhum arquivo KML encontrado no ZIP.");
                             }
-                        });
+                        }).catch(error => console.error('Falha ao abrir o arquivo KMZ:', error));
                     };
+                    reader.onerror = () => console.error('Falha ao ler o arquivo KMZ selecionado:', reader.error);
                     reader.readAsArrayBuffer(file);
                 }
             });
@@ -201,8 +202,6 @@
 
                 iconNodes.forEach(function(iconNode) {
                     var iconPath = iconNode.textContent.trim();
-                    console.log("Processing icon:", iconPath);
-
                     if (!iconCache[iconPath] && zip.file(iconPath)) {
                         zip.file(iconPath).async("base64").then(function(imageData) {
                             var imgSrc = "data:image/png;base64," + imageData;
@@ -226,7 +225,7 @@
                                 }
                             });
                         }).catch(function(error) {
-                            console.error("Error reading image file:", error);
+                            console.error('Falha ao ler imagem do KMZ:', error);
                         });
                     }
                 });
@@ -250,7 +249,9 @@
                     }
                 });
 
-                console.log("Import completed. Added layers:", importLayer.getLayers());
+                console.info('[PlanMilT][KMZ] Geometrias KML importadas.', {
+                    featureCount: importLayer.getLayers().length
+                });
             }
 
             /**
@@ -290,8 +291,6 @@
 
                 overlayNodes.forEach(function(overlayNode) {
                     var iconPath = overlayNode.querySelector('Icon > href').textContent.trim();
-                    console.log("Processing overlay icon:", iconPath);
-
                     if (zip.file(iconPath)) {
                         zip.file(iconPath).async("base64").then(function(imageData) {
                             var imgSrc = "data:image/png;base64," + imageData;
@@ -305,7 +304,7 @@
                             var overlay = L.imageOverlay(imgSrc, bounds);
                             overlay.addTo(importLayer);
                         }).catch(function(error) {
-                            console.error("Error reading overlay image file:", error);
+                            console.error('Falha ao ler sobreposição do KMZ:', error);
                         });
                     }
                 });

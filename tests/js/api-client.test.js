@@ -8,11 +8,14 @@ const apiClient = window.PlanMilT.apiClient;
 
 test('postJson sends a JSON POST with the standard content type', async () => {
     const originalFetch = global.fetch;
+    const originalConsoleInfo = console.info;
+    const logged = [];
     let request;
     global.fetch = async (url, options) => {
         request = { url, options };
         return { ok: true, status: 200, json: async () => ({ points: [] }) };
     };
+    console.info = (...args) => logged.push(args);
 
     try {
         const payload = { points: [{ latitude: 1, longitude: 2 }] };
@@ -23,8 +26,34 @@ test('postJson sends a JSON POST with the standard content type', async () => {
         assert.equal(request.options.headers['Content-Type'], 'application/json');
         assert.equal(request.options.body, JSON.stringify(payload));
         assert.deepEqual(result, { points: [] });
+        assert.deepEqual(logged, [[
+            '[PlanMilT][API] Resposta HTTP recebida.',
+            { method: 'POST', endpoint: 'elevation_profile.php', status: 200, ok: true }
+        ]]);
     } finally {
         global.fetch = originalFetch;
+        console.info = originalConsoleInfo;
+    }
+});
+
+test('request logs HTTP status without query values and returns the response', async () => {
+    const originalFetch = global.fetch;
+    const originalConsoleWarn = console.warn;
+    const logged = [];
+    const response = { ok: false, status: 400 };
+    global.fetch = async () => response;
+    console.warn = (...args) => logged.push(args);
+
+    try {
+        assert.equal(await apiClient.request('/data?token=private'), response);
+        assert.deepEqual(logged, [[
+            '[PlanMilT][API] Resposta HTTP recebida.',
+            { method: 'GET', endpoint: '/data', status: 400, ok: false }
+        ]]);
+        assert.doesNotMatch(JSON.stringify(logged), /private/);
+    } finally {
+        global.fetch = originalFetch;
+        console.warn = originalConsoleWarn;
     }
 });
 

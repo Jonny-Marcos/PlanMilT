@@ -358,10 +358,6 @@ window.PlanMilT.mapSetup = Object.freeze({
                 if (selectedLayerKey && layers[selectedLayerKey]) {
                     var layer = layers[selectedLayerKey];
 
-                    // Log detalhado do tipo e propriedades da camada
-                    console.log('Tipo de camada:', layer.constructor.name);
-                    console.log('Propriedades da camada:', layer);
-
                     // Ajuste de opacidade com métodos apropriados
                     if (typeof layer.setOpacity === 'function') {
                         layer.setOpacity(opacity);
@@ -373,7 +369,7 @@ window.PlanMilT.mapSetup = Object.freeze({
                         console.warn(`O layer "${selectedLayerKey}" não suporta ajuste de opacidade.`);
                     }
                 } else {
-                    console.log(`selectedLayerKey ${selectedLayerKey} não encontrado no layerRegistry`);
+                    console.warn(`Camada "${selectedLayerKey}" não encontrada para ajustar a transparência.`);
                 }
             }
 

@@ -494,7 +494,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Array<*>} pointsArray - Valor de entrada usado durante esta operação.
                  */
                 async function requestElevation(pointsArray) {
-                    const response = await fetch('elevation_profile.php', {
+                    const response = await window.PlanMilT.apiClient.request('elevation_profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ points: pointsArray })
@@ -510,7 +510,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Error} error - Erro recebido durante a operação.
                  */
                 function handleRFError(error) {
-                    console.error(error);
+                    console.error('[PlanMilT][Rádio] Falha no cálculo do enlace.', error);
                     Swal.fire('Erro', 'Não foi possível calcular. Verifique se possui os arquivos HGT para esta coordenada.', 'error');
                     rfTempLayer.clearLayers();
                 }

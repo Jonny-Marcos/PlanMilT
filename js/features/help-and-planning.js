@@ -144,7 +144,15 @@
                                 url: "/salvar.php", // Substitua pelo caminho correto para sua página PHP
                                 data: data,
                                 success: function(response) {
-                                    Swal.fire('Sucesso!', 'Sugestão de Planejamento salva com sucesso!', 'success');
+                                    if (response.includes('Desenho atualizado com sucesso!') || response.includes('Desenho salvo com sucesso!')) {
+                                        Swal.fire('Sucesso!', 'Sugestão de Planejamento salva com sucesso!', 'success');
+                                        console.info('[PlanMilT][Planejamento] Sugestão salva.', {
+                                            featureCount: planejamentoData.features.length
+                                        });
+                                    } else {
+                                        Swal.fire('Erro!', 'Não foi possível salvar a Sugestão de Planejamento.', 'error');
+                                        console.error('[PlanMilT][Planejamento] Servidor recusou o salvamento.');
+                                    }
                                 },
                                 error: function(xhr, status, error) {
                                     console.error("Erro ao salvar a Sugestão de Planejamento:", error);
@@ -154,5 +162,3 @@
                         }
                     });
                 });
-
-

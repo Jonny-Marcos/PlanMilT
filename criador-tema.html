@@ -26,6 +26,7 @@
     
     <!-- SweetAlert2 JS -->
     <script src="/js/library/sweetalert2@11.js"></script>
+    <script src="/js/features/api-client.js"></script>
     
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="/css/sweetalert2.min.css">
@@ -343,13 +344,12 @@
             var objectCenter = object.getCenterPoint();
             var latLng = map.containerPointToLatLng([objectCenter.x, objectCenter.y]);
 
-            console.log('Latitude:', latLng.lat, 'Longitude:', latLng.lng);
         });
 
         function removeBackground() {
             var activeObject = canvas.getActiveObject();
             if (!activeObject) {
-                console.log("Nenhum objeto ativo selecionado.");
+                console.warn('[PlanMilT][Editor] Selecione uma imagem antes de remover o fundo.');
                 return;
             }
 
@@ -380,7 +380,6 @@
                 });
 
                 canvas.renderAll();
-                console.log("Canvas renderizado com a imagem ajustada.");
             }
         }
 
@@ -420,7 +419,7 @@
 
         async function saveImage() {
     if (!canvas) {
-        console.error("Canvas não está definido.");
+        console.error('[PlanMilT][Editor] Canvas indisponível para salvar a imagem.');
         return;
     }
 
@@ -429,14 +428,12 @@
 
     // Captura o estado atual do canvas com todas as transformações
     var imageDataUrl = canvas.toDataURL('image/png', 1.0);
-    console.log("Image data URL capturada do canvas atual.");
 
     var mapBounds = map.getBounds();
     var canvasBounds = [
         [mapBounds.getNorthWest().lat, mapBounds.getNorthWest().lng],
         [mapBounds.getSouthEast().lat, mapBounds.getSouthEast().lng]
     ];
-    console.log("Canvas bounds for geolocalização:", JSON.stringify(canvasBounds));
 
     // Solicita título, senha e opção de compartilhamento
     const { value: formValues } = await Swal.fire({
@@ -474,19 +471,29 @@
             formData.append('imagem', imageDataUrl);
             formData.append('localizacao', JSON.stringify(canvasBounds));
 
-            fetch('salvar-imagem.php', {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => response.text())
-                .then(data => {
-                console.log("Resposta do servidor:", data);
-                Swal.fire('Sucesso!', 'Imagem salva com sucesso!', 'success');
-            })
-                .catch(error => {
-                console.error("Erro ao enviar imagem:", error);
-                Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
-            });
+            try {
+                const response = await window.PlanMilT.apiClient.request('salvar-imagem.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const message = (await response.text()).trim();
+
+                if (!response.ok || message !== 'Imagem salva com sucesso!') {
+                    console.error('[PlanMilT][Imagens] Servidor recusou o salvamento.', {
+                        status: response.status
+                    });
+                    await Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
+                    return;
+                }
+
+                console.info('[PlanMilT][Imagens] Imagem salva.', {
+                    compartilhavel: formValues.compartilhavel
+                });
+                await Swal.fire('Sucesso!', 'Imagem salva com sucesso!', 'success');
+            } catch (error) {
+                console.error('[PlanMilT][Imagens] Falha na requisição de salvamento.', error);
+                await Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
+            }
         }
 
 

@@ -4,19 +4,13 @@
  *
  * Lê tiles SRTM locais e mantém os parâmetros GET usados pelo frontend.
  */
-use PlanMilT\Infrastructure\Logging\Logger;
-
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 // get_elevation_data.php
 
 header('Content-Type: application/json');
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
-
-function writeLog($message) {
-    Logger::write($message);
-}
 
 try {
     $minLat = isset($_GET['minLat']) ? floatval($_GET['minLat']) : null;
@@ -25,7 +19,6 @@ try {
     $maxLon = isset($_GET['maxLon']) ? floatval($_GET['maxLon']) : null;
 
     if ($minLat === null || $maxLat === null || $minLon === null || $maxLon === null) {
-        writeLog("Parâmetros faltando.");
         http_response_code(400);
         echo json_encode(['error' => 'Parâmetros faltando']);
         exit;
@@ -35,13 +28,10 @@ try {
     $maxAreaDegrees = 1.0; // Área máxima em graus quadrados
     $areaRequested = abs($maxLat - $minLat) * abs($maxLon - $minLon);
     if ($areaRequested > $maxAreaDegrees) {
-        writeLog("Área solicitada muito grande: $areaRequested graus quadrados.");
         http_response_code(400);
         echo json_encode(['error' => 'A área solicitada é muito grande. Por favor, selecione uma área menor.']);
         exit;
     }
-
-    writeLog("Parâmetros recebidos: minLat=$minLat, maxLat=$maxLat, minLon=$minLon, maxLon=$maxLon");
 
     // Função para determinar quais tiles SRTM são necessários
     function getSRTMTiles($minLat, $maxLat, $minLon, $maxLon) {
@@ -74,7 +64,6 @@ try {
     foreach ($tiles as $tile) {
         $filePath = dirname(__DIR__, 2) . "/SRTM3/" . $tile;
         if (!file_exists($filePath)) {
-            writeLog("Arquivo não encontrado: $filePath");
             $missingTiles[] = $tile;
             continue;
         }
@@ -84,7 +73,6 @@ try {
 
         $handle = fopen($filePath, "rb");
         if ($handle === false) {
-            writeLog("Falha ao abrir o arquivo: $filePath");
             continue;
         }
 
@@ -146,9 +134,8 @@ try {
     // Retorna os pontos de elevação ao cliente
     echo json_encode($elevationPoints);
 } catch (Exception $e) {
-    writeLog("Exceção capturada: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Erro no servidor', 'message' => $e->getMessage()]);
+    echo json_encode(['error' => 'Erro no servidor', 'message' => 'Não foi possível processar os dados de elevação.']);
     exit;
 }
 ?>

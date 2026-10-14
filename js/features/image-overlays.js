@@ -12,13 +12,14 @@
             async function loadImageWithPrompt() {
                 // Obtém a lista de imagens do servidor
                 try {
-                    const response = await fetch('carregar-imagem.php', {
+                    const response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
                     const data = await response.json();
 
                     if (data.images) {
+                        console.info('[PlanMilT][Imagens] Lista carregada.', { count: data.images.length });
                         // Monta as opções para o select
                         const options = data.images.map(image => `<option value="${image.id}">${image.descricao}</option>`).join('');
 
@@ -47,12 +48,14 @@
 
                         await attemptToLoadImage(imageId);
                     } else if (data.error) {
+                        console.error('[PlanMilT][Imagens] Falha ao listar imagens.', { message: data.error });
                         Swal.fire('Erro!', data.error, 'error');
                     } else {
+                        console.warn('[PlanMilT][Imagens] Nenhuma imagem disponível.');
                         Swal.fire('Erro!', 'Nenhuma imagem disponível.', 'error');
                     }
                 } catch (error) {
-                    console.error(error);
+                    console.error('[PlanMilT][Imagens] Falha ao obter a lista.', error);
                     Swal.fire('Erro!', 'Erro ao obter a lista de imagens.', 'error');
                 }
             }
@@ -67,7 +70,7 @@
                 params.append('id', imageId);
 
                 try {
-                    const response = await fetch('carregar-imagem.php', {
+                    const response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: params.toString()
@@ -78,7 +81,9 @@
                         var bounds = L.latLngBounds(data.bounds);
                         var imageLayer = L.imageOverlay(data.url, bounds);
                         addNewOverlayLayer(`Imagem: ${data.descricao}`, imageLayer);
+                        console.info('[PlanMilT][Imagens] Sobreposição carregada.', { id: imageId });
                     } else if (data.error) {
+                        console.error('[PlanMilT][Imagens] Servidor recusou o carregamento.', { message: data.error });
                         if (data.error === 'Senha incorreta ou não fornecida.') {
                             // Solicita a senha
                             const { value: senhaInput } = await Swal.fire({
@@ -100,7 +105,7 @@
                             // Tenta carregar a imagem novamente com a senha fornecida
                             params.append('senha', senhaInput);
 
-                            const responseWithPassword = await fetch('carregar-imagem.php', {
+                            const responseWithPassword = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()
@@ -111,7 +116,11 @@
                                 var bounds = L.latLngBounds(dataWithPassword.bounds);
                                 var imageLayer = L.imageOverlay(dataWithPassword.url, bounds);
                                 addNewOverlayLayer(`Imagem: ${dataWithPassword.descricao}`, imageLayer);
+                                console.info('[PlanMilT][Imagens] Sobreposição autenticada carregada.', { id: imageId });
                             } else if (dataWithPassword.error) {
+                                console.error('[PlanMilT][Imagens] Falha no carregamento autenticado.', {
+                                    message: dataWithPassword.error
+                                });
                                 // Informa que a senha está incorreta e encerra o processo
                                 Swal.fire('Erro!', 'Senha incorreta.', 'error');
                             } else {
@@ -124,12 +133,10 @@
                         Swal.fire('Erro!', 'Imagem não encontrada ou dados incompletos.', 'error');
                     }
                 } catch (error) {
-                    console.error(error);
+                    console.error('[PlanMilT][Imagens] Falha ao carregar a sobreposição.', error);
                     Swal.fire('Erro!', 'Erro ao carregar a imagem.', 'error');
                 }
             }
-
-
 
 
 

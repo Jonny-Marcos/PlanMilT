@@ -34,7 +34,7 @@
 
                 try {
                     for (const camada of camadas) {
-                        const response = await fetch("/carregar.php", { // Ajuste para o caminho correto do seu script PHP
+                        const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                             method: "POST",
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -50,11 +50,14 @@
 
                         // Verifica se os dados obtidos são do tipo GeoJSON válido
                         if (!isValidGeoJson(geoJsonData)) {
-                            console.log(`A camada solicitada ${camada} não é um GeoJSON válido ou não existe.`);
+                            console.warn(`A camada compartilhada "${camada}" não existe ou contém dados inválidos.`);
                             return; // Sai da função se não for um GeoJSON válido
                         }
 
-                        console.log("Geojson carregado para a camada", camada, ":", geoJsonData);
+                        console.info('[PlanMilT][Camadas] Desenhos da camada compartilhada carregados.', {
+                            layer: camada,
+                            featureCount: geoJsonData.features.length
+                        });
 
                         // Define um nome único para a nova camada de desenhos
                         var newLayerName = camada;
@@ -66,7 +69,6 @@
                         L.geoJson(geoJsonData, {
                             onEachFeature: function(feature, layer) {
                                 if (feature.geometry.type === 'Point' && Object.keys(feature.properties).length === 0) {
-                                    console.log("Ponto vazio encontrado:", feature);
                                     // Configura um ícone transparente e sem tamanho para o layer
                                     var emptyIcon = L.divIcon({
                                         html: '', // Sem conteúdo HTML
@@ -244,7 +246,7 @@
                  */
                 async function loadImages() {
                     try {
-                        const response = await fetch('carregar-imagem.php', {
+                        const response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                         });
@@ -270,8 +272,6 @@
                     }
                 }
             });
-
-
 
 
 

@@ -42,14 +42,12 @@
             async function getElevationProfile(marker1, marker2) {
                 try {
                     // Extrai as localizações dos marcadores passados como argumentos
-                    console.log(marker1);
                     var P1 = marker1.getLatLng();
                     var P2 = marker2.getLatLng();
                     var profileSamples = window.PlanMilT.elevationProfile.createProfileSamples(P1, P2);
                     var midpoint = profileSamples.midpoint;
                     var points = profileSamples.points;
 
-                    console.log("Calculando perfil de elevação para os pontos:", points);
 
                     // Prepara os dados para enviar à API local
                     var payload = {
@@ -58,7 +56,6 @@
 
                     const data = await window.PlanMilT.apiClient.postJson('elevation_profile.php', payload);
 
-                    console.log("Dados de elevação recebidos:", data);
 
                     // Verifica se a resposta contém as elevações
                     if (!data || !Array.isArray(data)) {
@@ -95,7 +92,7 @@
                 for (const id of calcoArray) {
                     try {
                         // Primeiro, fazer uma requisição GET para obter a descrição e verificar se a imagem requer senha
-                        let response = await fetch(`carregar-imagem.php?id=${id.trim()}`);
+                        let response = await window.PlanMilT.apiClient.request(`carregar-imagem.php?id=${id.trim()}`);
                         let data = await response.json();
 
                         if (data.error) {
@@ -125,7 +122,7 @@
                             params.append('id', id.trim());
                             params.append('senha', senha);
 
-                            response = await fetch('carregar-imagem.php', {
+                            response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()
@@ -136,7 +133,7 @@
                             const params = new URLSearchParams();
                             params.append('id', id.trim());
 
-                            response = await fetch('carregar-imagem.php', {
+                            response = await window.PlanMilT.apiClient.request('carregar-imagem.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                                 body: params.toString()
@@ -149,7 +146,7 @@
                             var bounds = L.latLngBounds(imageData.bounds);
                             var imageLayer = L.imageOverlay(imageData.url, bounds, { opacity: 0.7 });
                             addNewOverlayLayer(`${imageData.descricao}`, imageLayer);
-                            console.log(`Imagem "${descricao}" carregada com sucesso.`);
+                            console.info('[PlanMilT][Imagens] Imagem compartilhada carregada.', { id: id.trim() });
                         } else if (imageData.error) {
                             Swal.fire('Erro', imageData.error, 'error');
                         } else {
@@ -272,4 +269,3 @@
                     return marker !== removedLayer;
                 });
             });
-

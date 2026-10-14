@@ -6,7 +6,7 @@
  */
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
 
-require_once dirname(__DIR__, 2) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
@@ -43,7 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             echo "Erro ao salvar a imagem.";
         }
     } catch (PDOException $e) {
-        echo "Erro na conexão com o banco de dados: " . $e->getMessage();
+        echo 'Não foi possível salvar a imagem.';
     }
 } else {
     echo "Método de requisição não suportado.";

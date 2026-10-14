@@ -3,10 +3,8 @@ declare(strict_types=1);
 
 namespace PlanMilT\Application;
 
-use Closure;
 use PDO;
 use PDOException;
-use PlanMilT\Infrastructure\Logging\Logger;
 
 /**
  * Encapsula persistência e regras de acesso às sequências de tarefas.
@@ -16,20 +14,15 @@ use PlanMilT\Infrastructure\Logging\Logger;
 final class TaskSequencesService
 {
     private PDO $database;
-    private Closure $logger;
 
     /**
-     * Cria o serviço com uma conexão SQLite e um logger substituível em testes.
+     * Cria o serviço com uma conexão SQLite.
      *
      * @param PDO $database Conexão configurada para a base de dados da aplicação.
-     * @param callable|null $logger Callback que recebe mensagens de diagnóstico.
      */
-    public function __construct(PDO $database, ?callable $logger = null)
+    public function __construct(PDO $database)
     {
         $this->database = $database;
-        $this->logger = $logger === null
-            ? Closure::fromCallable([Logger::class, 'write'])
-            : Closure::fromCallable($logger);
     }
 
     /**
@@ -44,7 +37,6 @@ final class TaskSequencesService
     public function save(string $name, string $password, string $sequence, string $description): array
     {
         if (empty($name) || empty($password) || empty($sequence)) {
-            $this->log('Dados incompletos para salvar uma sequência.');
             return ['success' => false, 'error' => 'Nome, senha e sequência são obrigatórios.'];
         }
 
@@ -57,7 +49,6 @@ final class TaskSequencesService
 
             if ($existingSequence) {
                 if (!password_verify($password, $existingSequence['password'])) {
-                    $this->log('Senha incorreta ao atualizar uma sequência.');
                     return ['success' => false, 'error' => 'Senha incorreta para a sequência existente.'];
                 }
 
@@ -66,7 +57,6 @@ final class TaskSequencesService
                 );
                 $statement->execute([$sequence, $description, $existingSequence['id']]);
 
-                $this->log('Sequência atualizada com sucesso.');
                 return ['success' => true, 'message' => 'Sequência atualizada com sucesso.'];
             }
 
@@ -77,10 +67,8 @@ final class TaskSequencesService
             );
             $statement->execute([$name, $passwordHash, $sequence, $description]);
 
-            $this->log('Sequência salva com sucesso.');
             return ['success' => true, 'message' => 'Sequência salva com sucesso.'];
         } catch (PDOException $error) {
-            $this->log('Falha ao salvar uma sequência: ' . $error->getMessage());
             return ['success' => false, 'error' => 'Erro ao salvar a sequência.'];
         }
     }
@@ -98,10 +86,8 @@ final class TaskSequencesService
             );
             $sequences = $statement->fetchAll(PDO::FETCH_COLUMN);
 
-            $this->log('Lista de sequências carregada. Total: ' . count($sequences));
             return ['success' => true, 'sequences' => $sequences];
         } catch (PDOException $error) {
-            $this->log('Falha ao carregar sequências: ' . $error->getMessage());
             return ['success' => false, 'error' => 'Erro ao carregar as sequências.'];
         }
     }
@@ -115,7 +101,6 @@ final class TaskSequencesService
     public function getSequence(string $name): array
     {
         if (empty($name)) {
-            $this->log('Nome ausente ao consultar uma sequência.');
             return ['success' => false, 'error' => 'Nome é obrigatório.'];
         }
 
@@ -127,7 +112,6 @@ final class TaskSequencesService
             $sequenceData = $statement->fetch(PDO::FETCH_ASSOC);
 
             if (!$sequenceData) {
-                $this->log('Sequência solicitada não encontrada.');
                 return ['success' => false, 'error' => 'Sequência não encontrada.'];
             }
 
@@ -137,7 +121,6 @@ final class TaskSequencesService
                 'description' => $sequenceData['description']
             ];
         } catch (PDOException $error) {
-            $this->log('Falha ao obter uma sequência: ' . $error->getMessage());
             return ['success' => false, 'error' => 'Erro ao obter a sequência.'];
         }
     }
@@ -151,7 +134,6 @@ final class TaskSequencesService
     public function exists(string $name): array
     {
         if (empty($name)) {
-            $this->log('Nome ausente ao verificar uma sequência.');
             return ['success' => false, 'error' => 'Nome é obrigatório.'];
         }
 
@@ -164,7 +146,6 @@ final class TaskSequencesService
 
             return ['success' => true, 'exists' => $exists];
         } catch (PDOException $error) {
-            $this->log('Falha ao verificar uma sequência: ' . $error->getMessage());
             return ['success' => false, 'error' => 'Erro ao verificar a existência da sequência.'];
         }
     }
@@ -179,7 +160,6 @@ final class TaskSequencesService
     public function delete(string $name, string $password): array
     {
         if (empty($name) || empty($password)) {
-            $this->log('Dados incompletos ao excluir uma sequência.');
             return ['success' => false, 'error' => 'Nome e senha são obrigatórios para deletar a sequência.'];
         }
 
@@ -191,33 +171,19 @@ final class TaskSequencesService
             $existingSequence = $statement->fetch(PDO::FETCH_ASSOC);
 
             if (!$existingSequence) {
-                $this->log('Tentativa de excluir sequência inexistente.');
                 return ['success' => false, 'error' => 'Sequência não encontrada.'];
             }
 
             if (!password_verify($password, $existingSequence['password'])) {
-                $this->log('Senha incorreta ao excluir uma sequência.');
                 return ['success' => false, 'error' => 'Senha incorreta para deletar a sequência.'];
             }
 
             $statement = $this->database->prepare('DELETE FROM task_sequences WHERE id = ?');
             $statement->execute([$existingSequence['id']]);
 
-            $this->log('Sequência deletada com sucesso.');
             return ['success' => true, 'message' => 'Sequência deletada com sucesso.'];
         } catch (PDOException $error) {
-            $this->log('Falha ao excluir uma sequência: ' . $error->getMessage());
             return ['success' => false, 'error' => 'Erro ao deletar a sequência.'];
         }
-    }
-
-    /**
-     * Registra diagnóstico sem incluir senhas ou conteúdo da sequência.
-     *
-     * @param string $message Mensagem técnica ou de estado para o logger.
-     */
-    private function log(string $message): void
-    {
-        ($this->logger)($message);
     }
 }
