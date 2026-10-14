@@ -1,0 +1,31 @@
+[Wed Oct 14 13:09:10.317115 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) PHP/8.4.26 configured -- resuming normal operations
+[Wed Oct 14 13:09:10.317285 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+[Wed Oct 14 13:11:32.405588 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+[Wed Oct 14 13:11:34.473816 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) PHP/8.4.26 configured -- resuming normal operations
+[Wed Oct 14 13:11:34.475090 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+[Wed Oct 14 13:12:29.269725 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+[Wed Oct 14 13:12:31.071759 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) PHP/8.4.26 configured -- resuming normal operations
+[Wed Oct 14 13:12:31.072106 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+[Wed Oct 14 13:17:42.536080 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+[Wed Oct 14 13:17:44.149959 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) configured -- resuming normal operations
+[Wed Oct 14 13:17:44.151378 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+[Wed Oct 14 13:25:33.257172 2026] [core:alert] [pid 17:tid 17] [client 172.18.0.1:40134] /var/www/html/.htaccess: Invalid command 'RewriteEngine', perhaps misspelled or defined by a module not included in the server configuration
+[Wed Oct 14 13:25:33.268057 2026] [core:alert] [pid 18:tid 18] [client 172.18.0.1:40140] /var/www/html/.htaccess: Invalid command 'RewriteEngine', perhaps misspelled or defined by a module not included in the server configuration
+[Wed Oct 14 13:25:33.276795 2026] [core:alert] [pid 19:tid 19] [client 172.18.0.1:40148] /var/www/html/.htaccess: Invalid command 'RewriteEngine', perhaps misspelled or defined by a module not included in the server configuration
+[Wed Oct 14 13:25:33.285364 2026] [core:alert] [pid 20:tid 20] [client 172.18.0.1:40154] /var/www/html/.htaccess: Invalid command 'RewriteEngine', perhaps misspelled or defined by a module not included in the server configuration
+[Wed Oct 14 13:26:12.572719 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00171: Graceful restart requested, doing restart
+[Wed Oct 14 13:26:12.625302 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) configured -- resuming normal operations
+[Wed Oct 14 13:26:12.625409 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+[Wed Oct 14 13:26:12.690609 2026] [authz_core:error] [pid 67:tid 67] [client 172.18.0.1:59386] AH01630: client denied by server configuration: /var/www/html/bd.db
+[Wed Oct 14 13:26:12.707295 2026] [authz_core:error] [pid 70:tid 70] [client 172.18.0.1:59406] AH01630: client denied by server configuration: /var/www/html/.htaccess
+[Wed Oct 14 13:27:40.928976 2026] [authz_core:error] [pid 67:tid 67] [client 172.18.0.1:48128] AH01630: client denied by server configuration: /var/www/html/bd.db
+[Wed Oct 14 13:27:40.952146 2026] [authz_core:error] [pid 69:tid 69] [client 172.18.0.1:48142] AH01630: client denied by server configuration: /var/www/html/logfile.log
+[Wed Oct 14 13:27:40.965339 2026] [authz_core:error] [pid 70:tid 70] [client 172.18.0.1:48158] AH01630: client denied by server configuration: /var/www/html/.env
+[Wed Oct 14 13:27:40.975984 2026] [authz_core:error] [pid 71:tid 71] [client 172.18.0.1:48162] AH01630: client denied by server configuration: /var/www/html/bootstrap.php
+[Wed Oct 14 13:27:40.992934 2026] [authz_core:error] [pid 67:tid 67] [client 172.18.0.1:48178] AH01630: client denied by server configuration: /var/www/html/.htaccess
+[Wed Oct 14 13:30:06.661395 2026] [authz_core:error] [pid 71:tid 71] [client 172.18.0.1:46932] AH01630: client denied by server configuration: /var/www/html/bd.db
+[Wed Oct 14 13:30:06.672523 2026] [authz_core:error] [pid 68:tid 68] [client 172.18.0.1:46934] AH01630: client denied by server configuration: /var/www/html/logfile.log
+[Wed Oct 14 13:30:06.681032 2026] [authz_core:error] [pid 67:tid 67] [client 172.18.0.1:46940] AH01630: client denied by server configuration: /var/www/html/bootstrap.php
+[Wed Oct 14 13:30:22.932668 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00170: caught SIGWINCH, shutting down gracefully
+[Wed Oct 14 16:29:19.794590 2026] [mpm_prefork:notice] [pid 1:tid 1] AH00163: Apache/2.4.68 (Debian) configured -- resuming normal operations
+[Wed Oct 14 16:29:19.823092 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
