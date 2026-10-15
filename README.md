@@ -61,7 +61,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 
 ### Interface do Usuário
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
-- **Gráficos táticos:** Use o botão “Gráfico tático” para escolher entre os 10 mais comuns ou navegar pelas seções traduzidas e curadas. O catálogo mantém apenas gráficos cuja simbologia acrescenta geometria própria; linhas, áreas básicas e círculos equivalentes às ferramentas nativas continuam disponíveis no Leaflet Draw.
+- **Gráficos táticos:** Use o botão “Gráfico tático” para escolher entre os 10 mais comuns ou navegar pelas seções traduzidas e curadas. Durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém apenas gráficos cuja simbologia acrescenta geometria própria; linhas, áreas básicas e círculos equivalentes às ferramentas nativas continuam disponíveis no Leaflet Draw.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
@@ -144,7 +144,7 @@ There is no project-specific PHP configuration file; adjust upload and execution
 
 ### User Interface
 - **Drawing:** Add polygons, lines, circles, and markers directly to the map.
-- **Tactical graphics:** Use the “Gráfico tático” button to choose from the 10 most common graphics or browse the curated, Portuguese-localized sections. The catalog keeps graphics whose symbology adds distinctive geometry; basic lines, areas, and circles equivalent to native tools remain available in Leaflet Draw.
+- **Tactical graphics:** Use the “Gráfico tático” button to choose from the 10 most common graphics or browse the curated, Portuguese-localized sections. While drawing, symbology and designation follow the vertices and cursor in a temporary preview. The catalog keeps graphics whose symbology adds distinctive geometry; basic lines, areas, and circles equivalent to native tools remain available in Leaflet Draw.
 - **Customization:** Choose colors, icons, and styles for map elements.
 - **Import/Export:** Support for KMZ files.
 - **Editing:** Modify text and properties of existing elements.

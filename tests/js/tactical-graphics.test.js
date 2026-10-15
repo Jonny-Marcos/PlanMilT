@@ -32,6 +32,9 @@ function createHarness({
     renderError = null
 } = {}) {
     const layers = [];
+    const mapLayers = [];
+    const removedMapLayers = [];
+    const renderedFeatures = [];
     const mapListeners = new Map();
     const drawTools = [];
     const alerts = [];
@@ -49,6 +52,7 @@ function createHarness({
         getDisplayName: () => 'Eixo de avanço principal',
         baseGeometryFor: () => geometryType,
         renderTacticalGraphic(feature) {
+            renderedFeatures.push(feature);
             if (renderError) throw renderError;
             assert.equal(feature.properties.tacticalGraphic.name, 'MainAxisOfAdvance');
             assert.equal(
@@ -129,6 +133,8 @@ function createHarness({
         },
         geoJSON(feature, options) {
             return {
+                feature,
+                options,
                 eachLayer(callback) {
                     callback({ feature, options, setStyle() {} });
                 }
@@ -147,6 +153,12 @@ function createHarness({
     const map = {
         on(eventName, listener) {
             mapListeners.set(eventName, listener);
+        },
+        addLayer(layer) {
+            mapLayers.push(layer);
+        },
+        removeLayer(layer) {
+            removedMapLayers.push(layer);
         }
     };
     const drawnItems = {
@@ -182,7 +194,18 @@ function createHarness({
         getDefaultColor: () => '#123456'
     });
 
-    return { alerts, button, integration, drawTools, graphicSelect, layers, mapListeners };
+    return {
+        alerts,
+        button,
+        integration,
+        drawTools,
+        graphicSelect,
+        layers,
+        mapLayers,
+        mapListeners,
+        removedMapLayers,
+        renderedFeatures
+    };
 }
 
 test('selecting a line graphic starts native Leaflet drawing and adds rendered geometry and labels', async () => {
@@ -235,6 +258,77 @@ test('point graphics use the native marker tool and carry the default range', as
     });
 
     assert.equal(harness.layers.length, 1);
+});
+
+test('drawing displays a live tactical-symbol preview that is removed when drawing stops', async () => {
+    const harness = createHarness();
+    await harness.integration.startDrawing();
+    harness.mapListeners.get('draw:drawvertex')({
+        layers: {
+            eachLayer(callback) {
+                callback({ getLatLng: () => ({ lat: -20, lng: -50 }) });
+                callback({ getLatLng: () => ({ lat: -20.05, lng: -49.95 }) });
+            }
+        }
+    });
+    assert.equal(harness.mapLayers.length, 1);
+    assert.deepEqual(harness.renderedFeatures.at(-1).geometry.coordinates, [
+        [-50, -20],
+        [-49.95, -20.05]
+    ]);
+
+    harness.mapListeners.get('mousemove')({
+        latlng: { lat: -20.1, lng: -49.9 }
+    });
+
+    assert.equal(harness.mapLayers.length, 2);
+    assert.equal(harness.mapLayers[1].feature.type, 'FeatureCollection');
+    assert.equal(harness.mapLayers[1].feature.features[0].properties.role, 'graphic');
+    assert.equal(harness.mapLayers[1].feature.features[1].properties.role, 'label');
+    assert.deepEqual(harness.renderedFeatures.at(-1).geometry.coordinates, [
+        [-50, -20],
+        [-49.95, -20.05],
+        [-49.9, -20.1]
+    ]);
+    assert.equal(harness.layers.length, 0);
+
+    harness.mapListeners.get('draw:drawstop')();
+
+    assert.equal(harness.removedMapLayers.length, 2);
+    assert.equal(harness.removedMapLayers[0], harness.mapLayers[0]);
+    assert.equal(harness.removedMapLayers[1], harness.mapLayers[1]);
+});
+
+test('polygon previews use the committed vertices and the current cursor', async () => {
+    const harness = createHarness({ geometryType: 'Polygon', designation: '' });
+    await harness.integration.startDrawing();
+    harness.mapListeners.get('draw:drawvertex')({
+        layers: {
+            eachLayer(callback) {
+                callback({ getLatLng: () => ({ lat: -20, lng: -50 }) });
+                callback({ getLatLng: () => ({ lat: -20, lng: -49.95 }) });
+                callback({ getLatLng: () => ({ lat: -20.05, lng: -49.95 }) });
+            }
+        }
+    });
+
+    assert.equal(harness.mapLayers.length, 1);
+    assert.deepEqual(harness.renderedFeatures.at(-1).geometry, {
+        type: 'Polygon',
+        coordinates: [[[-50, -20], [-49.95, -20], [-49.95, -20.05], [-50, -20]]]
+    });
+
+    harness.mapListeners.get('mousemove')({
+        latlng: { lat: -20.05, lng: -50 }
+    });
+
+    assert.deepEqual(harness.renderedFeatures.at(-1).geometry.coordinates[0], [
+        [-50, -20],
+        [-49.95, -20],
+        [-49.95, -20.05],
+        [-50, -20.05],
+        [-50, -20]
+    ]);
 });
 
 test('renderer errors are surfaced to the user and consumed', async () => {
