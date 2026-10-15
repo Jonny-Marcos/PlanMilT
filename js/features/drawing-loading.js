@@ -133,7 +133,13 @@
                                     });
                                     layer.setIcon(customIcon);
                                     newLayer.addLayer(layer);
-                                } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon') {
+                                } else if (
+                                    feature.geometry.type === 'LineString' ||
+                                    feature.geometry.type === 'Polygon' ||
+                                    feature.geometry.type === 'MultiLineString' ||
+                                    feature.geometry.type === 'MultiPolygon' ||
+                                    feature.geometry.type === 'GeometryCollection'
+                                ) {
                                     // Modificação para aplicar estilos adicionais
                                     let style = { color: feature.properties.color };
 
@@ -141,7 +147,7 @@
                                         style.dashArray = feature.properties.dashArray;
                                     }
 
-                                    if (feature.geometry.type === 'Polygon') {
+                                    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
                                         if (feature.properties.fillColor) {
                                             style.fillColor = feature.properties.fillColor;
                                             style.fillOpacity = feature.properties.fillOpacity || 0.5;
@@ -153,7 +159,9 @@
                                         }
                                     }
 
-                                    layer.setStyle(style);
+                                    if (typeof layer.setStyle === 'function') {
+                                        layer.setStyle(style);
+                                    }
                                     newLayer.addLayer(layer);
                                 }
                             }
@@ -196,7 +204,13 @@
                                     });
                                     layer.setIcon(customIcon);
                                     drawnItems.addLayer(layer);
-                                } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon') {
+                                } else if (
+                                    feature.geometry.type === 'LineString' ||
+                                    feature.geometry.type === 'Polygon' ||
+                                    feature.geometry.type === 'MultiLineString' ||
+                                    feature.geometry.type === 'MultiPolygon' ||
+                                    feature.geometry.type === 'GeometryCollection'
+                                ) {
                                     // Modificação para aplicar estilos adicionais
                                     let style = { color: feature.properties.color };
 
@@ -204,7 +218,7 @@
                                         style.dashArray = feature.properties.dashArray;
                                     }
 
-                                    if (feature.geometry.type === 'Polygon') {
+                                    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
                                         if (feature.properties.fillColor) {
                                             style.fillColor = feature.properties.fillColor;
                                             style.fillOpacity = feature.properties.fillOpacity || 0.5;
@@ -216,7 +230,9 @@
                                         }
                                     }
 
-                                    layer.setStyle(style);
+                                    if (typeof layer.setStyle === 'function') {
+                                        layer.setStyle(style);
+                                    }
                                     drawnItems.addLayer(layer);
                                 }
                             }

@@ -459,6 +459,21 @@ ${styleUrl}
 <coordinates>${lineCoordinates}</coordinates>
             </LineString>
             </Placemark>`;
+                        } else if (geometryType === "MultiLineString") {
+                            const lineStrings = coordinates.map(lineCoordinates => `<LineString>
+<coordinates>${lineCoordinates.map(coord => coord.join(',')).join(' ')}</coordinates>
+            </LineString>`).join('');
+                            return `<Placemark>
+<name>${properties.name || ''}</name>
+<description>${properties.description || ''}</description>
+<Style>
+<LineStyle>
+<color>${lineColor}</color>
+<width>2</width>
+            </LineStyle>
+            </Style>
+<MultiGeometry>${lineStrings}</MultiGeometry>
+            </Placemark>`;
                         } else if (geometryType === "Polygon") {
                             const polygonCoordinates = coordinates.map(ring => ring.map(coord => coord.join(',')).join(' ')).join(' ');
                             return `<Placemark>
@@ -480,7 +495,41 @@ ${styleUrl}
             </outerBoundaryIs>
             </Polygon>
             </Placemark>`;
+                        } else if (geometryType === "MultiPolygon") {
+                            const polygons = coordinates.map(polygon => {
+                                const polygonCoordinates = polygon.map(ring => ring.map(coord => coord.join(',')).join(' ')).join(' ');
+                                return `<Polygon>
+<outerBoundaryIs>
+<LinearRing>
+<coordinates>${polygonCoordinates}</coordinates>
+            </LinearRing>
+            </outerBoundaryIs>
+            </Polygon>`;
+                            }).join('');
+                            return `<Placemark>
+<name>${properties.name || ''}</name>
+<description>${properties.description || ''}</description>
+<Style>
+<LineStyle>
+<color>${lineColor}</color>
+            </LineStyle>
+<PolyStyle>
+<color>${fillColor}</color>
+            </PolyStyle>
+            </Style>
+<MultiGeometry>${polygons}</MultiGeometry>
+            </Placemark>`;
+                        } else if (geometryType === "GeometryCollection") {
+                            const children = feature.geometry.geometries
+                                .map(geometry => createPlacemark({
+                                    ...feature,
+                                    geometry
+                                }))
+                                .filter(Boolean);
+                            return children.join('');
                         }
+
+                        return '';
                     }
 
                     /**

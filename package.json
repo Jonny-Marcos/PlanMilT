@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "build:tactical-graphics": "node tools/build-tactical-graphics.mjs",
+    "test:js": "node --test tests/js/*.test.js"
+  },
+  "devDependencies": {
+    "@zaes/tactical-graphics": "4.5.1",
+    "esbuild": "0.28.2"
+  }
+}

@@ -3,6 +3,7 @@
 !/.env.example
 /logs/
 /storage/
+/node_modules/
 /php-error.log
 /.github
 /tests

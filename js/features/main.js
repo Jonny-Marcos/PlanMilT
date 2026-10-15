@@ -32,6 +32,9 @@
             </div>
 <img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
             </div>
+<div class="toolbar-item">
+<button id="tacticalGraphicButton" title="Adicionar gráfico tático">Gráfico tático</button>
+</div>
 <div class="toolbar-icons">
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
 <i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ"></i>
@@ -174,6 +177,28 @@
             var drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
 
+            var tacticalGraphicsButton = document.getElementById('tacticalGraphicButton');
+            var tacticalGraphics = window.PlanMilTTacticalGraphics
+                ? window.PlanMilT.tacticalGraphics.attach({
+                    map,
+                    leaflet: L,
+                    library: window.PlanMilTTacticalGraphics,
+                    catalog: window.PlanMilT.tacticalGraphicsCatalog,
+                    drawnItems,
+                    button: tacticalGraphicsButton,
+                    sweetAlert: Swal,
+                    getDefaultColor: () => defaultColor
+                })
+                : {
+                    handleCreated: () => false
+                };
+
+            if (!window.PlanMilTTacticalGraphics) {
+                tacticalGraphicsButton.disabled = true;
+                tacticalGraphicsButton.title = 'Biblioteca de gráfico tático indisponível';
+                console.error('[PlanMilT][Gráficos táticos] Bundle não carregado: js/library/tactical-graphics.min.js');
+            }
+
             // Função para atualizar o controle de desenho sem especificar um ícone por padrão
             /**
              * Reconstrói o controle de desenho com a cor e opções atuais.
@@ -255,6 +280,10 @@
             //var centralPoint = null; // Armazena o ponto central escolhido no mapa-
 
             map.on(L.Draw.Event.CREATED, async function(e) {
+                if (tacticalGraphics.handleCreated(e)) {
+                    return;
+                }
+
                 var type = e.layerType;
                 var layer = e.layer; // Define a cor padrão para todos os desenhos
 

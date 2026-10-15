@@ -35,7 +35,7 @@ O idioma da interface e do conteúdo visível ao usuário é português. A insta
 
 Os arquivos seguintes são código da aplicação (não bibliotecas vendorizadas):
 
-- Inicialização e mapa: `main.js` inicializa mapa, toolbar, cor e desenho; `map-setup.js` prepara camadas e controles; `map-layers.js` consulta/interpreta capacidades WMS; `map-tools.js` registra ferramentas de navegação; `map-popups.js` ajusta popups e limites de impressão; `labels.js` gerencia rótulos; `layer-management.js` gerencia camadas dinâmicas e consultas de feições; `shared-layers.js` carrega e compartilha camadas; `help-and-planning.js` apresenta ajuda e envia sugestões de planejamento.
+- Inicialização e mapa: `main.js` inicializa mapa, toolbar, cor e desenho; `map-setup.js` prepara camadas e controles; `map-layers.js` consulta/interpreta capacidades WMS; `map-tools.js` registra ferramentas de navegação; `map-popups.js` ajusta popups e limites de impressão; `labels.js` gerencia rótulos; `layer-management.js` gerencia camadas dinâmicas e consultas de feições; `shared-layers.js` carrega e compartilha camadas; `tactical-graphics-catalog.js` traduz todos os nomes e categorias do catálogo e separa os dez gráficos comuns; `tactical-graphics.js` liga esse seletor ao bundle local `@zaes/tactical-graphics` e ao Leaflet Draw; `help-and-planning.js` apresenta ajuda e envia sugestões de planejamento.
 - Desenhos e intercâmbio: `drawing-geometry.js` contém geometria pura; `freehand-drawing.js` registra desenho livre; `drawing-storage.js` salva desenhos; `drawing-loading.js` carrega desenhos persistidos; `kmz-import.js` importa KMZ/KML; `kmz-export.js` converte para KML e gera KMZ.
 - Imagens: `image-overlays.js` localiza imagens e as exibe como sobreposições.
 - Elevação: `elevation-profile.js` fornece cálculos puros de amostragem e linha de visada; `elevation-tools.js` integra perfis e imagens georreferenciadas.
@@ -45,7 +45,7 @@ Os arquivos seguintes são código da aplicação (não bibliotecas vendorizadas
 
 ### Bibliotecas e assets
 
-- `js/library/`: JavaScript de terceiros, incluindo Leaflet e plugins, Turf, Chart.js, JSZip, jQuery, Fabric, html2canvas, SweetAlert2, proj4 e TinyMCE. `js/library/tinymce/` contém a distribuição do TinyMCE e seus plugins/temas.
+- `js/library/`: JavaScript de terceiros, incluindo Leaflet e plugins, Turf, Chart.js, JSZip, jQuery, Fabric, html2canvas, SweetAlert2, proj4, TinyMCE e o bundle local `tactical-graphics.min.js` (gerado por `npm run build:tactical-graphics` a partir de `@zaes/tactical-graphics`; exporta nomes e metadados de categorias). `js/library/tinymce/` contém a distribuição do TinyMCE e seus plugins/temas.
 - `css/`: CSS da aplicação (`app.css`), folhas de estilo de terceiros, ícones/fontes e imagens usados pelos controles. Não editar ou substituir arquivos vendorizados como parte de uma mudança localizada no código próprio.
 - `symbols/`: ícones de unidades e símbolos, consumidos pelo mapa e pelos endpoints de símbolos.
 - `SRTM3/`: tiles de elevação utilizados pelos serviços de perfil/consulta de elevação.

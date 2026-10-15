@@ -48,6 +48,44 @@ test('GeoJSON features are serialized into KML point, line and polygon placemark
     assert.match(kml, /<Polygon>/);
 });
 
+test('GeoJSON multi geometries are serialized into KML multigeometry placemarks', () => {
+    const exporter = createExporter();
+    const kml = exporter.geojsontokml({
+        type: 'FeatureCollection',
+        features: [
+            {
+                type: 'Feature',
+                properties: { name: 'Eixo', color: '#112233' },
+                geometry: {
+                    type: 'MultiLineString',
+                    coordinates: [
+                        [[-50, -20], [-49.8, -20.2]],
+                        [[-49.7, -20.25], [-49.6, -20.3]]
+                    ]
+                }
+            },
+            {
+                type: 'Feature',
+                properties: { name: 'Setor', color: '#445566' },
+                geometry: {
+                    type: 'MultiPolygon',
+                    coordinates: [
+                        [[[-50, -20], [-49.9, -20], [-49.9, -20.1], [-50, -20]]],
+                        [[[-49.8, -20.2], [-49.7, -20.2], [-49.7, -20.3], [-49.8, -20.2]]]
+                    ]
+                }
+            }
+        ]
+    }, {
+        documentName: 'PlanMilT',
+        documentDescription: 'Teste'
+    });
+
+    assert.match(kml, /<name>Eixo<\/name>/);
+    assert.match(kml, /<name>Setor<\/name>/);
+    assert.match(kml, /<MultiGeometry>/);
+});
+
 test('icon styles are included for icon features', () => {
     const exporter = createExporter();
     const kml = exporter.geojsontokml({

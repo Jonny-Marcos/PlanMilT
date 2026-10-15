@@ -7,6 +7,7 @@
 O PlanMilT utiliza a biblioteca **Leaflet** e ferramentas de **Sistema de Informação Geográfica (SIG)** para oferecer funcionalidades interativas, como:
 
 - Criação de desenhos no mapa (linhas, polígonos, círculos e marcadores);
+- Inclusão de gráficos táticos doutrinários (FM 1-02.2 / APP-06) com apoio da biblioteca `@zaes/tactical-graphics`, preservando as ferramentas nativas do Leaflet Draw;
 - Importação e exportação de arquivos no formato **KMZ**;
 - Edição de textos diretamente no mapa;
 - Medições de áreas e distâncias;
@@ -30,6 +31,7 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 - **Tinymce**
 - **HTML2Canvas**
 - **SQLite3**
+- **@zaes/tactical-graphics** (bundle local em `js/library/tactical-graphics.min.js`)
 
 ## Instalação
 
@@ -59,6 +61,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 
 ### Interface do Usuário
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
+- **Gráficos táticos:** Use o botão “Gráfico tático” para escolher entre os 10 mais comuns ou navegar pelas seções traduzidas em português; as ferramentas nativas de desenho permanecem disponíveis.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
@@ -70,6 +73,8 @@ A aplicação usa armazenamento local SQLite. O armazenamento local, por si só,
 Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request no repositório.
 
 ### Testes de desenvolvimento
+Para atualizar o bundle local da biblioteca de gráficos táticos, execute `npm install` e depois `npm run build:tactical-graphics`.
+
 Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
 Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`.
 Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
@@ -85,6 +90,7 @@ Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-cont
 PlanMilT leverages the **Leaflet** library and **Geographic Information System (GIS)** tools to offer interactive features such as:
 
 - Creating map drawings (lines, polygons, circles, and markers);
+- Adding doctrinal tactical graphics (FM 1-02.2 / APP-06) powered by `@zaes/tactical-graphics`, while keeping native Leaflet Draw tools available;
 - Importing and exporting files in **KMZ** format;
 - Editing text directly on the map;
 - Measuring areas and distances;
@@ -108,6 +114,7 @@ The application is built with the following technologies and libraries:
 - **Tinymce**
 - **HTML2Canvas**
 - **SQLite3**
+- **@zaes/tactical-graphics** (local bundle at `js/library/tactical-graphics.min.js`)
 
 ## Installation
 
@@ -137,6 +144,7 @@ There is no project-specific PHP configuration file; adjust upload and execution
 
 ### User Interface
 - **Drawing:** Add polygons, lines, circles, and markers directly to the map.
+- **Tactical graphics:** Use the “Gráfico tático” button to choose from the 10 most common graphics or browse the Portuguese-localized sections; native drawing tools remain available.
 - **Customization:** Choose colors, icons, and styles for map elements.
 - **Import/Export:** Support for KMZ files.
 - **Editing:** Modify text and properties of existing elements.
@@ -148,6 +156,7 @@ The application uses local SQLite storage. Local deployment alone does not repla
 Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
 
 ### Development tests
+Rebuild the local tactical graphics bundle with `npm install` followed by `npm run build:tactical-graphics`.
 Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
 PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, and `php tests/php/drawings-service.test.php`.
 Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
