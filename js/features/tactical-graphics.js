@@ -74,6 +74,194 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
         }
 
         /**
+         * Percorre recursivamente as posições de uma geometria GeoJSON.
+         * @param {Object} geometry - Geometria GeoJSON.
+         * @param {number[][]} positions - Acumulador de posições [lon, lat].
+         * @returns {number[][]} Posições encontradas.
+         */
+        function collectGeometryPositions(geometry, positions = []) {
+            if (!geometry) return positions;
+            if (geometry.type === 'GeometryCollection') {
+                geometry.geometries.forEach(child => collectGeometryPositions(child, positions));
+                return positions;
+            }
+
+            function visit(value) {
+                if (typeof value[0] === 'number' && typeof value[1] === 'number') {
+                    positions.push(value);
+                    return;
+                }
+                value.forEach(visit);
+            }
+
+            visit(geometry.coordinates);
+            return positions;
+        }
+
+        /**
+         * Cria um exemplo do gráfico para exibição no seletor.
+         * @param {string} name - Identificador do gráfico.
+         * @returns {Object} Feature GeoJSON de exemplo.
+         */
+        function createSampleFeature(name) {
+            const geometryType = library.baseGeometryFor(name);
+            const sampleGeometries = {
+                Point: { type: 'Point', coordinates: [-50, -20] },
+                LineString: {
+                    type: 'LineString',
+                    coordinates: [[-50, -20], [-49.995, -19.998], [-49.99, -20.002]]
+                },
+                Polygon: {
+                    type: 'Polygon',
+                    coordinates: [[
+                        [-50, -20],
+                        [-49.99, -20],
+                        [-49.99, -20.01],
+                        [-50, -20.01],
+                        [-50, -20]
+                    ]]
+                }
+            };
+            const geometry = sampleGeometries[geometryType];
+            if (!geometry) {
+                throw new Error(`Geometria de exemplo não suportada: ${geometryType || 'indefinida'}.`);
+            }
+
+            return {
+                type: 'Feature',
+                geometry,
+                properties: {
+                    tacticalGraphic: {
+                        name,
+                        designation: 'Exemplo',
+                        ...(geometryType === 'Point' ? { radius: 500 } : {})
+                    }
+                }
+            };
+        }
+
+        /**
+         * Desenha geometria GeoJSON em coordenadas SVG ajustadas ao quadro da prévia.
+         * @param {Object} geometry - Geometria GeoJSON renderizada.
+         * @param {Function} project - Projeta [lon, lat] para [x, y] no SVG.
+         * @param {SVGElement} svg - SVG que recebe o desenho.
+         */
+        function appendPreviewGeometry(geometry, project, svg) {
+            if (!geometry) return;
+            const svgNamespace = 'http://www.w3.org/2000/svg';
+            const appendPath = (coordinates, closePath) => {
+                if (!coordinates.length) return;
+                const path = document.createElementNS(svgNamespace, 'path');
+                const points = coordinates.map(project);
+                const pathData = points.map(([x, y], index) =>
+                    `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
+                ).join(' ');
+                path.setAttribute('d', `${pathData}${closePath ? ' Z' : ''}`);
+                path.setAttribute('fill', closePath ? 'rgba(53, 79, 121, 0.10)' : 'none');
+                path.setAttribute('fill-rule', 'evenodd');
+                path.setAttribute('stroke', '#354f79');
+                path.setAttribute('stroke-width', '3');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+                svg.appendChild(path);
+            };
+
+            switch (geometry.type) {
+                case 'Point': {
+                    const [x, y] = project(geometry.coordinates);
+                    const marker = document.createElementNS(svgNamespace, 'circle');
+                    marker.setAttribute('cx', x);
+                    marker.setAttribute('cy', y);
+                    marker.setAttribute('r', '6');
+                    marker.setAttribute('fill', '#354f79');
+                    svg.appendChild(marker);
+                    break;
+                }
+                case 'MultiPoint':
+                    geometry.coordinates.forEach(point => appendPreviewGeometry({ type: 'Point', coordinates: point }, project, svg));
+                    break;
+                case 'LineString':
+                case 'LinearRing':
+                    appendPath(geometry.coordinates, geometry.type === 'LinearRing');
+                    break;
+                case 'MultiLineString':
+                    geometry.coordinates.forEach(line => appendPath(line, false));
+                    break;
+                case 'Polygon':
+                    geometry.coordinates.forEach(ring => appendPath(ring, true));
+                    break;
+                case 'MultiPolygon':
+                    geometry.coordinates.forEach(polygon => polygon.forEach(ring => appendPath(ring, true)));
+                    break;
+                case 'GeometryCollection':
+                    geometry.geometries.forEach(child => appendPreviewGeometry(child, project, svg));
+                    break;
+                default:
+                    throw new Error(`Geometria de prévia não suportada: ${geometry.type}.`);
+            }
+        }
+
+        /**
+         * Atualiza o SVG de exemplo do gráfico selecionado.
+         * @param {string} name - Identificador do gráfico.
+         * @param {HTMLElement} preview - Contêiner da prévia.
+         */
+        function renderGraphicExample(name, preview) {
+            const svgNamespace = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNamespace, 'svg');
+            svg.setAttribute('viewBox', '0 0 360 220');
+            svg.setAttribute('role', 'img');
+            svg.setAttribute('aria-label', `Exemplo: ${catalog.translateName(library.getDisplayName(name), name)}`);
+
+            try {
+                const rendered = library.renderTacticalGraphic(createSampleFeature(name));
+                const positions = collectGeometryPositions(rendered.graphic.geometry);
+                const labelPositions = collectPointCoordinates(rendered.labels.geometry);
+                positions.push(...labelPositions);
+                if (!positions.length) throw new Error('O gráfico não contém posições para a prévia.');
+                const bounds = positions.reduce((result, [x, y]) => ({
+                    minX: Math.min(result.minX, x),
+                    maxX: Math.max(result.maxX, x),
+                    minY: Math.min(result.minY, y),
+                    maxY: Math.max(result.maxY, y)
+                }), {
+                    minX: Infinity,
+                    maxX: -Infinity,
+                    minY: Infinity,
+                    maxY: -Infinity
+                });
+                const width = bounds.maxX - bounds.minX || 1;
+                const height = bounds.maxY - bounds.minY || 1;
+                const scale = Math.min(300 / width, 160 / height);
+                const project = ([x, y]) => [
+                    180 + (x - (bounds.minX + bounds.maxX) / 2) * scale,
+                    105 - (y - (bounds.minY + bounds.maxY) / 2) * scale
+                ];
+
+                appendPreviewGeometry(rendered.graphic.geometry, project, svg);
+                const labelPosition = labelPositions[0];
+                if (labelPosition) {
+                    const [x, y] = project(labelPosition);
+                    const label = document.createElementNS(svgNamespace, 'text');
+                    label.setAttribute('x', x);
+                    label.setAttribute('y', y - 10);
+                    label.setAttribute('text-anchor', 'middle');
+                    label.setAttribute('class', 'tactical-graphic-example-label');
+                    label.textContent = 'Exemplo';
+                    svg.appendChild(label);
+                }
+
+                preview.replaceChildren(svg);
+            } catch (error) {
+                console.error('[PlanMilT][Gráficos táticos] Falha ao criar exemplo do gráfico.', {
+                    graphicName: name,
+                    message: error.message
+                });
+                preview.textContent = 'Não foi possível exibir o exemplo deste gráfico.';
+            }
+        }
+
+        /**
          * Atualiza a simbologia provisória a partir dos vértices e da posição do cursor.
          * @param {Object} event - Evento de movimento do mouse do Leaflet.
          * @param {boolean} includeCursor - Inclui o vértice flutuante do cursor no esboço.
@@ -203,34 +391,128 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          */
         async function startDrawing() {
             const sections = catalog.buildSections(library);
-            let graphicSelect;
+            const categorizedSections = sections.slice(1);
+            const commonSection = sections[0];
+            let selectedName = commonSection.graphics[0]?.name || categorizedSections[0]?.graphics[0]?.name || '';
+            let categorySelect;
+            let searchInput;
+            let resultsContainer;
+            let selectionStatus;
+            let preview;
+            let selectedLabel;
 
             const selection = await sweetAlert.fire({
-                title: 'Selecionar gráfico tático',
-                html: '<label for="tactical-graphic-select">Gráfico</label><select id="tactical-graphic-select" class="swal2-select"><option value="">Selecione um gráfico</option></select>',
+                title: 'Adicionar gráfico tático',
+                html: '<div id="tacticalGraphicPicker" class="tactical-graphic-picker">'
+                    + '<div class="tactical-graphic-browser">'
+                    + '<div class="tactical-graphic-filters">'
+                    + '<label class="tactical-graphic-field" for="tacticalGraphicCategory"><span>Categoria</span>'
+                    + '<select id="tacticalGraphicCategory"><option value="all">Todas as categorias</option></select></label>'
+                    + '<label class="tactical-graphic-field" for="tacticalGraphicSearch"><span>Buscar gráficos</span>'
+                    + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
+                    + '</div>'
+                    + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="listbox" aria-label="Gráficos táticos"></div>'
+                    + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection"></div>'
+                    + '</div>'
+                    + '<aside class="tactical-graphic-preview-panel">'
+                    + '<h3>Prévia do gráfico</h3>'
+                    + '<div id="tacticalGraphicPreview" class="tactical-graphic-preview"></div>'
+                    + '<div id="tacticalGraphicPreviewName" class="tactical-graphic-preview-name"></div>'
+                    + '<p>O exemplo é ilustrativo. A forma final depende dos pontos marcados no mapa.</p>'
+                    + '</aside>'
+                    + '</div>',
                 showCancelButton: true,
                 confirmButtonText: 'Continuar',
                 cancelButtonText: 'Cancelar',
                 didOpen: () => {
-                    graphicSelect = sweetAlert.getPopup().querySelector('#tactical-graphic-select');
-                    sections.forEach(section => {
-                        const optionGroup = document.createElement('optgroup');
-                        optionGroup.label = section.label;
-                        section.graphics.forEach(graphic => {
-                            const option = document.createElement('option');
-                            option.value = graphic.name;
-                            option.textContent = graphic.label;
-                            optionGroup.appendChild(option);
-                        });
-                        graphicSelect.appendChild(optionGroup);
+                    const popup = sweetAlert.getPopup();
+                    categorySelect = popup.querySelector('#tacticalGraphicCategory');
+                    searchInput = popup.querySelector('#tacticalGraphicSearch');
+                    resultsContainer = popup.querySelector('#tacticalGraphicResults');
+                    selectionStatus = popup.querySelector('#tacticalGraphicSelection');
+                    preview = popup.querySelector('#tacticalGraphicPreview');
+                    selectedLabel = popup.querySelector('#tacticalGraphicPreviewName');
+                    popup.classList.add('tactical-graphic-modal');
+
+                    const commonOption = document.createElement('option');
+                    commonOption.value = commonSection.name;
+                    commonOption.textContent = commonSection.label;
+                    categorySelect.appendChild(commonOption);
+                    categorizedSections.forEach(section => {
+                        const option = document.createElement('option');
+                        option.value = section.name;
+                        option.textContent = section.label;
+                        categorySelect.appendChild(option);
                     });
+
+                    const normalizeSearch = value => value.normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .toLocaleLowerCase('pt-BR');
+                    const renderResults = () => {
+                        const query = normalizeSearch(searchInput.value.trim());
+                        const visibleSections = categorySelect.value === 'all'
+                            ? categorizedSections
+                            : sections.filter(section => section.name === categorySelect.value);
+                        resultsContainer.replaceChildren();
+                        let resultCount = 0;
+
+                        visibleSections.forEach(section => {
+                            const graphics = section.graphics.filter(graphic =>
+                                normalizeSearch(graphic.label).includes(query)
+                            );
+                            if (!graphics.length) return;
+
+                            const heading = document.createElement('h4');
+                            heading.className = 'tactical-graphic-section-title';
+                            heading.textContent = section.label;
+                            resultsContainer.appendChild(heading);
+
+                            graphics.forEach(graphic => {
+                                const option = document.createElement('button');
+                                option.type = 'button';
+                                option.className = 'tactical-graphic-option';
+                                option.setAttribute('role', 'option');
+                                option.setAttribute('aria-selected', String(graphic.name === selectedName));
+                                if (graphic.name === selectedName) option.classList.add('is-selected');
+                                option.textContent = graphic.label;
+                                option.addEventListener('click', () => {
+                                    selectedName = graphic.name;
+                                    selectionStatus.textContent = `Selecionado: ${graphic.label}`;
+                                    selectedLabel.textContent = graphic.label;
+                                    renderGraphicExample(graphic.name, preview);
+                                    renderResults();
+                                });
+                                resultsContainer.appendChild(option);
+                                resultCount++;
+                            });
+                        });
+
+                        if (!resultCount) {
+                            const empty = document.createElement('div');
+                            empty.className = 'tactical-graphic-empty';
+                            empty.textContent = 'Nenhum gráfico encontrado.';
+                            resultsContainer.appendChild(empty);
+                        }
+                    };
+
+                    const initialGraphic = [...commonSection.graphics, ...categorizedSections.flatMap(section => section.graphics)]
+                        .find(graphic => graphic.name === selectedName);
+                    selectionStatus.textContent = initialGraphic
+                        ? `Selecionado: ${initialGraphic.label}`
+                        : 'Selecione um gráfico';
+                    selectedLabel.textContent = initialGraphic?.label || '';
+                    categorySelect.value = 'all';
+                    categorySelect.addEventListener('change', renderResults);
+                    searchInput.addEventListener('input', renderResults);
+                    renderGraphicExample(selectedName, preview);
+                    renderResults();
                 },
                 preConfirm: () => {
-                    if (!graphicSelect.value) {
+                    if (!selectedName) {
                         sweetAlert.showValidationMessage('Selecione um gráfico tático.');
                         return false;
                     }
-                    return graphicSelect.value;
+                    return selectedName;
                 }
             });
 

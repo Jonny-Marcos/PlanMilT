@@ -793,6 +793,263 @@
                     }
                 }
 
+                .swal2-popup.tactical-graphic-modal {
+                    width: min(1040px, calc(100vw - 28px)) !important;
+                    max-width: calc(100vw - 28px) !important;
+                    padding: 20px !important;
+                    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+                }
+
+                .swal2-popup.tactical-graphic-modal .swal2-title {
+                    padding: 0 0 14px;
+                    color: #243b5a;
+                    font-family: inherit;
+                    font-size: 22px;
+                    font-weight: 600;
+                }
+
+                .swal2-popup.tactical-graphic-modal .swal2-html-container {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 0;
+                    padding: 0 2px;
+                    overflow-x: hidden !important;
+                    box-sizing: border-box;
+                }
+
+                .tactical-graphic-picker {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+                    gap: 18px;
+                    width: 100%;
+                    min-width: 0;
+                    text-align: left;
+                }
+
+                .tactical-graphic-browser {
+                    display: grid;
+                    grid-template-rows: auto minmax(200px, 1fr) auto;
+                    gap: 10px;
+                    min-width: 0;
+                }
+
+                .tactical-graphic-filters {
+                    display: grid;
+                    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+                    gap: 10px;
+                }
+
+                .tactical-graphic-field {
+                    display: grid;
+                    gap: 5px;
+                    min-width: 0;
+                    color: #36404f;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+
+                .tactical-graphic-field > input,
+                .tactical-graphic-field > select {
+                    width: 100%;
+                    min-width: 0;
+                    height: 40px;
+                    margin: 0;
+                    padding: 7px 10px;
+                    border: 1px solid #c5cad2;
+                    border-radius: 6px;
+                    background: #fff;
+                    color: #242a33;
+                    box-sizing: border-box;
+                    font: inherit;
+                    font-weight: 400;
+                }
+
+                .tactical-graphic-field > input:focus,
+                .tactical-graphic-field > select:focus {
+                    border-color: #526a91;
+                    outline: 2px solid rgba(82, 106, 145, 0.2);
+                    outline-offset: 1px;
+                }
+
+                .tactical-graphic-results {
+                    min-width: 0;
+                    max-height: min(52vh, 460px);
+                    min-height: 200px;
+                    overflow: auto;
+                    border: 1px solid #d3d8e0;
+                    border-radius: 6px;
+                    background: #fff;
+                }
+
+                .tactical-graphic-section-title {
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    margin: 0;
+                    padding: 7px 10px;
+                    border-bottom: 1px solid #e1e5eb;
+                    background: #f4f6f9;
+                    color: #596273;
+                    font-size: 12px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.035em;
+                }
+
+                .tactical-graphic-option {
+                    display: block;
+                    width: 100%;
+                    margin: 0;
+                    padding: 9px 11px;
+                    border: 0;
+                    border-bottom: 1px solid #e8ebef;
+                    background: #fff;
+                    color: #242a33;
+                    cursor: pointer;
+                    font: inherit;
+                    font-size: 14px;
+                    line-height: 1.35;
+                    text-align: left;
+                    white-space: normal;
+                }
+
+                .tactical-graphic-option:last-child {
+                    border-bottom: 0;
+                }
+
+                .tactical-graphic-option:hover,
+                .tactical-graphic-option.is-selected {
+                    background: #e9eef6;
+                    box-shadow: inset 3px 0 0 #435f88;
+                }
+
+                .tactical-graphic-option:focus-visible {
+                    position: relative;
+                    outline: 2px solid #526a91;
+                    outline-offset: -2px;
+                }
+
+                .tactical-graphic-empty {
+                    padding: 20px 12px;
+                    color: #596273;
+                    font-size: 13px;
+                    text-align: center;
+                }
+
+                .tactical-graphic-selection {
+                    min-height: 18px;
+                    padding: 8px 10px;
+                    border-radius: 5px;
+                    background: #eef1f5;
+                    color: #36404f;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+
+                .tactical-graphic-preview-panel {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    padding: 12px;
+                    border: 1px solid #d9dde4;
+                    border-radius: 6px;
+                    background: #f8f9fb;
+                }
+
+                .tactical-graphic-preview-panel h3 {
+                    margin: 0 0 10px;
+                    color: #243b5a;
+                    font-size: 15px;
+                    font-weight: 600;
+                }
+
+                .tactical-graphic-preview {
+                    display: grid;
+                    flex: 1;
+                    min-height: 230px;
+                    place-items: center;
+                    overflow: hidden;
+                    border: 1px solid #e1e5eb;
+                    border-radius: 5px;
+                    background-color: #fff;
+                    background-image: linear-gradient(rgba(82, 106, 145, 0.07) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(82, 106, 145, 0.07) 1px, transparent 1px);
+                    background-size: 24px 24px;
+                    color: #596273;
+                    font-size: 13px;
+                    text-align: center;
+                }
+
+                .tactical-graphic-preview svg {
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                    min-height: 230px;
+                    overflow: visible;
+                }
+
+                .tactical-graphic-preview .tactical-graphic-example-label {
+                    fill: #243b5a;
+                    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+                    font-size: 13px;
+                    font-weight: 600;
+                    paint-order: stroke;
+                    stroke: #fff;
+                    stroke-width: 4px;
+                    stroke-linejoin: round;
+                }
+
+                .tactical-graphic-preview-name {
+                    margin-top: 9px;
+                    color: #243b5a;
+                    font-size: 14px;
+                    font-weight: 700;
+                }
+
+                .tactical-graphic-preview-panel p {
+                    margin: 5px 0 0;
+                    color: #596273;
+                    font-size: 12px;
+                    line-height: 1.4;
+                }
+
+                @media (max-width: 700px) {
+                    .swal2-popup.tactical-graphic-modal {
+                        padding: 15px !important;
+                    }
+
+                    .tactical-graphic-picker {
+                        grid-template-columns: minmax(0, 1fr);
+                        gap: 12px;
+                    }
+
+                    .tactical-graphic-results {
+                        max-height: 34vh;
+                        min-height: 140px;
+                    }
+
+                    .tactical-graphic-preview-panel {
+                        display: grid;
+                        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+                        gap: 0 10px;
+                    }
+
+                    .tactical-graphic-preview-panel h3,
+                    .tactical-graphic-preview-name,
+                    .tactical-graphic-preview-panel p {
+                        grid-column: 1 / -1;
+                    }
+
+                    .tactical-graphic-preview {
+                        grid-column: 1 / -1;
+                        min-height: 160px;
+                    }
+
+                    .tactical-graphic-preview svg {
+                        min-height: 160px;
+                    }
+                }
+
                 /* Botões de Sequência */
                 #saveSequenceButton,
                 #loadSequenceButton,
@@ -923,7 +1180,6 @@
                 font-size: 29px;
                 margin: 0;
             }
-
 
 
 

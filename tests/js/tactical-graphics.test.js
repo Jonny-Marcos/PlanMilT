@@ -11,16 +11,54 @@ class FakeSelectElement {
         this.tagName = tagName;
         this.children = [];
         this.value = '';
+        this.attributes = {};
+        this.listeners = new Map();
+        this.classNames = new Set();
+        Object.defineProperty(this, 'className', {
+            get: () => Array.from(this.classNames).join(' '),
+            set: value => {
+                this.classNames = new Set(String(value).split(/\s+/).filter(Boolean));
+            }
+        });
+        this.classList = {
+            add: name => this.classNames.add(name),
+            contains: name => this.classNames.has(name)
+        };
     }
 
     appendChild(child) {
         this.children.push(child);
         return child;
     }
+
+    replaceChildren(...children) {
+        this.children = children;
+        this.textContent = '';
+    }
+
+    setAttribute(name, value) {
+        this.attributes[name] = value;
+    }
+
+    addEventListener(name, listener) {
+        this.listeners.set(name, listener);
+    }
+
+    click() {
+        this.listeners.get('click')?.();
+    }
+
+    dispatch(name) {
+        this.listeners.get(name)?.();
+    }
 }
 
+const popupElements = new Map();
 global.document = {
     createElement(tagName) {
+        return new FakeSelectElement(tagName);
+    },
+    createElementNS(namespace, tagName) {
         return new FakeSelectElement(tagName);
     }
 };
@@ -38,27 +76,43 @@ function createHarness({
     const mapListeners = new Map();
     const drawTools = [];
     const alerts = [];
-    let selectedName = 'MainAxisOfAdvance';
-    const graphicSelect = new FakeSelectElement('select');
-    graphicSelect.value = selectedName;
+    const popupElementIds = [
+        'tacticalGraphicCategory',
+        'tacticalGraphicSearch',
+        'tacticalGraphicResults',
+        'tacticalGraphicSelection',
+        'tacticalGraphicPreview',
+        'tacticalGraphicPreviewName'
+    ];
+    popupElements.clear();
+    popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
     const popup = {
         querySelector(selector) {
-            assert.equal(selector, '#tactical-graphic-select');
-            return graphicSelect;
+            const element = popupElements.get(selector.slice(1));
+            assert.ok(element, `Missing popup element ${selector}`);
+            return element;
+        },
+        classList: {
+            add(name) {
+                this[name] = true;
+            }
         }
     };
     const library = {
         listTacticalGraphicNames: () => ['MainAxisOfAdvance'],
         getDisplayName: () => 'Eixo de avanço principal',
+        TacticalGraphicCategory: { Lines: 'Lines' },
+        GRAPHIC_CATEGORIES: { MainAxisOfAdvance: 'Lines', PhaseLine: 'Lines' },
         baseGeometryFor: () => geometryType,
         renderTacticalGraphic(feature) {
             renderedFeatures.push(feature);
-            if (renderError) throw renderError;
-            assert.equal(feature.properties.tacticalGraphic.name, 'MainAxisOfAdvance');
-            assert.equal(
-                feature.properties.tacticalGraphic.designation,
-                designation || undefined
-            );
+            if (renderError && feature.properties.tacticalGraphic.designation !== 'Exemplo') {
+                throw renderError;
+            }
+            if (feature.properties.tacticalGraphic.designation !== 'Exemplo') {
+                assert.equal(feature.properties.tacticalGraphic.name, 'MainAxisOfAdvance');
+                assert.equal(feature.properties.tacticalGraphic.designation, designation || undefined);
+            }
             if (geometryType === 'Point') assert.equal(feature.properties.tacticalGraphic.radius, 500);
             return {
                 graphic: {
@@ -86,8 +140,7 @@ function createHarness({
             if (options.icon === 'error') return { isConfirmed: true };
             if (options.didOpen) {
                 options.didOpen();
-                options.preConfirm();
-                return { isConfirmed: true, value: selectedName };
+                return { isConfirmed: true, value: options.preConfirm() };
             }
             return { isConfirmed: true, value: designation };
         },
@@ -199,7 +252,8 @@ function createHarness({
         button,
         integration,
         drawTools,
-        graphicSelect,
+        popupElements,
+        popup,
         layers,
         mapLayers,
         mapListeners,
@@ -215,10 +269,9 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.drawTools[0].geometryType, 'LineString');
     assert.equal(harness.drawTools[0].enabled, true);
     assert.equal(harness.drawTools[0].options.shapeOptions.color, '#123456');
-    assert.match(harness.alerts[0].html, /tactical-graphic-select/);
-    assert.equal(harness.graphicSelect.children[0].label, '10 mais comuns');
-    assert.equal(harness.graphicSelect.children[0].children[0].textContent, 'Eixo principal de progressão');
-    assert.equal(harness.graphicSelect.children[1].label, 'Linhas');
+    assert.match(harness.alerts[0].html, /tacticalGraphicPicker/);
+    assert.match(harness.alerts[0].html, /tacticalGraphicPreview/);
+    assert.equal(harness.popup.classList['tactical-graphic-modal'], true);
 
     const handled = harness.integration.handleCreated({
         layer: {
@@ -238,6 +291,35 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.layers[0].feature.properties.color, '#123456');
     assert.equal(harness.layers[1].options.icon.html, '1ª Cia');
     assert.equal(harness.integration.handleCreated({}), false);
+});
+
+test('graphic selector filters by section and displays a rendered example beside the list', async () => {
+    const harness = createHarness();
+    await harness.integration.startDrawing();
+
+    const category = harness.popupElements.get('tacticalGraphicCategory');
+    const search = harness.popupElements.get('tacticalGraphicSearch');
+    const results = harness.popupElements.get('tacticalGraphicResults');
+    const preview = harness.popupElements.get('tacticalGraphicPreview');
+    const previewName = harness.popupElements.get('tacticalGraphicPreviewName');
+    assert.deepEqual(category.children.map(option => option.value), ['common', 'Lines']);
+    assert.equal(category.value, 'all');
+    assert.ok(results.children.some(option => option.classNames.has('tactical-graphic-option')));
+
+    category.value = 'common';
+    category.dispatch('change');
+    search.value = 'eixo';
+    search.dispatch('input');
+    const graphicOption = results.children.find(option => option.classNames.has('tactical-graphic-option'));
+
+    assert.ok(graphicOption);
+    assert.equal(graphicOption.textContent, 'Eixo principal de progressão');
+    graphicOption.click();
+
+    assert.equal(preview.children.length, 1);
+    assert.equal(preview.children[0].tagName, 'svg');
+    assert.ok(preview.children[0].children.length > 0);
+    assert.equal(previewName.textContent, 'Eixo principal de progressão');
 });
 
 test('point graphics use the native marker tool and carry the default range', async () => {
