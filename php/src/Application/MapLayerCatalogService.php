@@ -49,19 +49,20 @@ final class MapLayerCatalogService
         $categories = $this->database->query(
             'SELECT code, name FROM map_layer_categories ORDER BY display_order'
         )->fetchAll(PDO::FETCH_ASSOC);
+        $regionalCondition = $serviceId === null ? $this->regionalServiceCondition() : '';
         foreach ($categories as &$category) {
             $serviceCondition = $serviceId === null ? '' : ' AND ml.map_service_id = ?';
             $order = $serviceId === null
-                ? 'ml.category_rank'
+                ? 'CASE WHEN ml.feature_info_status = \'sample_received\' THEN 0 ELSE 1 END, '
+                    . 'COALESCE(ml.latest_year, 0) DESC, length(ml.abstract), ml.layer_title COLLATE NOCASE, ml.id'
                 : 'CASE WHEN ml.feature_info_status = \'sample_received\' THEN 0 ELSE 1 END, '
                     . 'COALESCE(ml.latest_year, 0) DESC, ml.layer_title COLLATE NOCASE';
-            $rankCondition = $serviceId === null ? ' AND ml.category_rank IS NOT NULL' : '';
             $statement = $this->database->prepare(
                 'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ml.latest_year AS latestYear, '
                 . 'ms.id AS serviceId, ms.name AS serviceName, '
                 . 'ms.url AS serviceUrl, ml.military_relevance AS relevance, ml.feature_info_status AS featureInfoStatus '
                 . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '
-                . 'WHERE ml.category_code = ?' . $rankCondition . $serviceCondition
+                . 'WHERE ml.category_code = ?' . $serviceCondition . $regionalCondition
                 . ' AND lower(ms.name) NOT LIKE \'%prefeitura%\' '
                 . 'AND lower(ms.name || \' \' || ml.layer_name || \' \' || ml.layer_title || \' \' || ml.abstract) '
                 . 'NOT LIKE \'%distrito federal%\' AND lower(ms.name || \' \' || ml.layer_name || \' \' || ml.layer_title || \' \' || ml.abstract) '
@@ -305,6 +306,40 @@ final class MapLayerCatalogService
         }
 
         return null;
+    }
+
+    /**
+     * Monta a condição SQL que exclui serviços de abrangência estadual ou municipal das recomendações.
+     *
+     * Serviços com sigla de UF no nome, "Estadual", "Estado d..." ou "Municipal" não são recomendados;
+     * continuam disponíveis na busca e na seleção direta do SIG.
+     *
+     * @return string Fragmento iniciado por " AND" (vazio se não houver serviços regionais).
+     */
+    private function regionalServiceCondition(): string
+    {
+        $ids = [];
+        $rows = $this->database->query('SELECT id, name FROM map_services')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            if ($this->isRegionalServiceName((string) $row['name'])) {
+                $ids[] = (int) $row['id'];
+            }
+        }
+
+        return $ids === [] ? '' : ' AND ms.id NOT IN (' . implode(',', $ids) . ')';
+    }
+
+    /**
+     * Indica se o nome do serviço sugere abrangência apenas estadual ou municipal.
+     *
+     * @param string $name Nome do SIG.
+     */
+    private function isRegionalServiceName(string $name): bool
+    {
+        return (bool) preg_match(
+            '/\((AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\)|estadual|estado d|municipal|prefeitura/iu',
+            $name
+        );
     }
 
     /**

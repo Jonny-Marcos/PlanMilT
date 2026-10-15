@@ -18,7 +18,10 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(source, /serviceSelect\.addEventListener\('change', \(\) => \{\s*loadSelectedService\(\)/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result\s*\{[\s\S]*?border-bottom: 1px solid/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
-    assert.match(documentSource, /app\.css\?v=20261015-catalog-inline-styles/);
+    assert.match(documentSource, /app\.css\?v=20261015-catalog-national/);
+    assert.match(source, /Carregando dados/);
+    assert.doesNotMatch(source, /Até 10 por categoria/);
+    assert.match(source, /titleCharacters\.length > 20/);
     assert.match(source, /checkbox\.type = 'checkbox'/);
     assert.match(source, /selectedLayers\.set\(key, layer\)/);
     assert.match(source, /result\.value\.forEach\(layer =>/);

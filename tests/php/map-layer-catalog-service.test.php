@@ -97,6 +97,17 @@ try {
         throw new RuntimeException('Catalog categories or ranked recommendations regression.');
     }
 
+    $database->exec("UPDATE map_services SET name = 'ANA (MG) - Serviço estadual' WHERE id = 1");
+    $regionalBrowse = $catalog->browse();
+    $regionalHydrography = array_values(array_filter($regionalBrowse['categories'], static fn (array $category): bool => $category['code'] === 'hydrography'))[0];
+    $regionalServiceBrowse = $catalog->browse('', 1);
+    $database->exec("UPDATE map_services SET name = 'ANA - Agência Nacional de Águas e Saneamento Básico' WHERE id = 1");
+    if (count($regionalHydrography['layers']) !== 1
+        || $regionalHydrography['layers'][0]['layerName'] !== 'other_water'
+        || count(array_filter($regionalServiceBrowse['categories'], static fn (array $category): bool => count($category['layers']) > 0)) === 0) {
+        throw new RuntimeException('Regional services must be excluded from recommendations but remain selectable.');
+    }
+
     $searchByTitle = $catalog->browse('water_1980');
     $searchByFeatureInfo = $catalog->browse('Nova Crixás');
     $searchByService = $catalog->browse('Demanda hídrica', 2);

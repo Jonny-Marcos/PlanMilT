@@ -392,7 +392,7 @@
 
                                 const renderLocalLayers = () => {
                                     if (isLoadingLiveLayers && serviceSelect.value !== '') {
-                                        status.textContent = 'Consultando o SIG selecionado...';
+                                        status.textContent = '';
                                         return;
                                     }
                                     const query = searchInput.value.trim();
@@ -432,7 +432,7 @@
                                         latestYear: layer.latestYear || 0,
                                         categoryName: category.name,
                                     })));
-                                    renderLayers(layers, `${layers.length} recomendações. Até 10 por categoria.`);
+                                    renderLayers(layers, '');
                                 };
 
                                 const loadSelectedService = async () => {
@@ -457,8 +457,8 @@
                                     liveLayers = null;
                                     isLoadingLiveLayers = true;
                                     categorySelect.value = 'all';
-                                    status.textContent = `Consultando ${serviceInfo.name}...`;
-                                    resultsContainer.innerHTML = '<div class="layer-catalog-loading"><span></span>Consultando somente este WMS</div>';
+                                    status.textContent = '';
+                                    resultsContainer.innerHTML = '<div class="layer-catalog-loading"><span></span>Carregando dados</div>';
 
                                     let layers;
                                     try {
@@ -529,8 +529,17 @@
                         }).then(result => {
                             if (result.isConfirmed && Array.isArray(result.value)) {
                                 result.value.forEach(layer => {
-                                    const title = layer.title || layer.layerName;
-                                    const overlayName = `${title} [${layer.serviceName}: ${layer.layerName}]`;
+                                    const fullTitle = layer.title || layer.layerName;
+                                    const titleCharacters = Array.from(fullTitle);
+                                    const shortTitle = titleCharacters.length > 20
+                                        ? `${titleCharacters.slice(0, 19).join('')}…`
+                                        : fullTitle;
+                                    let overlayName = shortTitle;
+                                    for (let copy = 2; layerRegistry[overlayName]; copy++) {
+                                        const suffix = ` (${copy})`;
+                                        const availableCharacters = 20 - Array.from(suffix).length;
+                                        overlayName = `${titleCharacters.slice(0, availableCharacters - 1).join('')}…${suffix}`;
+                                    }
                                     addWMSLayerToMap(layer.serviceUrl, layer.layerName, overlayName);
                                 });
                             }
