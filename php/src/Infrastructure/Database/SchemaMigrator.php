@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 2;
+    private const VERSION = 3;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -85,6 +85,62 @@ final class SchemaMigrator
                 self::createUniqueIndex($database, 'task_sequences', 'idx_task_sequences_name', ['name']);
 
                 $database->exec('PRAGMA user_version = 2');
+            }
+
+            if ($version < 3) {
+                $database->exec(
+                    'CREATE TABLE map_layer_categories ('
+                    . 'code TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, display_order INTEGER NOT NULL UNIQUE)'
+                );
+                foreach ([
+                    ['terrain', 'Terreno e relevo', 1],
+                    ['hydrography', 'Hidrografia e recursos hídricos', 2],
+                    ['transport', 'Transporte e mobilidade', 3],
+                    ['urban', 'Áreas urbanas e edificações', 4],
+                    ['population', 'População e ocupação humana', 5],
+                    ['essential_services', 'Energia e serviços essenciais', 6],
+                    ['telecommunications', 'Telecomunicações e conectividade', 7],
+                    ['health_emergency', 'Saúde e resposta a emergências', 8],
+                    ['environment_risk', 'Ambiente, clima e riscos', 9],
+                    ['jurisdiction', 'Limites e áreas de jurisdição', 10],
+                ] as [$code, $name, $displayOrder]) {
+                    $statement = $database->prepare(
+                        'INSERT INTO map_layer_categories (code, name, display_order) VALUES (?, ?, ?)'
+                    );
+                    $statement->execute([$code, $name, $displayOrder]);
+                }
+
+                $database->exec(
+                    'CREATE TABLE map_layers ('
+                    . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                    . 'map_service_id INTEGER NOT NULL, '
+                    . 'layer_name TEXT NOT NULL, '
+                    . 'layer_title TEXT NOT NULL DEFAULT \'\', '
+                    . 'abstract TEXT NOT NULL DEFAULT \'\', '
+                    . 'keywords TEXT NOT NULL DEFAULT \'[]\', '
+                    . 'queryable INTEGER NOT NULL DEFAULT 0, '
+                    . 'category_code TEXT, '
+                    . 'category_source TEXT NOT NULL DEFAULT \'metadata\', '
+                    . 'military_relevance TEXT NOT NULL DEFAULT \'not_triaged\', '
+                    . 'review_status TEXT NOT NULL DEFAULT \'pending\', '
+                    . 'category_rank INTEGER, '
+                    . 'feature_info_status TEXT NOT NULL DEFAULT \'\', '
+                    . 'feature_info_format TEXT NOT NULL DEFAULT \'\', '
+                    . 'feature_info_fields TEXT NOT NULL DEFAULT \'\', '
+                    . 'feature_info_sample TEXT NOT NULL DEFAULT \'\', '
+                    . 'latest_year INTEGER, '
+                    . 'collected_at TEXT NOT NULL, '
+                    . 'created_at TEXT NOT NULL DEFAULT (datetime(\'now\')), '
+                    . 'updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')), '
+                    . 'UNIQUE (map_service_id, layer_name), '
+                    . 'FOREIGN KEY (map_service_id) REFERENCES map_services(id) ON DELETE CASCADE, '
+                    . 'FOREIGN KEY (category_code) REFERENCES map_layer_categories(code))'
+                );
+                $database->exec('CREATE INDEX idx_map_layers_category_rank ON map_layers (category_code, category_rank)');
+                $database->exec('CREATE INDEX idx_map_layers_service ON map_layers (map_service_id)');
+                $database->exec('CREATE INDEX idx_map_layers_name ON map_layers (layer_name)');
+                $database->exec('CREATE INDEX idx_map_layers_title ON map_layers (layer_title)');
+                $database->exec('PRAGMA user_version = 3');
             }
 
             $database->commit();

@@ -51,6 +51,8 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 
 Antes de atualizar uma instalação existente, faça uma cópia de segurança de `bd.db`. Na primeira conexão ao banco após a atualização, o PlanMilT aplica migrações versionadas que renomeiam tabelas e colunas para inglês e adicionam timestamps, preservando os registros. Se encontrar chaves duplicadas que impeçam os índices únicos, a migração falha sem apagar registros; corrija o conflito manualmente após backup e tente novamente.
 
+Para popular o catálogo de camadas na instalação, execute na raiz do projeto `php tools/catalog-wms-layers.php` e depois `php tools/import-wms-layer-catalog.php`. A primeira etapa consulta os WMS e grava o CSV em `storage/`; a segunda aplica as migrações pendentes e importa o snapshot para `bd.db`. Faça backup antes da primeira importação. Atualizações futuras do catálogo são manuais e mantêm revisões já marcadas como concluídas.
+
 Não há um arquivo de configuração PHP específico do projeto: ajuste os limites de upload e execução no `php.ini` ativo do servidor conforme a necessidade e reinicie o Apache. Falhas das requisições da aplicação são exibidas no console do navegador; erros internos do PHP permanecem sujeitos à configuração de diagnóstico do servidor.
 
 ## Funcionalidades
@@ -69,6 +71,7 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 
 ### Testes de desenvolvimento
 Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
+Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`.
 Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
 
 ---
@@ -126,6 +129,8 @@ The application is built with the following technologies and libraries:
 
 Back up `bd.db` before updating an existing installation. On the first database connection after the update, PlanMilT applies versioned migrations that rename tables and columns to English and add timestamps while preserving records. If duplicate keys prevent unique indexes, migration fails without deleting records; resolve the conflict manually after backing up, then retry.
 
+To populate the layer catalog, run `php tools/catalog-wms-layers.php` and then `php tools/import-wms-layer-catalog.php` from the project root. The first step queries the WMS services and writes a CSV under `storage/`; the second applies pending migrations and imports the snapshot into `bd.db`. Back up the database before the first import. Catalog refreshes are manual and preserve reviews marked complete.
+
 There is no project-specific PHP configuration file; adjust upload and execution limits in the server's active `php.ini` as needed, then restart Apache. Application request failures appear in the browser console; internal PHP diagnostics remain subject to the server's own configuration.
 
 ## Features
@@ -144,6 +149,7 @@ Contributions are welcome! Feel free to open an issue or submit a pull request o
 
 ### Development tests
 Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
+PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, and `php tests/php/drawings-service.test.php`.
 Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
 
 © 2024-2026 - João Marcos Barbosa Oliveira

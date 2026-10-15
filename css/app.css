@@ -388,6 +388,35 @@
                     text-overflow: ellipsis;
                 }
 
+                .layer-catalog-picker {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 7px;
+                    text-align: left;
+                }
+
+                .layer-catalog-picker label {
+                    margin-top: 5px;
+                    font-weight: 600;
+                }
+
+                .layer-catalog-picker input,
+                .layer-catalog-picker select {
+                    min-height: 38px;
+                    margin: 0 !important;
+                    padding: 7px;
+                }
+
+                .layer-catalog-picker #layerCatalogResults {
+                    height: min(40vh, 360px);
+                    white-space: normal;
+                }
+
+                .layer-catalog-picker #layerCatalogStatus {
+                    min-height: 1.5em;
+                    font-size: 0.9em;
+                }
+
                 /* Botões de Sequência */
                 #saveSequenceButton,
                 #loadSequenceButton,

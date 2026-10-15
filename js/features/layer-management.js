@@ -205,78 +205,139 @@
 
 
 
-                document.getElementById('addLayerButton').addEventListener('click', function() {
-                    getSigsData().then(sigsData => {
-                        if (sigsData.length === 0) return;
+                function showLayerCatalog() {
+                    let visibleLayers = [];
+                    let searchTimer;
+                    let searchGeneration = 0;
+                    const endpoint = 'php/endpoints/map-layer-catalog.php';
 
-                        var inputOptions = {};
-                        var nomeToURL = {};
-                        sigsData.forEach(item => {
-                            inputOptions[item.Nome] = item.Nome;
-                            nomeToURL[item.Nome] = item.URL;
-                        });
+                    Swal.fire({
+                        title: 'Carregando catálogo de camadas',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
 
-                        // Ordena os SIGs em ordem alfabética
-                        var sigNames = Object.keys(inputOptions).sort(function(a, b) {
-                            return a.localeCompare(b, 'pt-BR', { sensitivity: 'base' });
-                        });
-
-                        var sortedInputOptions = {};
-                        sigNames.forEach(nome => {
-                            sortedInputOptions[nome] = inputOptions[nome];
-                        });
+                    window.PlanMilT.apiClient.getJson(endpoint).then(catalog => {
+                        Swal.close();
+                        const categories = catalog.categories || [];
 
                         Swal.fire({
-                            title: 'Selecione o Sistema de Informação Geográfica',
-                            input: 'select',
-                            inputOptions: sortedInputOptions,
-                            inputPlaceholder: 'Selecione um SIG',
+                            title: 'Adicionar camada',
+                            html: '<div class="layer-catalog-picker">'
+                                + '<label for="layerCatalogCategory">Categoria</label>'
+                                + '<select id="layerCatalogCategory"></select>'
+                                + '<label for="layerCatalogSearch">Buscar no catálogo completo</label>'
+                                + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100">'
+                                + '<select id="layerCatalogResults" size="9" aria-label="Camadas disponíveis"></select>'
+                                + '<div id="layerCatalogStatus" role="status"></div>'
+                                + '</div>',
                             showCancelButton: true,
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                var selectedNome = result.value;
-                                var selectedURL = nomeToURL[selectedNome];
+                            confirmButtonText: 'Adicionar camada',
+                            cancelButtonText: 'Cancelar',
+                            focusConfirm: false,
+                            didOpen: () => {
+                                const popup = Swal.getPopup();
+                                const categorySelect = popup.querySelector('#layerCatalogCategory');
+                                const searchInput = popup.querySelector('#layerCatalogSearch');
+                                const resultsSelect = popup.querySelector('#layerCatalogResults');
+                                const status = popup.querySelector('#layerCatalogStatus');
 
-                                getWMSLayers(selectedURL).then(layers => {
-                                    if (!layers || layers.length === 0) return;
-
-                                    var inputOptions = {};
-                                    var layerOptions = {};
-
-                                    layers.forEach(layer => {
-                                        layerOptions[layer.Name] = layer.Title || layer.Name;
-                                    });
-
-                                    // Cria um array de opções ordenadas
-                                    var optionsArray = layers.map(layer => ({
-                                        value: layer.Name,
-                                        text: layer.Title || layer.Name
-                                    }));
-
-                                    // Constrói o objeto de opções
-                                    optionsArray.forEach(option => {
-                                        inputOptions[option.value] = option.text;
-                                    });
-
-                                    Swal.fire({
-                                        title: 'Selecione a Camada',
-                                        input: 'select',
-                                        inputOptions: inputOptions,
-                                        inputPlaceholder: 'Selecione uma Camada',
-                                        showCancelButton: true,
-                                    }).then((layerResult) => {
-                                        if (layerResult.isConfirmed) {
-                                            var selectedLayerName = layerResult.value;
-                                            var selectedLayerTitle = layerOptions[selectedLayerName];
-
-                                            addWMSLayerToMap(selectedURL, selectedLayerName, selectedLayerTitle);
-                                        }
-                                    });
+                                categories.forEach(category => {
+                                    const option = document.createElement('option');
+                                    option.value = category.code;
+                                    option.textContent = category.name;
+                                    categorySelect.appendChild(option);
                                 });
+
+                                const renderLayers = (layers, message) => {
+                                    visibleLayers = layers;
+                                    resultsSelect.replaceChildren();
+                                    layers.forEach((layer, index) => {
+                                        const option = document.createElement('option');
+                                        option.value = String(index);
+                                        option.textContent = `${layer.title || layer.layerName} | ${layer.serviceName}`;
+                                        resultsSelect.appendChild(option);
+                                    });
+                                    status.textContent = message;
+                                    Swal.getConfirmButton().disabled = layers.length === 0;
+                                };
+
+                                const showCategory = () => {
+                                    const category = categories.find(item => item.code === categorySelect.value);
+                                    const layers = category ? category.layers : [];
+                                    renderLayers(layers, `${layers.length} recomendações nesta categoria.`);
+                                };
+
+                                categorySelect.addEventListener('change', () => {
+                                    searchGeneration++;
+                                    searchInput.value = '';
+                                    showCategory();
+                                });
+
+                                searchInput.addEventListener('input', () => {
+                                    clearTimeout(searchTimer);
+                                    const query = searchInput.value.trim();
+                                    const generation = ++searchGeneration;
+                                    if (query === '') {
+                                        showCategory();
+                                        return;
+                                    }
+                                    if (query.length < 2) {
+                                        renderLayers([], 'Digite pelo menos 2 caracteres para pesquisar.');
+                                        return;
+                                    }
+
+                                    status.textContent = 'Pesquisando em todas as camadas...';
+                                    searchTimer = setTimeout(() => {
+                                        window.PlanMilT.apiClient.getJson(`${endpoint}?q=${encodeURIComponent(query)}`)
+                                            .then(result => {
+                                                if (generation !== searchGeneration) return;
+                                                const layers = result.results || [];
+                                                renderLayers(layers, `${layers.length} de ${result.totalResults} resultados.`);
+                                            })
+                                            .catch(() => {
+                                                if (generation === searchGeneration) {
+                                                    renderLayers([], 'Não foi possível concluir a busca.');
+                                                }
+                                            });
+                                    }, 300);
+                                });
+
+                                if (categories.length > 0) {
+                                    const firstCategory = categories.find(category => category.layers.length > 0) || categories[0];
+                                    categorySelect.value = firstCategory.code;
+                                    showCategory();
+                                } else {
+                                    renderLayers([], 'O catálogo ainda não possui recomendações. Use a busca para localizar camadas.');
+                                }
+                            },
+                            preConfirm: () => {
+                                const selectedIndex = Number(Swal.getPopup().querySelector('#layerCatalogResults').value);
+                                const selectedLayer = visibleLayers[selectedIndex];
+                                if (!selectedLayer) {
+                                    Swal.showValidationMessage('Selecione uma camada.');
+                                    return false;
+                                }
+                                return selectedLayer;
+                            }
+                        }).then(result => {
+                            if (result.isConfirmed && result.value) {
+                                addWMSLayerToMap(
+                                    result.value.serviceUrl,
+                                    result.value.layerName,
+                                    result.value.title || result.value.layerName
+                                );
                             }
                         });
+                    }).catch(error => {
+                        Swal.close();
+                        console.error('Erro ao carregar o catálogo de camadas:', error);
+                        Swal.fire('Erro!', 'Não foi possível carregar o catálogo de camadas.', 'error');
                     });
-                });
+                }
+
+                document.getElementById('addLayerButton').addEventListener('click', showLayerCatalog);
 
 
 

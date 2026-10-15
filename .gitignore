@@ -5,3 +5,13 @@
 /storage/
 /php-error.log
 /.github
+/tests
+/tools
+!/tools/
+!/tools/catalog-wms-layers.php
+!/tools/WmsCapabilitiesParser.php
+!/tools/import-wms-layer-catalog.php
+!/tests/
+!/tests/php/
+!/tests/php/wms-capabilities-parser.test.php
+!/tests/php/map-layer-catalog-service.test.php

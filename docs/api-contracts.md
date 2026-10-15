@@ -8,6 +8,7 @@ Todo o código PHP da aplicação agora fica sob `php/`. As URLs canônicas abai
 
 | Endpoint | Método e entrada | Resposta de sucesso | Comportamento de erro atual |
 | --- | --- | --- | --- |
+| `php/endpoints/map-layer-catalog.php` | GET opcional `q` para pesquisa literal em todas as camadas. | Sem `q`: dez categorias com até dez recomendações cada e total do catálogo. Com `q`: até 100 resultados e `totalResults`; pesquisa nome, título, resumo, palavras-chave, atributos/amostra GetFeatureInfo e SIG. | HTTP 400 para busca acima de 256 bytes; HTTP 405 para método inválido; HTTP 500 com mensagem genérica em falha de catálogo. A migração cria as tabelas, mas a população é feita manualmente pelo importador CSV. |
 | `/sigs.php` | Qualquer método; não lê parâmetros. | JSON: array de objetos com `Nome` e `URL`. | JSON `{ "error": ... }`; falhas PDO incluem detalhes da exceção e continuam com status HTTP 200. O piloto abaixo padroniza isso. |
 | `/symbols/icons.php` | GET; sem parâmetros. | JSON: array de caminhos de ícones SVG relativos à raiz publicada. | Não define status/cabeçalho de erro próprio. |
 | `/proxy.php` | GET; requer `url`. Parâmetros adicionais são encaminhados ao serviço remoto. | Corpo e `Content-Type` recebidos do serviço remoto. O status remoto não é encaminhado explicitamente. | Texto simples: 400 sem `url`, 403 para host não permitido, 500 em falha SQLite/cURL. |
@@ -54,7 +55,7 @@ Padronizar os demais endpoints individualmente. Antes de mudar um contrato, loca
 
 ## Migrações do SQLite
 
-`php/src/Infrastructure/Database/SchemaMigrator.php` é executado pela fábrica de conexão e registra a versão do esquema em `PRAGMA user_version`. A migração 1 cria índices únicos para desenhos (quando o link não é `NULL`) e sequências. A migração 2 renomeia as tabelas e colunas para inglês, preservando os registros e os contratos HTTP legados, e padroniza `created_at`/`updated_at`.
+`php/src/Infrastructure/Database/SchemaMigrator.php` é executado pela fábrica de conexão e registra a versão do esquema em `PRAGMA user_version`. A migração 1 cria índices únicos para desenhos (quando o link não é `NULL`) e sequências. A migração 2 renomeia as tabelas e colunas para inglês, preservando os registros e os contratos HTTP legados, e padroniza `created_at`/`updated_at`. A migração 3 cria `map_layers` e `map_layer_categories` e cadastra dez categorias fixas; ela não inventa camadas. Execute `php tools/catalog-wms-layers.php` para coletar o snapshot WMS em `storage/wms-layer-review.csv` e `php tools/import-wms-layer-catalog.php` para importar o CSV no SQLite. A busca consulta todo o catálogo; cada categoria exibe no máximo dez recomendações.
 
 Antes de criar os índices, a migração verifica dados existentes. Se encontrar duplicatas ou tabelas legadas e novas coexistindo, interrompe sem excluir ou alterar registros; a instalação deve ser respaldada e corrigida antes de tentar novamente. Os nomes atuais são `drawings`, `images`, `map_services` e `task_sequences`. Os campos legados dos formulários e respostas HTTP permanecem para compatibilidade. Timestamps sem equivalente histórico recebem o instante da migração; `images.created_at` e timestamps já existentes em sequências são preservados.
 
