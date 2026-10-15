@@ -7,6 +7,7 @@
             var layerRegistry = mapSetup.layerRegistry;
             var planejamentoLayer = mapSetup.planejamentoLayer;
             var addNewOverlayLayer = mapSetup.addNewOverlayLayer;
+            var removeOverlayLayer = mapSetup.removeOverlayLayer;
 
             // botão de fechar perfil topográfico
             document.getElementById('close-btn').addEventListener('click', function() {

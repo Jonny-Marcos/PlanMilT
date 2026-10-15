@@ -51,9 +51,7 @@
                             if (currentGeoJsonHash !== previousGeoJsonData[layerName]) {
                                 // Se houver mudanças, remover a camada anterior
                                 if (layerRegistry[layerName]) {
-                                    map.removeLayer(layerRegistry[layerName]);
-                                    layerControl.removeLayer(layerRegistry[layerName]); // Remove a camada do controle de camadas
-                                    delete layerRegistry[layerName];  // Remove do registro
+                                    removeOverlayLayer(layerName);
                                 }
 
                                 // Processar os dados do GeoJSON e adicionar ao mapa como camada não-editável
@@ -102,10 +100,6 @@
 
                                 // Adiciona a nova camada ao controle de camadas existente
                                 addNewOverlayLayer(layerName, newLayer);
-
-                                // Registra a camada no registry e adiciona ao mapa
-                                layerRegistry[layerName] = newLayer;
-                                map.addLayer(newLayer);
 
                                 // Exibir popup informando que a camada foi atualizada
                                 Swal.fire('Camada Atualizada!', `A camada "${layerName}" foi atualizada com sucesso.`, 'info');
@@ -689,11 +683,8 @@
                     }).then((result) => {
                         if (result.isConfirmed) {
                             var selectedLayerName = result.value;
-                            var layer = layerRegistry[selectedLayerName];
-                            if (layer) {
-                                map.removeLayer(layer); // Remove a camada do mapa
-                                layerControl.removeLayer(layer); // Remove a camada do controle de camadas
-                                delete layerRegistry[selectedLayerName]; // Remove a camada do registro
+                            if (layerRegistry[selectedLayerName]) {
+                                removeOverlayLayer(selectedLayerName);
                             }
                         }
                     });

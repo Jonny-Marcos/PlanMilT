@@ -6,11 +6,22 @@ global.window = {};
 const layerSelector = {
     children: [],
     value: 'OpenTopo',
-    innerHTML: '',
+    set innerHTML(value) {
+        this.children = [];
+    },
     appendChild(option) { this.children.push(option); },
-    addEventListener() {}
+    addEventListener(eventName, handler) {
+        this.listeners = this.listeners || {};
+        this.listeners[eventName] = handler;
+    }
 };
-const transparencySlider = { value: '100', addEventListener() {} };
+const transparencySlider = {
+    value: '100',
+    addEventListener(eventName, handler) {
+        this.listeners = this.listeners || {};
+        this.listeners[eventName] = handler;
+    }
+};
 
 global.document = {
     getElementById(id) {
@@ -79,18 +90,28 @@ test('setup returns standard layers and planning state in its registry', () => {
         'BDGEx - CTM50',
         'Sugestão de Planejamento'
     ]);
+    assert.deepEqual(layerSelector.children.map(option => option.value), Object.keys(setup.layerRegistry));
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
     assert.equal(typeof setup.layerControl.addOverlay, 'function');
 });
 
 test('new overlays are registered, added to the control and map once', () => {
     const { layersOnMap, overlays, setup } = createMapSetup();
-    const overlay = { id: 'custom-layer' };
+    const overlay = {
+        id: 'custom-layer',
+        setOpacity(value) { this.opacity = value; }
+    };
 
     setup.addNewOverlayLayer('Custom', overlay);
     assert.equal(setup.layerRegistry.Custom, overlay);
     assert.equal(overlays.get('Custom'), overlay);
     assert.equal(layersOnMap.has(overlay), true);
+    assert.equal(layerSelector.children.some(option => option.value === 'Custom'), true);
+
+    layerSelector.value = 'Custom';
+    transparencySlider.value = '45';
+    transparencySlider.listeners.input();
+    assert.equal(overlay.opacity, 0.45);
 
     const warning = console.warn;
     console.warn = () => {};
@@ -100,4 +121,19 @@ test('new overlays are registered, added to the control and map once', () => {
         console.warn = warning;
     }
     assert.equal(setup.layerRegistry.Custom, overlay);
+});
+
+test('removing an overlay also removes it from the transparency selector', () => {
+    const { layersOnMap, overlays, setup } = createMapSetup();
+    const overlay = { id: 'custom-layer' };
+
+    setup.addNewOverlayLayer('Custom', overlay);
+    layerSelector.value = 'Custom';
+    setup.removeOverlayLayer('Custom');
+
+    assert.equal(setup.layerRegistry.Custom, undefined);
+    assert.equal(overlays.has('Custom'), false);
+    assert.equal(layersOnMap.has(overlay), false);
+    assert.equal(layerSelector.children.some(option => option.value === 'Custom'), false);
+    assert.notEqual(layerSelector.value, 'Custom');
 });

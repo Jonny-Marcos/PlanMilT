@@ -11,7 +11,7 @@ window.PlanMilT.mapSetup = Object.freeze({
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
      * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
      * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
-     * @returns {{layerControl: Object, layerRegistry: Object, planejamentoLayer: Object, addNewOverlayLayer: Function}} Controle, registro e camada de planejamento do mapa.
+     * @returns {{layerControl: Object, layerRegistry: Object, planejamentoLayer: Object, addNewOverlayLayer: Function, removeOverlayLayer: Function}} Controle, registro e camada de planejamento do mapa.
      */
     attach({ map, leaflet }) {
         const L = leaflet;
@@ -303,7 +303,7 @@ window.PlanMilT.mapSetup = Object.freeze({
              */
             function addNewOverlayLayer(layerName, layer) {
                 // Verifica se o nome da camada já existe no registro
-                if (!layerRegistry.hasOwnProperty(layerName)) {
+                if (!Object.prototype.hasOwnProperty.call(layerRegistry, layerName)) {
                     layerRegistry[layerName] = layer; // Adiciona a nova camada ao registro
 
                     // Adiciona a camada ao controle de camadas existente
@@ -311,39 +311,50 @@ window.PlanMilT.mapSetup = Object.freeze({
 
                     // Opcionalmente, adiciona a camada ao mapa
                     map.addLayer(layer);
+                    synchronizeLayerSelector();
                 } else {
                     console.warn(`A camada "${layerName}" já existe e não será adicionada novamente.`);
                 }
             }
 
-
-
-
-            // Função para preencher o seletor com os layers disponíveis e inicializar o registro de camadas
             /**
-             * Preenche o seletor de transparência com as camadas disponíveis.
+             * Remove uma sobreposição do mapa, do controle e do seletor de transparência.
+             * @param {string} layerName - Nome identificador da camada.
              */
-            function fillLayerSelector() {
-                var layerRegistry = { // Variáveis de camadas declaradas diretamente
-                    "OpenTopo": layer_OpenTopo_0,
-                    "Google Satellite": layer_GoogleSatellite_1,
-                    "BDGEx - CTM50": layer_BDGEx_2
-                };
+            function removeOverlayLayer(layerName) {
+                if (!Object.prototype.hasOwnProperty.call(layerRegistry, layerName)) {
+                    return;
+                }
 
+                var layer = layerRegistry[layerName];
+                map.removeLayer(layer);
+                layerControl.removeLayer(layer);
+                delete layerRegistry[layerName];
+                synchronizeLayerSelector();
+            }
+
+
+
+            /**
+             * Sincroniza o seletor de transparência com as camadas registradas no mapa.
+             */
+            function synchronizeLayerSelector() {
                 var layerSelector = document.getElementById('layerSelector');
-                layerSelector.innerHTML = ""; // Limpa o seletor antes de preenchê-lo
+                var selectedLayerName = layerSelector.value;
+                var layerNames = Object.keys(layerRegistry);
+                layerSelector.innerHTML = '';
 
-                // Adiciona opções ao seletor
-                Object.keys(layerRegistry).forEach(function(key) {
-                    var option = new Option(key, key);
+                layerNames.forEach(function(layerName) {
+                    var option = new Option(layerName, layerName);
                     layerSelector.appendChild(option);
                 });
 
-                return layerRegistry; // Retorna o registro para uso posterior
+                layerSelector.value = layerNames.includes(selectedLayerName)
+                    ? selectedLayerName
+                    : (layerNames[0] || '');
             }
 
-            // Inicializa o layerRegistry a partir de fillLayerSelector
-            var layers = fillLayerSelector();
+            synchronizeLayerSelector();
 
             // Função para ajustar a transparência do layer selecionado
             /**
@@ -355,8 +366,8 @@ window.PlanMilT.mapSetup = Object.freeze({
                 var sliderValue = document.getElementById('transparencySlider').value;
                 var opacity = parseFloat(sliderValue) / 100;
 
-                if (selectedLayerKey && layers[selectedLayerKey]) {
-                    var layer = layers[selectedLayerKey];
+                if (selectedLayerKey && layerRegistry[selectedLayerKey]) {
+                    var layer = layerRegistry[selectedLayerKey];
 
                     // Ajuste de opacidade com métodos apropriados
                     if (typeof layer.setOpacity === 'function') {
@@ -377,6 +388,6 @@ window.PlanMilT.mapSetup = Object.freeze({
             document.getElementById('layerSelector').addEventListener('change', adjustLayerTransparency);
             document.getElementById('transparencySlider').addEventListener('input', adjustLayerTransparency);
 
-        return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer };
+        return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer, removeOverlayLayer };
     }
 });
