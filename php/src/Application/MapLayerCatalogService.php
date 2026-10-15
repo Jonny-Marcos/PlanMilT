@@ -44,15 +44,11 @@ final class MapLayerCatalogService
     ): array
     {
         $totalLayers = (int) $this->database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn();
-        $years = $this->database->query(
-            'SELECT DISTINCT latest_year FROM map_layers WHERE latest_year > 0 ORDER BY latest_year DESC'
-        )->fetchAll(PDO::FETCH_COLUMN);
         $query = trim($query);
         if ($query !== '') {
             return [
                 'totalLayers' => $totalLayers,
                 'query' => $query,
-                'years' => array_map('intval', $years),
                 'totalResults' => $this->countMatches($query, $serviceId, $categoryCode, $year),
                 'results' => $this->search($query, $serviceId, $categoryCode, $year),
             ];
@@ -102,7 +98,6 @@ final class MapLayerCatalogService
             'totalLayers' => $totalLayers,
             'categories' => $categories,
             'services' => $services,
-            'years' => array_map('intval', $years),
         ];
     }
 

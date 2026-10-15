@@ -19,11 +19,16 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result\s*\{[\s\S]*?border-bottom: 1px solid/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(documentSource, /app\.css\?v=20261015-catalog-advanced-search/);
+    assert.match(documentSource, /layer-management\.js\?v=20261015-catalog-search-facets/);
     assert.match(source, /Carregando dados/);
     assert.match(source, /<summary>Busca avançada<\/summary>/);
     assert.match(source, /layerCatalogAdvancedService/);
     assert.match(source, /layerCatalogAdvancedCategory/);
     assert.match(source, /layerCatalogAdvancedYear/);
+    assert.match(source, /const updateAdvancedFilters = layers =>/);
+    assert.match(source, /updateAdvancedFilters\(layers\)/);
+    assert.match(source, /categorySelect\.value = 'all'/);
+    assert.doesNotMatch(source, /categorySelect\.value = firstCategory\.code/);
     assert.match(source, /params\.set\('service_id', advancedServiceSelect\.value\)/);
     assert.match(source, /params\.set\('category_code', advancedCategorySelect\.value\)/);
     assert.match(source, /params\.set\('year', advancedYearSelect\.value\)/);

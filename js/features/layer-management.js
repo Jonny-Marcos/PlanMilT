@@ -334,35 +334,74 @@
                                     option.value = String(service.id);
                                     option.textContent = service.name;
                                     serviceSelect.appendChild(option);
-                                    const advancedOption = option.cloneNode(true);
-                                    advancedServiceSelect.appendChild(advancedOption);
                                 });
-                                categories.forEach(category => {
-                                    const option = document.createElement('option');
-                                    option.value = category.code;
-                                    option.textContent = category.name;
-                                    advancedCategorySelect.appendChild(option);
-                                });
-                                const uncategorizedOption = document.createElement('option');
-                                uncategorizedOption.value = 'uncategorized';
-                                uncategorizedOption.textContent = 'Sem categoria';
-                                advancedCategorySelect.appendChild(uncategorizedOption);
-                                (catalog.years || []).forEach(yearValue => {
-                                    const option = document.createElement('option');
-                                    option.value = String(yearValue);
-                                    option.textContent = String(yearValue);
-                                    advancedYearSelect.appendChild(option);
-                                });
-                                const noYearOption = document.createElement('option');
-                                noYearOption.value = 'none';
-                                noYearOption.textContent = 'Sem data identificada';
-                                advancedYearSelect.appendChild(noYearOption);
 
                                 const normalizeSearch = value => value.normalize('NFD')
                                     .replace(/[\u0300-\u036f]/g, '')
                                     .toLocaleLowerCase('pt-BR');
 
                                 const getLayerYear = layer => Number(layer.latestYear || layer.LatestYear || 0);
+
+                                const setFilterOptions = (select, defaultLabel, options) => {
+                                    const selectedValue = select.value;
+                                    select.replaceChildren();
+                                    const defaultOption = document.createElement('option');
+                                    defaultOption.value = '';
+                                    defaultOption.textContent = defaultLabel;
+                                    select.appendChild(defaultOption);
+                                    options.forEach(optionData => {
+                                        const option = document.createElement('option');
+                                        option.value = optionData.value;
+                                        option.textContent = optionData.label;
+                                        select.appendChild(option);
+                                    });
+                                    if (options.some(optionData => optionData.value === selectedValue)) {
+                                        select.value = selectedValue;
+                                    } else {
+                                        select.value = '';
+                                    }
+                                };
+
+                                const updateAdvancedFilters = layers => {
+                                    const servicesInResults = new Map();
+                                    const categoriesInResults = new Map();
+                                    const yearsInResults = new Set();
+                                    let hasUncategorizedLayers = false;
+                                    let hasLayersWithoutYear = false;
+                                    layers.forEach(layer => {
+                                        servicesInResults.set(String(layer.serviceId), layer.serviceName);
+                                        if (layer.categoryCode) {
+                                            categoriesInResults.set(layer.categoryCode, layer.categoryName || 'Camada WMS');
+                                        } else {
+                                            hasUncategorizedLayers = true;
+                                        }
+                                        const year = getLayerYear(layer);
+                                        if (year > 0) yearsInResults.add(year);
+                                        else hasLayersWithoutYear = true;
+                                    });
+
+                                    setFilterOptions(
+                                        advancedServiceSelect,
+                                        'Todas as bases',
+                                        Array.from(servicesInResults, ([value, label]) => ({ value, label }))
+                                            .sort((first, second) => first.label.localeCompare(second.label, 'pt-BR'))
+                                    );
+                                    const categoryOptions = Array.from(
+                                        categoriesInResults,
+                                        ([value, label]) => ({ value, label })
+                                    );
+                                    if (hasUncategorizedLayers) {
+                                        categoryOptions.push({ value: 'uncategorized', label: 'Sem categoria' });
+                                    }
+                                    setFilterOptions(advancedCategorySelect, 'Todas as categorias', categoryOptions);
+                                    const yearOptions = Array.from(yearsInResults)
+                                        .sort((first, second) => second - first)
+                                        .map(year => ({ value: String(year), label: String(year) }));
+                                    if (hasLayersWithoutYear) {
+                                        yearOptions.push({ value: 'none', label: 'Sem data identificada' });
+                                    }
+                                    setFilterOptions(advancedYearSelect, 'Todos os anos', yearOptions);
+                                };
 
                                 const categoryNameForLayer = layer =>
                                     layer.categoryName
@@ -465,6 +504,11 @@
                                                 .then(result => {
                                                     if (generation !== searchGeneration) return;
                                                     const layers = result.results || [];
+                                                    if (!advancedServiceSelect.value
+                                                        && !advancedCategorySelect.value
+                                                        && !advancedYearSelect.value) {
+                                                        updateAdvancedFilters(layers);
+                                                    }
                                                     const message = result.totalResults > layers.length
                                                         ? `Mostrando ${layers.length} dos ${result.totalResults} resultados.`
                                                         : `${result.totalResults} resultados encontrados.`;
@@ -564,6 +608,10 @@
                                     if (Array.isArray(liveLayers)) {
                                         searchTimer = setTimeout(renderLiveLayers, 120);
                                     } else {
+                                        advancedServiceSelect.value = '';
+                                        advancedCategorySelect.value = '';
+                                        advancedYearSelect.value = '';
+                                        updateAdvancedFilters([]);
                                         renderLocalLayers();
                                     }
                                 });
@@ -576,9 +624,8 @@
                                     });
                                 });
 
+                                categorySelect.value = 'all';
                                 if (categories.length > 0) {
-                                    const firstCategory = categories.find(category => category.layers.length > 0) || categories[0];
-                                    categorySelect.value = firstCategory.code;
                                     renderLocalLayers();
                                 } else {
                                     renderLayers([], 'O catálogo ainda não possui recomendações. Use a busca para localizar camadas.');
