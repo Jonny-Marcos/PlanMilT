@@ -643,13 +643,13 @@
                                 result.value.forEach(layer => {
                                     const fullTitle = layer.title || layer.layerName;
                                     const titleCharacters = Array.from(fullTitle);
-                                    const shortTitle = titleCharacters.length > 20
-                                        ? `${titleCharacters.slice(0, 19).join('')}…`
+                                    const shortTitle = titleCharacters.length > 25
+                                        ? `${titleCharacters.slice(0, 24).join('')}…`
                                         : fullTitle;
                                     let overlayName = shortTitle;
                                     for (let copy = 2; layerRegistry[overlayName]; copy++) {
                                         const suffix = ` (${copy})`;
-                                        const availableCharacters = 20 - Array.from(suffix).length;
+                                        const availableCharacters = 25 - Array.from(suffix).length;
                                         overlayName = `${titleCharacters.slice(0, availableCharacters - 1).join('')}…${suffix}`;
                                     }
                                     addWMSLayerToMap(layer.serviceUrl, layer.layerName, overlayName);
