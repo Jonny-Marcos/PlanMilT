@@ -211,9 +211,14 @@
                     .layer-catalog-modal .swal2-html-container{margin:0;padding:0 2px;overflow-x:hidden}
                     #layerCatalogPicker{display:grid;gap:12px;text-align:left;width:100%;font-size:14px}
                     #layerCatalogPicker .layer-catalog-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+                    #layerCatalogPicker .layer-catalog-filters[hidden]{display:none!important}
                     #layerCatalogPicker .layer-catalog-field{display:grid;gap:5px;min-width:0}
                     #layerCatalogPicker .layer-catalog-field>label{display:block;margin:0;font-size:13px;font-weight:600;color:#36404f;text-align:left}
                     #layerCatalogPicker .layer-catalog-field>input,#layerCatalogPicker .layer-catalog-field>select{display:block;width:100%;height:40px;margin:0;padding:6px 10px;border:1px solid #c5cad2;border-radius:6px;box-sizing:border-box;font:inherit;background:#fff;color:#242a33}
+                    #layerCatalogPicker .layer-catalog-advanced[hidden]{display:none!important}
+                    #layerCatalogPicker .layer-catalog-advanced{border:1px solid #d9dde4;border-radius:6px;padding:8px 10px}
+                    #layerCatalogPicker .layer-catalog-advanced>summary{color:#2d4a75;font-size:13px;font-weight:600;cursor:pointer}
+                    #layerCatalogPicker .layer-catalog-advanced .layer-catalog-filters{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
                     #layerCatalogPicker #layerCatalogStatus{min-height:1.3em;font-size:13px;color:#596273}
                     #layerCatalogPicker #layerCatalogResults{display:block;height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;border:1px solid #d3d8e0;border-radius:6px;background:#fff}
                     #layerCatalogPicker .layer-catalog-result{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-bottom:1px solid #e1e5eb;cursor:pointer;text-align:left;background:#fff;margin:0}
@@ -228,7 +233,7 @@
                     #layerCatalogPicker .layer-catalog-result-category{background:#e3ecf8!important;color:#2d4a75!important}
                     #layerCatalogPicker .layer-catalog-loading{padding:24px;text-align:center;color:#596273}
                     #layerCatalogPicker .layer-catalog-selection{padding:8px 10px;border-radius:6px;background:#eef1f5;color:#36404f;font-size:13px;font-weight:600}
-                    @media(max-width:540px){#layerCatalogPicker .layer-catalog-filters{grid-template-columns:minmax(0,1fr)}}
+                    @media(max-width:540px){#layerCatalogPicker .layer-catalog-filters,#layerCatalogPicker .layer-catalog-advanced .layer-catalog-filters{grid-template-columns:minmax(0,1fr)}}
                 `;
 
                 function showLayerCatalog() {
@@ -262,6 +267,16 @@
                                 + '</div>'
                                 + '<div class="layer-catalog-field"><label for="layerCatalogSearch">Buscar camadas</label>'
                                 + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100" placeholder="Nome, tema, município ou atributo"></div>'
+                                + '<details id="layerCatalogAdvanced" class="layer-catalog-advanced" hidden>'
+                                + '<summary>Busca avançada</summary>'
+                                + '<div class="layer-catalog-filters">'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogAdvancedService">Base</label>'
+                                + '<select id="layerCatalogAdvancedService"><option value="">Todas as bases</option></select></div>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogAdvancedCategory">Categoria</label>'
+                                + '<select id="layerCatalogAdvancedCategory"><option value="">Todas as categorias</option></select></div>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogAdvancedYear">Ano</label>'
+                                + '<select id="layerCatalogAdvancedYear"><option value="">Todos os anos</option></select></div>'
+                                + '</div></details>'
                                 + '<div id="layerCatalogStatus" role="status"></div>'
                                 + '<div id="layerCatalogResults" class="layer-catalog-results" role="group" aria-label="Camadas disponíveis"></div>'
                                 + '<div id="layerCatalogSelection" class="layer-catalog-selection" role="status">Nenhuma camada selecionada</div>'
@@ -275,7 +290,12 @@
                                 const popup = Swal.getPopup();
                                 const categorySelect = popup.querySelector('#layerCatalogCategory');
                                 const serviceSelect = popup.querySelector('#layerCatalogService');
+                                const catalogFilters = popup.querySelector('.layer-catalog-filters');
                                 const searchInput = popup.querySelector('#layerCatalogSearch');
+                                const advancedSearch = popup.querySelector('#layerCatalogAdvanced');
+                                const advancedServiceSelect = popup.querySelector('#layerCatalogAdvancedService');
+                                const advancedCategorySelect = popup.querySelector('#layerCatalogAdvancedCategory');
+                                const advancedYearSelect = popup.querySelector('#layerCatalogAdvancedYear');
                                 const resultsContainer = popup.querySelector('#layerCatalogResults');
                                 const status = popup.querySelector('#layerCatalogStatus');
                                 const selectionStatus = popup.querySelector('#layerCatalogSelection');
@@ -314,7 +334,29 @@
                                     option.value = String(service.id);
                                     option.textContent = service.name;
                                     serviceSelect.appendChild(option);
+                                    const advancedOption = option.cloneNode(true);
+                                    advancedServiceSelect.appendChild(advancedOption);
                                 });
+                                categories.forEach(category => {
+                                    const option = document.createElement('option');
+                                    option.value = category.code;
+                                    option.textContent = category.name;
+                                    advancedCategorySelect.appendChild(option);
+                                });
+                                const uncategorizedOption = document.createElement('option');
+                                uncategorizedOption.value = 'uncategorized';
+                                uncategorizedOption.textContent = 'Sem categoria';
+                                advancedCategorySelect.appendChild(uncategorizedOption);
+                                (catalog.years || []).forEach(yearValue => {
+                                    const option = document.createElement('option');
+                                    option.value = String(yearValue);
+                                    option.textContent = String(yearValue);
+                                    advancedYearSelect.appendChild(option);
+                                });
+                                const noYearOption = document.createElement('option');
+                                noYearOption.value = 'none';
+                                noYearOption.textContent = 'Sem data identificada';
+                                advancedYearSelect.appendChild(noYearOption);
 
                                 const normalizeSearch = value => value.normalize('NFD')
                                     .replace(/[\u0300-\u036f]/g, '')
@@ -396,6 +438,9 @@
                                         return;
                                     }
                                     const query = searchInput.value.trim();
+                                    const isGlobalSearch = query.length >= 2 && serviceSelect.value === '';
+                                    catalogFilters.hidden = isGlobalSearch;
+                                    advancedSearch.hidden = !isGlobalSearch;
                                     if (query.length > 0) {
                                         if (query.length < 2) {
                                             renderLayers([], 'Digite pelo menos 2 caracteres para pesquisar.');
@@ -407,11 +452,23 @@
                                         resultsContainer.replaceChildren();
                                         searchTimer = setTimeout(() => {
                                             const params = new URLSearchParams({ q: query });
+                                            if (advancedServiceSelect.value) {
+                                                params.set('service_id', advancedServiceSelect.value);
+                                            }
+                                            if (advancedCategorySelect.value) {
+                                                params.set('category_code', advancedCategorySelect.value);
+                                            }
+                                            if (advancedYearSelect.value) {
+                                                params.set('year', advancedYearSelect.value);
+                                            }
                                             window.PlanMilT.apiClient.getJson(`${endpoint}?${params.toString()}`)
                                                 .then(result => {
                                                     if (generation !== searchGeneration) return;
                                                     const layers = result.results || [];
-                                                    renderLayers(layers, `${layers.length} de ${result.totalResults} resultados do catálogo.`);
+                                                    const message = result.totalResults > layers.length
+                                                        ? `Mostrando ${layers.length} dos ${result.totalResults} resultados.`
+                                                        : `${result.totalResults} resultados encontrados.`;
+                                                    renderLayers(layers, message);
                                                 })
                                                 .catch(() => {
                                                     if (generation === searchGeneration) {
@@ -509,6 +566,14 @@
                                     } else {
                                         renderLocalLayers();
                                     }
+                                });
+                                [advancedServiceSelect, advancedCategorySelect, advancedYearSelect].forEach(filter => {
+                                    filter.addEventListener('change', () => {
+                                        if (searchInput.value.trim().length >= 2 && serviceSelect.value === '') {
+                                            clearTimeout(searchTimer);
+                                            renderLocalLayers();
+                                        }
+                                    });
                                 });
 
                                 if (categories.length > 0) {

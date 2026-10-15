@@ -111,6 +111,8 @@ try {
     $searchByTitle = $catalog->browse('water_1980');
     $searchByFeatureInfo = $catalog->browse('Nova Crixás');
     $searchByService = $catalog->browse('Demanda hídrica', 2);
+    $searchByAdvancedFilters = $catalog->browse('Demanda hídrica', 1, 'hydrography', '2040');
+    $searchByMissingYear = $catalog->browse('Dados cartográficos diversos', null, 'uncategorized', 'none');
     $serviceCategories = $catalog->browse('', 2);
     $searchDistrict = $catalog->browse('Distrito Federal');
     $searchCity = $catalog->browse('Belo Horizonte');
@@ -125,6 +127,10 @@ try {
         || $searchByFeatureInfo['results'][0]['layerName'] !== 'water_2040'
         || $searchByService['totalResults'] !== 1
         || $searchByService['results'][0]['serviceName'] !== 'SIG complementar'
+        || $searchByAdvancedFilters['totalResults'] !== 1
+        || $searchByAdvancedFilters['results'][0]['layerName'] !== 'water_2040'
+        || $searchByMissingYear['totalResults'] !== 1
+        || $searchByMissingYear['results'][0]['layerName'] !== 'unknown_1'
         || $serviceCategories['categories'][1]['layers'][0]['layerName'] !== 'other_water'
         || $searchDistrict['totalResults'] !== 1
         || $searchDistrict['results'][0]['categoryCode'] !== null
@@ -160,7 +166,12 @@ try {
     $previousQuery = $_GET;
     putenv('PLANMILT_DB_PATH=' . $endpointDatabasePath);
     $_SERVER['REQUEST_METHOD'] = 'GET';
-    $_GET = ['q' => 'Nova Crixás'];
+    $_GET = [
+        'q' => 'Nova Crixás',
+        'service_id' => '1',
+        'category_code' => 'population',
+        'year' => '2040',
+    ];
     ob_start();
     try {
         require dirname(__DIR__, 2) . '/php/endpoints/map-layer-catalog.php';

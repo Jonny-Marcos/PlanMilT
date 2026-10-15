@@ -31,18 +31,30 @@ final class MapLayerCatalogService
      * Retorna recomendações por categoria ou resultados da busca textual global.
      *
      * @param string $query Texto pesquisado; vazio retorna apenas categorias e recomendações.
+     * @param int|null $serviceId Filtra a busca pelo identificador do SIG.
+     * @param string|null $categoryCode Código da categoria, ou `uncategorized`.
+     * @param string|null $year Ano exato, ou `none` para camadas sem ano.
      * @return array<string, mixed> Dados do catálogo prontos para o endpoint.
      */
-    public function browse(string $query = '', ?int $serviceId = null): array
+    public function browse(
+        string $query = '',
+        ?int $serviceId = null,
+        ?string $categoryCode = null,
+        ?string $year = null
+    ): array
     {
         $totalLayers = (int) $this->database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn();
+        $years = $this->database->query(
+            'SELECT DISTINCT latest_year FROM map_layers WHERE latest_year > 0 ORDER BY latest_year DESC'
+        )->fetchAll(PDO::FETCH_COLUMN);
         $query = trim($query);
         if ($query !== '') {
             return [
                 'totalLayers' => $totalLayers,
                 'query' => $query,
-                'totalResults' => $this->countMatches($query, $serviceId),
-                'results' => $this->search($query, $serviceId),
+                'years' => array_map('intval', $years),
+                'totalResults' => $this->countMatches($query, $serviceId, $categoryCode, $year),
+                'results' => $this->search($query, $serviceId, $categoryCode, $year),
             ];
         }
 
@@ -86,7 +98,12 @@ final class MapLayerCatalogService
         $services = $this->database->query('SELECT id, name, url FROM map_services ORDER BY name COLLATE NOCASE')
             ->fetchAll(PDO::FETCH_ASSOC);
 
-        return ['totalLayers' => $totalLayers, 'categories' => $categories, 'services' => $services];
+        return [
+            'totalLayers' => $totalLayers,
+            'categories' => $categories,
+            'services' => $services,
+            'years' => array_map('intval', $years),
+        ];
     }
 
     /**
@@ -368,9 +385,14 @@ final class MapLayerCatalogService
      *
      * @param string $query Texto já validado e normalizado.
      */
-    private function countMatches(string $query, ?int $serviceId): int
+    private function countMatches(
+        string $query,
+        ?int $serviceId,
+        ?string $categoryCode,
+        ?string $year
+    ): int
     {
-        [$where, $parameters] = $this->searchCondition($query, $serviceId);
+        [$where, $parameters] = $this->searchCondition($query, $serviceId, $categoryCode, $year);
         $statement = $this->database->prepare(
             'SELECT COUNT(*) FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id WHERE ' . $where
         );
@@ -385,9 +407,14 @@ final class MapLayerCatalogService
      * @param string $query Texto já validado e normalizado.
      * @return array<int, array<string, mixed>>
      */
-    private function search(string $query, ?int $serviceId): array
+    private function search(
+        string $query,
+        ?int $serviceId,
+        ?string $categoryCode,
+        ?string $year
+    ): array
     {
-        [$where, $parameters] = $this->searchCondition($query, $serviceId);
+        [$where, $parameters] = $this->searchCondition($query, $serviceId, $categoryCode, $year);
         $statement = $this->database->prepare(
             'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ml.latest_year AS latestYear, '
             . 'ml.category_code AS categoryCode, mc.name AS categoryName, ms.id AS serviceId, ms.name AS serviceName, '
@@ -409,7 +436,12 @@ final class MapLayerCatalogService
      * @param string $query Texto buscado.
      * @return array{0: string, 1: array<int, string>}
      */
-    private function searchCondition(string $query, ?int $serviceId): array
+    private function searchCondition(
+        string $query,
+        ?int $serviceId,
+        ?string $categoryCode,
+        ?string $year
+    ): array
     {
         $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query);
         $pattern = '%' . $escaped . '%';
@@ -425,6 +457,18 @@ final class MapLayerCatalogService
         if ($serviceId !== null) {
             $condition .= ' AND ml.map_service_id = ?';
             $parameters[] = (string) $serviceId;
+        }
+        if ($categoryCode === 'uncategorized') {
+            $condition .= ' AND ml.category_code IS NULL';
+        } elseif ($categoryCode !== null) {
+            $condition .= ' AND ml.category_code = ?';
+            $parameters[] = $categoryCode;
+        }
+        if ($year === 'none') {
+            $condition .= ' AND COALESCE(ml.latest_year, 0) = 0';
+        } elseif ($year !== null) {
+            $condition .= ' AND ml.latest_year = ?';
+            $parameters[] = (int) $year;
         }
 
         return [$condition, $parameters];
