@@ -227,7 +227,7 @@
                         });
 
                         Swal.fire({
-                            title: 'Selecione o SIG',
+                            title: 'Selecione o Sistema de Informação Geográfica',
                             input: 'select',
                             inputOptions: sortedInputOptions,
                             inputPlaceholder: 'Selecione um SIG',
