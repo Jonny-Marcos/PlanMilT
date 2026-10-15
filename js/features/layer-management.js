@@ -356,11 +356,10 @@
                                         const searchText = normalizeSearch(`${layer.layerName} ${layer.title}`);
                                         return categoryMatches && (!query || searchText.includes(query));
                                     });
-                                    const visible = filtered.slice(0, 10);
                                     const message = query
-                                        ? `Mostrando ${visible.length} de ${filtered.length} resultados deste SIG, ordenados pelo ano mais recente.`
-                                        : `${visible.length} camadas mais recentes (de ${filtered.length}) neste SIG. Use a busca para filtrar.`;
-                                    renderLayers(visible, message);
+                                        ? `${filtered.length} resultados neste SIG, ordenados pelo ano mais recente.`
+                                        : `${filtered.length} camadas neste SIG, ordenadas pelo ano mais recente. Use a busca para filtrar.`;
+                                    renderLayers(filtered, message);
                                 };
 
                                 const renderLocalLayers = () => {
@@ -384,7 +383,7 @@
                                                 .then(result => {
                                                     if (generation !== searchGeneration) return;
                                                     const layers = result.results || [];
-                                                    renderLayers(layers.slice(0, 10), `${Math.min(layers.length, 10)} de ${result.totalResults} resultados do catálogo.`);
+                                                    renderLayers(layers, `${layers.length} de ${result.totalResults} resultados do catálogo.`);
                                                 })
                                                 .catch(() => {
                                                     if (generation === searchGeneration) {
