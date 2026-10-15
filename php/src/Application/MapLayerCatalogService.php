@@ -57,10 +57,15 @@ final class MapLayerCatalogService
                     . 'COALESCE(ml.latest_year, 0) DESC, ml.layer_title COLLATE NOCASE';
             $rankCondition = $serviceId === null ? ' AND ml.category_rank IS NOT NULL' : '';
             $statement = $this->database->prepare(
-                'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.name AS serviceName, '
+                'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.id AS serviceId, ms.name AS serviceName, '
                 . 'ms.url AS serviceUrl, ml.military_relevance AS relevance, ml.feature_info_status AS featureInfoStatus '
                 . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '
                 . 'WHERE ml.category_code = ?' . $rankCondition . $serviceCondition
+                . ' AND lower(ms.name) NOT LIKE \'%prefeitura%\' '
+                . 'AND lower(ms.name || \' \' || ml.layer_name || \' \' || ml.layer_title || \' \' || ml.abstract) '
+                . 'NOT LIKE \'%distrito federal%\' AND lower(ms.name || \' \' || ml.layer_name || \' \' || ml.layer_title || \' \' || ml.abstract) '
+                . 'NOT LIKE \'%belo horizonte%\' AND lower(ms.name || \' \' || ml.layer_name || \' \' || ml.layer_title || \' \' || ml.abstract) '
+                . 'NOT LIKE \'%rio de janeiro%\' '
                 . ' ORDER BY ' . $order . ' LIMIT ' . self::CATEGORY_LIMIT
             );
             $parameters = [$category['code']];
@@ -196,8 +201,10 @@ final class MapLayerCatalogService
 
         $category = $this->categoryCode(
             $value('theme_suggestion'),
+            $value('service_name'),
             $value('layer_name'),
             $value('layer_title'),
+            $value('abstract'),
             $value('feature_info_fields')
         );
         $evidenceSource = str_starts_with($value('review_notes'), 'GetFeatureInfo')
@@ -234,12 +241,23 @@ final class MapLayerCatalogService
      * Converte a sugestão anterior para uma das dez categorias estáveis do catálogo.
      *
      * @param string $suggestion Categoria sugerida no CSV.
+     * @param string $serviceName Nome do SIG.
+     * @param string $layerName Nome técnico da camada.
      * @param string $title Título legível da camada.
+     * @param string $abstract Resumo publicado da camada.
      * @param string $fields Campos encontrados em GetFeatureInfo.
      */
-    private function categoryCode(string $suggestion, string $layerName, string $title, string $fields): ?string
+    private function categoryCode(
+        string $suggestion,
+        string $serviceName,
+        string $layerName,
+        string $title,
+        string $abstract,
+        string $fields
+    ): ?string
     {
-        if (preg_match('/distrito federal|belo horizonte/iu', $layerName . ' ' . $title)) {
+        if (stripos($serviceName, 'prefeitura') !== false
+            || preg_match('/distrito federal|belo horizonte|rio de janeiro/iu', $serviceName . ' ' . $layerName . ' ' . $title . ' ' . $abstract)) {
             return null;
         }
 
@@ -331,7 +349,7 @@ final class MapLayerCatalogService
     {
         [$where, $parameters] = $this->searchCondition($query, $serviceId);
         $statement = $this->database->prepare(
-            'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.name AS serviceName, '
+            'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.id AS serviceId, ms.name AS serviceName, '
             . 'ms.url AS serviceUrl, ml.category_code AS categoryCode, ml.military_relevance AS relevance, '
             . 'ml.feature_info_fields AS featureInfoFields, ml.feature_info_sample AS featureInfoSample '
             . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '

@@ -15,6 +15,7 @@ $database->exec('CREATE TABLE sigs (id INTEGER PRIMARY KEY, Nome TEXT, URL TEXT)
 $database->exec('CREATE TABLE task_sequences (id INTEGER PRIMARY KEY, name TEXT NOT NULL, password TEXT NOT NULL, sequence TEXT NOT NULL, date_created TEXT, date_modified TEXT, description TEXT)');
 $database->exec("INSERT INTO sigs (Nome, URL) VALUES ('ANA - Agência Nacional de Águas e Saneamento Básico', 'https://www.snirh.gov.br/wms')");
 $database->exec("INSERT INTO sigs (Nome, URL) VALUES ('SIG complementar', 'https://other.example/wms')");
+$database->exec("INSERT INTO sigs (Nome, URL) VALUES ('Prefeitura Municipal de Belo Horizonte', 'https://bh.example/wms')");
 SchemaMigrator::migrate($database);
 
 $csvPath = tempnam(sys_get_temp_dir(), 'planmilt-catalog-test-');
@@ -66,15 +67,26 @@ try {
         'not_queryable', '', '', '',
     ], ';', '"', '\\');
     fputcsv($csv, [
+        '1', 'ANA - Agência Nacional de Águas e Saneamento Básico', 'www.snirh.gov.br',
+        'rio_de_janeiro_1', 'Dados territoriais do Rio de Janeiro', '', '', '1', 'ok', '', 'Território e meio ambiente',
+        'potencialmente relevante', 'Metadados WMS indicam limites.', 'revisão humana pendente',
+        'not_queryable', '', '', '',
+    ], ';', '"', '\\');
+    fputcsv($csv, [
         '2', 'SIG complementar', 'other.example', 'other_water', 'Demanda hídrica regional', '', '',
         '1', 'ok', '', 'Hidrografia e recursos hídricos', 'potencialmente relevante',
         'Metadados WMS indicam vazão.', 'revisão humana pendente', 'not_queryable', '', '', '',
+    ], ';', '"', '\\');
+    fputcsv($csv, [
+        '3', 'Prefeitura Municipal de Belo Horizonte', 'bh.example', 'municipal_roads', 'Rodovias regionais',
+        '', '', '1', 'ok', '', 'Transporte terrestre', 'potencialmente relevante', 'Metadados WMS indicam rodovias.',
+        'revisão humana pendente', 'not_queryable', '', '', '',
     ], ';', '"', '\\');
     fclose($csv);
 
     $catalog = new MapLayerCatalogService($database);
     $import = $catalog->importCsv($csvPath);
-    if ($import['imported'] !== 18 || $import['skipped'] !== 0 || $import['recommended'] !== 11) {
+    if ($import['imported'] !== 20 || $import['skipped'] !== 0 || $import['recommended'] !== 11) {
         throw new RuntimeException('Catalog CSV import or ten-per-category recommendation limit regression.');
     }
 
@@ -91,8 +103,10 @@ try {
     $serviceCategories = $catalog->browse('', 2);
     $searchDistrict = $catalog->browse('Distrito Federal');
     $searchCity = $catalog->browse('Belo Horizonte');
+    $searchRio = $catalog->browse('Rio de Janeiro');
+    $searchMunicipalService = $catalog->browse('Rodovias regionais');
     $excludedRegions = $database->query(
-        "SELECT COUNT(*) FROM map_layers WHERE layer_name IN ('district_1', 'belo_horizonte_1') AND category_code IS NULL"
+        "SELECT COUNT(*) FROM map_layers WHERE layer_name IN ('district_1', 'belo_horizonte_1', 'rio_de_janeiro_1', 'municipal_roads') AND category_code IS NULL"
     )->fetchColumn();
     if ($searchByTitle['totalResults'] !== 1
         || $searchByTitle['results'][0]['layerName'] !== 'water_1980'
@@ -103,9 +117,13 @@ try {
         || $serviceCategories['categories'][1]['layers'][0]['layerName'] !== 'other_water'
         || $searchDistrict['totalResults'] !== 1
         || $searchDistrict['results'][0]['categoryCode'] !== null
-        || $searchCity['totalResults'] !== 1
-        || $searchCity['results'][0]['categoryCode'] !== null
-        || (int) $excludedRegions !== 2) {
+        || $searchCity['totalResults'] !== 2
+        || count(array_filter($searchCity['results'], static fn (array $result): bool => $result['categoryCode'] !== null)) !== 0
+        || $searchRio['totalResults'] !== 1
+        || $searchRio['results'][0]['categoryCode'] !== null
+        || $searchMunicipalService['totalResults'] !== 1
+        || $searchMunicipalService['results'][0]['categoryCode'] !== null
+        || (int) $excludedRegions !== 4) {
         throw new RuntimeException('Global search must find recommended and non-recommended layer metadata.');
     }
 
@@ -114,8 +132,8 @@ try {
     $reviewedLayer = $database->query(
         "SELECT category_code, review_status FROM map_layers WHERE layer_name = 'water_2040'"
     )->fetch(PDO::FETCH_ASSOC);
-    if ($secondImport['imported'] !== 18
-        || (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() !== 18
+    if ($secondImport['imported'] !== 20
+        || (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() !== 20
         || $reviewedLayer['category_code'] !== 'population'
         || $reviewedLayer['review_status'] !== 'reviewed') {
         throw new RuntimeException('Catalog refresh must be idempotent and preserve reviewed classification.');

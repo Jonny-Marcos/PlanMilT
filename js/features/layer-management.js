@@ -205,7 +205,7 @@
 
 
                 function showLayerCatalog() {
-                    let selectedLayer = null;
+                    const selectedLayers = new Map();
                     let searchTimer;
                     let searchGeneration = 0;
                     const endpoint = 'php/endpoints/map-layer-catalog.php';
@@ -233,10 +233,11 @@
                                 + '<div class="layer-catalog-field"><label for="layerCatalogSearch">Buscar em todas as camadas</label>'
                                 + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100" placeholder="Nome, tema, município ou atributo"></div>'
                                 + '<div id="layerCatalogStatus" role="status"></div>'
-                                + '<div id="layerCatalogResults" class="layer-catalog-results" role="listbox" aria-label="Camadas disponíveis"></div>'
+                                + '<div id="layerCatalogResults" class="layer-catalog-results" role="group" aria-label="Camadas disponíveis"></div>'
+                                + '<div id="layerCatalogSelection" class="layer-catalog-selection" role="status">Nenhuma camada selecionada</div>'
                                 + '</div>',
                             showCancelButton: true,
-                            confirmButtonText: 'Adicionar camada',
+                            confirmButtonText: 'Adicionar camadas',
                             cancelButtonText: 'Cancelar',
                             customClass: { popup: 'layer-catalog-modal' },
                             focusConfirm: false,
@@ -247,7 +248,19 @@
                                 const searchInput = popup.querySelector('#layerCatalogSearch');
                                 const resultsContainer = popup.querySelector('#layerCatalogResults');
                                 const status = popup.querySelector('#layerCatalogStatus');
+                                const selectionStatus = popup.querySelector('#layerCatalogSelection');
                                 let activeCategories = categories;
+
+                                const updateSelection = () => {
+                                    const count = selectedLayers.size;
+                                    selectionStatus.textContent = count === 0
+                                        ? 'Nenhuma camada selecionada'
+                                        : `${count} ${count === 1 ? 'camada selecionada' : 'camadas selecionadas'}`;
+                                    Swal.getConfirmButton().disabled = count === 0;
+                                    Swal.getConfirmButton().textContent = count === 0
+                                        ? 'Adicionar camadas'
+                                        : `Adicionar ${count} ${count === 1 ? 'camada' : 'camadas'}`;
+                                };
 
                                 categories.forEach(category => {
                                     const option = document.createElement('option');
@@ -263,34 +276,39 @@
                                 });
 
                                 const renderLayers = (layers, message) => {
-                                    selectedLayer = null;
                                     resultsContainer.replaceChildren();
-                                    layers.forEach((layer, index) => {
-                                        const resultButton = document.createElement('button');
-                                        resultButton.type = 'button';
-                                        resultButton.className = 'layer-catalog-result';
-                                        resultButton.setAttribute('role', 'option');
-                                        resultButton.setAttribute('aria-selected', 'false');
+                                    layers.forEach(layer => {
+                                        const key = `${layer.serviceId}:${layer.layerName}`;
+                                        const resultRow = document.createElement('label');
+                                        resultRow.className = 'layer-catalog-result';
+                                        const checkbox = document.createElement('input');
+                                        checkbox.type = 'checkbox';
+                                        checkbox.checked = selectedLayers.has(key);
+                                        checkbox.setAttribute('aria-label', `Selecionar ${layer.title || layer.layerName}`);
+                                        const content = document.createElement('span');
+                                        content.className = 'layer-catalog-result-content';
                                         const title = document.createElement('span');
                                         title.className = 'layer-catalog-result-title';
                                         title.textContent = layer.title || layer.layerName;
                                         const service = document.createElement('span');
                                         service.className = 'layer-catalog-result-service';
                                         service.textContent = layer.serviceName;
-                                        resultButton.append(title, service);
-                                        resultButton.addEventListener('click', () => {
-                                            selectedLayer = layer;
-                                            resultsContainer.querySelectorAll('.layer-catalog-result').forEach(button => {
-                                                const isSelected = button === resultButton;
-                                                button.classList.toggle('is-selected', isSelected);
-                                                button.setAttribute('aria-selected', String(isSelected));
-                                            });
-                                            Swal.getConfirmButton().disabled = false;
+                                        content.append(title, service);
+                                        resultRow.append(checkbox, content);
+                                        resultRow.classList.toggle('is-selected', checkbox.checked);
+                                        checkbox.addEventListener('change', () => {
+                                            resultRow.classList.toggle('is-selected', checkbox.checked);
+                                            if (checkbox.checked) {
+                                                selectedLayers.set(key, layer);
+                                            } else {
+                                                selectedLayers.delete(key);
+                                            }
+                                            updateSelection();
                                         });
-                                        resultsContainer.appendChild(resultButton);
+                                        resultsContainer.appendChild(resultRow);
                                     });
                                     status.textContent = message;
-                                    Swal.getConfirmButton().disabled = true;
+                                    updateSelection();
                                 };
 
                                 const showCategory = () => {
@@ -382,19 +400,19 @@
                                 }
                             },
                             preConfirm: () => {
-                                if (!selectedLayer) {
+                                if (selectedLayers.size === 0) {
                                     Swal.showValidationMessage('Selecione uma camada.');
                                     return false;
                                 }
-                                return selectedLayer;
+                                return Array.from(selectedLayers.values());
                             }
                         }).then(result => {
-                            if (result.isConfirmed && result.value) {
-                                addWMSLayerToMap(
-                                    result.value.serviceUrl,
-                                    result.value.layerName,
-                                    result.value.title || result.value.layerName
-                                );
+                            if (result.isConfirmed && Array.isArray(result.value)) {
+                                result.value.forEach(layer => {
+                                    const title = layer.title || layer.layerName;
+                                    const overlayName = `${title} [${layer.serviceName}: ${layer.layerName}]`;
+                                    addWMSLayerToMap(layer.serviceUrl, layer.layerName, overlayName);
+                                });
                             }
                         });
                     }).catch(error => {
