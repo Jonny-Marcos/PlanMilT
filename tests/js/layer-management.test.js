@@ -13,11 +13,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(source, /layerCatalogService/);
     assert.match(source, /mapLayers\.getWMSLayers\(serviceInfo\.url/);
     assert.match(source, /renderLayers\(filtered, message\)/);
+    assert.match(source, /LAYER_CATALOG_STYLES[\s\S]*?\.layer-catalog-result\{[^}]*border-bottom:1px solid/);
     assert.match(source, /Ano \$\{getLayerYear\(layer\)\}/);
     assert.match(source, /serviceSelect\.addEventListener\('change', \(\) => \{\s*loadSelectedService\(\)/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result\s*\{[\s\S]*?border-bottom: 1px solid/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
-    assert.match(documentSource, /app\.css\?v=20261015-catalog-all-layers/);
+    assert.match(documentSource, /app\.css\?v=20261015-catalog-inline-styles/);
     assert.match(source, /checkbox\.type = 'checkbox'/);
     assert.match(source, /selectedLayers\.set\(key, layer\)/);
     assert.match(source, /result\.value\.forEach\(layer =>/);

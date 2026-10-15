@@ -204,6 +204,33 @@
 
 
 
+                // Estilos embutidos para que o seletor não dependa de CSS externo em cache.
+                const LAYER_CATALOG_STYLES = `
+                    .swal2-popup.layer-catalog-modal{width:min(820px,calc(100vw - 28px))!important;padding:20px!important;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+                    .layer-catalog-modal .swal2-title{font-family:inherit;font-size:22px;font-weight:600;color:#243b5a;padding:0 0 10px;margin:0}
+                    .layer-catalog-modal .swal2-html-container{margin:0;padding:0 2px;overflow-x:hidden}
+                    #layerCatalogPicker{display:grid;gap:12px;text-align:left;width:100%;font-size:14px}
+                    #layerCatalogPicker .layer-catalog-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+                    #layerCatalogPicker .layer-catalog-field{display:grid;gap:5px;min-width:0}
+                    #layerCatalogPicker .layer-catalog-field>label{display:block;margin:0;font-size:13px;font-weight:600;color:#36404f;text-align:left}
+                    #layerCatalogPicker .layer-catalog-field>input,#layerCatalogPicker .layer-catalog-field>select{display:block;width:100%;height:40px;margin:0;padding:6px 10px;border:1px solid #c5cad2;border-radius:6px;box-sizing:border-box;font:inherit;background:#fff;color:#242a33}
+                    #layerCatalogPicker #layerCatalogStatus{min-height:1.3em;font-size:13px;color:#596273}
+                    #layerCatalogPicker #layerCatalogResults{display:block;height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;border:1px solid #d3d8e0;border-radius:6px;background:#fff}
+                    #layerCatalogPicker .layer-catalog-result{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-bottom:1px solid #e1e5eb;cursor:pointer;text-align:left;background:#fff;margin:0}
+                    #layerCatalogPicker .layer-catalog-result:last-child{border-bottom:0}
+                    #layerCatalogPicker .layer-catalog-result:hover{background:#f3f6fa}
+                    #layerCatalogPicker .layer-catalog-result.is-selected{background:#e6edf7;box-shadow:inset 3px 0 0 #435f88}
+                    #layerCatalogPicker .layer-catalog-result>input{flex:none;width:17px;height:17px;margin:2px 0 0;accent-color:#435f88}
+                    #layerCatalogPicker .layer-catalog-result-content{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+                    #layerCatalogPicker .layer-catalog-result-title{font-size:14px;font-weight:600;line-height:1.35;color:#242a33;overflow-wrap:anywhere}
+                    #layerCatalogPicker .layer-catalog-result-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+                    #layerCatalogPicker .layer-catalog-result-meta>span{padding:2px 8px;border-radius:10px;background:#eef1f5;color:#4a5568;font-size:12px;line-height:1.4}
+                    #layerCatalogPicker .layer-catalog-result-category{background:#e3ecf8!important;color:#2d4a75!important}
+                    #layerCatalogPicker .layer-catalog-loading{padding:24px;text-align:center;color:#596273}
+                    #layerCatalogPicker .layer-catalog-selection{padding:8px 10px;border-radius:6px;background:#eef1f5;color:#36404f;font-size:13px;font-weight:600}
+                    @media(max-width:540px){#layerCatalogPicker .layer-catalog-filters{grid-template-columns:minmax(0,1fr)}}
+                `;
+
                 function showLayerCatalog() {
                     const selectedLayers = new Map();
                     let searchTimer;
@@ -225,7 +252,8 @@
 
                         Swal.fire({
                             title: 'Adicionar camada',
-                            html: '<div id="layerCatalogPicker" class="layer-catalog-picker">'
+                            html: '<style>' + LAYER_CATALOG_STYLES + '</style>'
+                                + '<div id="layerCatalogPicker" class="layer-catalog-picker">'
                                 + '<div class="layer-catalog-filters">'
                                 + '<div class="layer-catalog-field"><label for="layerCatalogCategory">Categoria</label>'
                                 + '<select id="layerCatalogCategory"><option value="all">Todas as categorias</option></select></div>'
