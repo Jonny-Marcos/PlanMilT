@@ -208,6 +208,8 @@
                     const selectedLayers = new Map();
                     let searchTimer;
                     let searchGeneration = 0;
+                    let serviceLoadGeneration = 0;
+                    let isLoadingLiveLayers = false;
                     const endpoint = 'php/endpoints/map-layer-catalog.php';
 
                     Swal.fire({
@@ -223,14 +225,14 @@
 
                         Swal.fire({
                             title: 'Adicionar camada',
-                            html: '<div class="layer-catalog-picker">'
+                            html: '<div id="layerCatalogPicker" class="layer-catalog-picker">'
                                 + '<div class="layer-catalog-filters">'
                                 + '<div class="layer-catalog-field"><label for="layerCatalogCategory">Categoria</label>'
-                                + '<select id="layerCatalogCategory"></select></div>'
-                                + '<div class="layer-catalog-field"><label for="layerCatalogService">Sistema de Informação Geográfica</label>'
+                                + '<select id="layerCatalogCategory"><option value="all">Todas as categorias</option></select></div>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogService">SIG</label>'
                                 + '<select id="layerCatalogService"><option value="">Todos os SIGs</option></select></div>'
                                 + '</div>'
-                                + '<div class="layer-catalog-field"><label for="layerCatalogSearch">Buscar em todas as camadas</label>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogSearch">Buscar camadas</label>'
                                 + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100" placeholder="Nome, tema, município ou atributo"></div>'
                                 + '<div id="layerCatalogStatus" role="status"></div>'
                                 + '<div id="layerCatalogResults" class="layer-catalog-results" role="group" aria-label="Camadas disponíveis"></div>'
@@ -249,7 +251,18 @@
                                 const resultsContainer = popup.querySelector('#layerCatalogResults');
                                 const status = popup.querySelector('#layerCatalogStatus');
                                 const selectionStatus = popup.querySelector('#layerCatalogSelection');
-                                let activeCategories = categories;
+                                popup.classList.add('layer-catalog-modal');
+                                const categoryByServiceLayer = new Map();
+                                let liveLayers = null;
+
+                                categories.forEach(category => {
+                                    category.layers.forEach(layer => {
+                                        categoryByServiceLayer.set(`${layer.serviceId}:${layer.layerName}`, {
+                                            code: category.code,
+                                            name: category.name,
+                                        });
+                                    });
+                                });
 
                                 const updateSelection = () => {
                                     const count = selectedLayers.size;
@@ -275,126 +288,206 @@
                                     serviceSelect.appendChild(option);
                                 });
 
+                                const normalizeSearch = value => value.normalize('NFD')
+                                    .replace(/[\u0300-\u036f]/g, '')
+                                    .toLocaleLowerCase('pt-BR');
+
+                                const getLayerYear = layer => Number(layer.latestYear || layer.LatestYear || 0);
+
+                                const categoryNameForLayer = layer =>
+                                    layer.categoryName
+                                    || categoryByServiceLayer.get(`${layer.serviceId}:${layer.layerName}`)?.name
+                                    || 'Camada WMS';
+
                                 const renderLayers = (layers, message) => {
                                     resultsContainer.replaceChildren();
                                     layers.forEach(layer => {
-                                        const key = `${layer.serviceId}:${layer.layerName}`;
-                                        const resultRow = document.createElement('label');
-                                        resultRow.className = 'layer-catalog-result';
+                                        const serviceId = Number(layer.serviceId);
+                                        const key = `${serviceId}:${layer.layerName}`;
+                                        const row = document.createElement('label');
+                                        row.className = 'layer-catalog-result';
                                         const checkbox = document.createElement('input');
                                         checkbox.type = 'checkbox';
                                         checkbox.checked = selectedLayers.has(key);
                                         checkbox.setAttribute('aria-label', `Selecionar ${layer.title || layer.layerName}`);
+
                                         const content = document.createElement('span');
                                         content.className = 'layer-catalog-result-content';
                                         const title = document.createElement('span');
                                         title.className = 'layer-catalog-result-title';
                                         title.textContent = layer.title || layer.layerName;
+
+                                        const metadata = document.createElement('span');
+                                        metadata.className = 'layer-catalog-result-meta';
                                         const service = document.createElement('span');
                                         service.className = 'layer-catalog-result-service';
                                         service.textContent = layer.serviceName;
-                                        content.append(title, service);
-                                        resultRow.append(checkbox, content);
-                                        resultRow.classList.toggle('is-selected', checkbox.checked);
+                                        const category = document.createElement('span');
+                                        category.className = 'layer-catalog-result-category';
+                                        category.textContent = categoryNameForLayer(layer);
+                                        const year = document.createElement('span');
+                                        year.className = 'layer-catalog-result-year';
+                                        year.textContent = getLayerYear(layer) > 0
+                                            ? `Ano ${getLayerYear(layer)}`
+                                            : 'Sem data identificada';
+                                        metadata.append(service, category, year);
+                                        content.append(title, metadata);
+                                        row.append(checkbox, content);
+                                        row.classList.toggle('is-selected', checkbox.checked);
                                         checkbox.addEventListener('change', () => {
-                                            resultRow.classList.toggle('is-selected', checkbox.checked);
-                                            if (checkbox.checked) {
-                                                selectedLayers.set(key, layer);
-                                            } else {
-                                                selectedLayers.delete(key);
-                                            }
+                                            row.classList.toggle('is-selected', checkbox.checked);
+                                            if (checkbox.checked) selectedLayers.set(key, layer);
+                                            else selectedLayers.delete(key);
                                             updateSelection();
                                         });
-                                        resultsContainer.appendChild(resultRow);
+                                        resultsContainer.appendChild(row);
                                     });
                                     status.textContent = message;
                                     updateSelection();
                                 };
 
-                                const showCategory = () => {
-                                    const category = activeCategories.find(item => item.code === categorySelect.value);
-                                    const layers = category ? category.layers : [];
-                                    renderLayers(layers, `${layers.length} recomendações nesta categoria.`);
+                                const renderLiveLayers = () => {
+                                    if (!Array.isArray(liveLayers)) return;
+                                    const query = normalizeSearch(searchInput.value.trim());
+                                    const categoryCode = categorySelect.value;
+                                    const filtered = liveLayers.filter(layer => {
+                                        const category = categoryByServiceLayer.get(`${layer.serviceId}:${layer.layerName}`);
+                                        const categoryMatches = categoryCode === 'all' || category?.code === categoryCode;
+                                        const searchText = normalizeSearch(`${layer.layerName} ${layer.title}`);
+                                        return categoryMatches && (!query || searchText.includes(query));
+                                    });
+                                    const visible = filtered.slice(0, 10);
+                                    const message = query
+                                        ? `Mostrando ${visible.length} de ${filtered.length} resultados deste SIG, ordenados pelo ano mais recente.`
+                                        : `${visible.length} camadas mais recentes (de ${filtered.length}) neste SIG. Use a busca para filtrar.`;
+                                    renderLayers(visible, message);
                                 };
 
-                                const loadCategoryRecommendations = async () => {
-                                    const generation = ++searchGeneration;
-                                    const serviceId = serviceSelect.value;
-                                    if (serviceId === '') {
-                                        activeCategories = categories;
-                                        showCategory();
+                                const renderLocalLayers = () => {
+                                    if (isLoadingLiveLayers && serviceSelect.value !== '') {
+                                        status.textContent = 'Consultando o SIG selecionado...';
+                                        return;
+                                    }
+                                    const query = searchInput.value.trim();
+                                    if (query.length > 0) {
+                                        if (query.length < 2) {
+                                            renderLayers([], 'Digite pelo menos 2 caracteres para pesquisar.');
+                                            return;
+                                        }
+
+                                        const generation = ++searchGeneration;
+                                        status.textContent = 'Pesquisando em todo o catálogo...';
+                                        resultsContainer.replaceChildren();
+                                        searchTimer = setTimeout(() => {
+                                            const params = new URLSearchParams({ q: query });
+                                            window.PlanMilT.apiClient.getJson(`${endpoint}?${params.toString()}`)
+                                                .then(result => {
+                                                    if (generation !== searchGeneration) return;
+                                                    const layers = result.results || [];
+                                                    renderLayers(layers.slice(0, 10), `${Math.min(layers.length, 10)} de ${result.totalResults} resultados do catálogo.`);
+                                                })
+                                                .catch(() => {
+                                                    if (generation === searchGeneration) {
+                                                        renderLayers([], 'Não foi possível concluir a busca.');
+                                                    }
+                                                });
+                                        }, 250);
                                         return;
                                     }
 
-                                    status.textContent = 'Carregando categorias deste SIG...';
-                                    resultsContainer.replaceChildren();
-                                    try {
-                                        const result = await window.PlanMilT.apiClient.getJson(
-                                            `${endpoint}?service_id=${encodeURIComponent(serviceId)}`
-                                        );
-                                        if (generation !== searchGeneration) return;
-                                        activeCategories = result.categories || [];
-                                        showCategory();
-                                    } catch (error) {
-                                        if (generation === searchGeneration) {
-                                            renderLayers([], 'Não foi possível carregar as categorias deste SIG.');
-                                        }
+                                    searchGeneration++;
+                                    const categoryCode = categorySelect.value;
+                                    const visibleCategories = categoryCode === 'all'
+                                        ? categories
+                                        : categories.filter(category => category.code === categoryCode);
+                                    const layers = visibleCategories.flatMap(category => category.layers.map(layer => ({
+                                        ...layer,
+                                        latestYear: layer.latestYear || 0,
+                                        categoryName: category.name,
+                                    })));
+                                    renderLayers(layers, `${layers.length} recomendações. Até 10 por categoria.`);
+                                };
+
+                                const loadSelectedService = async () => {
+                                    clearTimeout(searchTimer);
+                                    searchInput.value = '';
+                                    const generation = ++serviceLoadGeneration;
+                                    const serviceId = serviceSelect.value;
+                                    if (serviceId === '') {
+                                        isLoadingLiveLayers = false;
+                                        liveLayers = null;
+                                        categorySelect.value = 'all';
+                                        renderLocalLayers();
+                                        return;
                                     }
+
+                                    const serviceInfo = (catalog.services || []).find(service => String(service.id) === serviceId);
+                                    if (!serviceInfo || !serviceInfo.url) {
+                                        renderLayers([], 'Este SIG não possui uma URL WMS cadastrada.');
+                                        return;
+                                    }
+
+                                    liveLayers = null;
+                                    isLoadingLiveLayers = true;
+                                    categorySelect.value = 'all';
+                                    status.textContent = `Consultando ${serviceInfo.name}...`;
+                                    resultsContainer.innerHTML = '<div class="layer-catalog-loading"><span></span>Consultando somente este WMS</div>';
+
+                                    let layers;
+                                    try {
+                                        layers = await window.PlanMilT.mapLayers.getWMSLayers(serviceInfo.url, {
+                                            apiClient: window.PlanMilT.apiClient,
+                                            onError: error => console.warn('Falha ao consultar o SIG selecionado:', error),
+                                        });
+                                    } catch (error) {
+                                        console.warn('Falha ao consultar o SIG selecionado:', error);
+                                        layers = null;
+                                    }
+                                    if (generation !== serviceLoadGeneration || serviceSelect.value !== serviceId) return;
+                                    isLoadingLiveLayers = false;
+                                    if (!Array.isArray(layers)) {
+                                        liveLayers = [];
+                                        renderLayers([], 'Não foi possível consultar as camadas deste SIG.');
+                                        return;
+                                    }
+
+                                    liveLayers = layers.map(layer => ({
+                                        serviceId: Number(serviceId),
+                                        serviceName: serviceInfo.name,
+                                        serviceUrl: serviceInfo.url,
+                                        layerName: layer.Name,
+                                        title: layer.Title || layer.Name,
+                                        latestYear: layer.LatestYear || 0,
+                                    })).sort((first, second) =>
+                                        getLayerYear(second) - getLayerYear(first)
+                                        || first.title.localeCompare(second.title, 'pt-BR', { sensitivity: 'base' })
+                                    );
+                                    renderLiveLayers();
                                 };
 
                                 categorySelect.addEventListener('change', () => {
-                                    searchInput.value = '';
-                                    if (serviceSelect.value !== '') {
-                                        loadCategoryRecommendations();
-                                    } else {
-                                        searchGeneration++;
-                                        showCategory();
-                                    }
+                                    clearTimeout(searchTimer);
+                                    if (Array.isArray(liveLayers)) renderLiveLayers();
+                                    else renderLocalLayers();
                                 });
 
                                 serviceSelect.addEventListener('change', () => {
-                                    clearTimeout(searchTimer);
-                                    searchInput.value = '';
-                                    loadCategoryRecommendations();
+                                    loadSelectedService();
                                 });
 
                                 searchInput.addEventListener('input', () => {
                                     clearTimeout(searchTimer);
-                                    const query = searchInput.value.trim();
-                                    const generation = ++searchGeneration;
-                                    if (query === '') {
-                                        loadCategoryRecommendations();
-                                        return;
+                                    if (Array.isArray(liveLayers)) {
+                                        searchTimer = setTimeout(renderLiveLayers, 120);
+                                    } else {
+                                        renderLocalLayers();
                                     }
-                                    if (query.length < 2) {
-                                        renderLayers([], 'Digite pelo menos 2 caracteres para pesquisar.');
-                                        return;
-                                    }
-
-                                    status.textContent = 'Pesquisando em todas as camadas...';
-                                    searchTimer = setTimeout(() => {
-                                        const params = new URLSearchParams({ q: query });
-                                        if (serviceSelect.value !== '') {
-                                            params.set('service_id', serviceSelect.value);
-                                        }
-                                        window.PlanMilT.apiClient.getJson(`${endpoint}?${params.toString()}`)
-                                            .then(result => {
-                                                if (generation !== searchGeneration) return;
-                                                const layers = result.results || [];
-                                                renderLayers(layers, `${layers.length} de ${result.totalResults} resultados.`);
-                                            })
-                                            .catch(() => {
-                                                if (generation === searchGeneration) {
-                                                    renderLayers([], 'Não foi possível concluir a busca.');
-                                                }
-                                            });
-                                    }, 300);
                                 });
 
                                 if (categories.length > 0) {
                                     const firstCategory = categories.find(category => category.layers.length > 0) || categories[0];
                                     categorySelect.value = firstCategory.code;
-                                    showCategory();
+                                    renderLocalLayers();
                                 } else {
                                     renderLayers([], 'O catálogo ainda não possui recomendações. Use a busca para localizar camadas.');
                                 }

@@ -3,11 +3,14 @@ const test = require('node:test');
 
 global.window = {};
 
-function createLayer(name, title) {
+function createLayer(name, title, timeDimension = '') {
     return {
         getElementsByTagName(tagName) {
             if (tagName === 'Name') return name ? [{ textContent: name }] : [];
             if (tagName === 'Title') return title ? [{ textContent: title }] : [];
+            if (tagName === 'Dimension' && timeDimension) {
+                return [{ textContent: timeDimension, getAttribute: attribute => attribute === 'name' ? 'time' : null }];
+            }
             return [];
         }
     };
@@ -22,7 +25,9 @@ global.DOMParser = class {
                     return [
                         createLayer('root', 'Root'),
                         createLayer('zulu', 'Zulu'),
-                        createLayer('alpha', 'Alpha')
+                        createLayer('alpha', 'Alpha'),
+                        createLayer('recent', 'Dados recentes', '2020-01-01/2026-12-31/P1D'),
+                        createLayer('forecast_2040', 'Cenário futuro 2040')
                     ];
                 }
                 return [];
@@ -66,10 +71,12 @@ test('getText rejects unsuccessful HTTP responses', async () => {
     }
 });
 
-test('WMS parsing skips the root layer and sorts by title', () => {
+test('WMS parsing skips the root layer and prioritizes recent temporal metadata', () => {
     const layers = mapLayers.parseWMSCapabilities('valid');
 
-    assert.deepEqual(layers.map(layer => layer.Name), ['alpha', 'zulu']);
+    assert.deepEqual(layers.map(layer => layer.Name), ['forecast_2040', 'recent', 'alpha', 'zulu']);
+    assert.equal(layers[0].LatestYear, 2040);
+    assert.equal(layers[1].LatestYear, 2026);
 });
 
 test('WMS loading sends a capabilities request through the proxy', async () => {
@@ -86,9 +93,9 @@ test('WMS loading sends a capabilities request through the proxy', async () => {
         onError: error => { throw error; }
     });
 
-    assert.match(requestedURL, /^\/proxy\.php\?url=/);
+    assert.match(requestedURL, /^proxy\.php\?url=/);
     assert.match(decodeURIComponent(requestedURL.split('url=')[1]), /service=WMS&request=GetCapabilities/);
-    assert.deepEqual(layers.map(layer => layer.Name), ['alpha', 'zulu']);
+    assert.deepEqual(layers.map(layer => layer.Name), ['forecast_2040', 'recent', 'alpha', 'zulu']);
 });
 
 test('WMS loading reports transport failures', async () => {

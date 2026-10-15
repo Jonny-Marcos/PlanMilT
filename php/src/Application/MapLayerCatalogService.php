@@ -57,7 +57,8 @@ final class MapLayerCatalogService
                     . 'COALESCE(ml.latest_year, 0) DESC, ml.layer_title COLLATE NOCASE';
             $rankCondition = $serviceId === null ? ' AND ml.category_rank IS NOT NULL' : '';
             $statement = $this->database->prepare(
-                'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.id AS serviceId, ms.name AS serviceName, '
+                'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ml.latest_year AS latestYear, '
+                . 'ms.id AS serviceId, ms.name AS serviceName, '
                 . 'ms.url AS serviceUrl, ml.military_relevance AS relevance, ml.feature_info_status AS featureInfoStatus '
                 . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '
                 . 'WHERE ml.category_code = ?' . $rankCondition . $serviceCondition
@@ -74,10 +75,14 @@ final class MapLayerCatalogService
             }
             $statement->execute($parameters);
             $category['layers'] = $statement->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($category['layers'] as &$layer) {
+                $layer['categoryName'] = $category['name'];
+            }
+            unset($layer);
         }
         unset($category);
 
-        $services = $this->database->query('SELECT id, name FROM map_services ORDER BY name COLLATE NOCASE')
+        $services = $this->database->query('SELECT id, name, url FROM map_services ORDER BY name COLLATE NOCASE')
             ->fetchAll(PDO::FETCH_ASSOC);
 
         return ['totalLayers' => $totalLayers, 'categories' => $categories, 'services' => $services];
@@ -349,10 +354,12 @@ final class MapLayerCatalogService
     {
         [$where, $parameters] = $this->searchCondition($query, $serviceId);
         $statement = $this->database->prepare(
-            'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.id AS serviceId, ms.name AS serviceName, '
-            . 'ms.url AS serviceUrl, ml.category_code AS categoryCode, ml.military_relevance AS relevance, '
+            'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ml.latest_year AS latestYear, '
+            . 'ml.category_code AS categoryCode, mc.name AS categoryName, ms.id AS serviceId, ms.name AS serviceName, '
+            . 'ms.url AS serviceUrl, ml.military_relevance AS relevance, '
             . 'ml.feature_info_fields AS featureInfoFields, ml.feature_info_sample AS featureInfoSample '
             . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '
+            . 'LEFT JOIN map_layer_categories mc ON mc.code = ml.category_code '
             . 'WHERE ' . $where . ' ORDER BY CASE WHEN ml.category_rank IS NULL THEN 1 ELSE 0 END, '
             . 'ml.category_rank, ml.layer_title COLLATE NOCASE LIMIT ' . self::SEARCH_LIMIT
         );

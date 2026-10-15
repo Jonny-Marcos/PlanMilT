@@ -5,10 +5,10 @@
  */
 window.PlanMilT.mapLayers = Object.freeze({
     /**
-     * Converte o XML GetCapabilities em camadas ordenadas por título.
+     * Converte GetCapabilities em camadas ordenadas pela data mais recente conhecida.
      * @param {string} xmlText - Conteúdo XML retornado pelo serviço WMS.
      * @param {typeof DOMParser} [Parser=DOMParser] - Parser de XML, substituível nos testes.
-     * @returns {Array<{Name: string, Title: string}>} Camadas com nome e título.
+    * @returns {Array<{Name: string, Title: string, LatestYear: number}>} Camadas com nome, título e ano mais recente anunciado.
      * @throws {Error} Quando a resposta contém XML inválido.
      */
     parseWMSCapabilities(xmlText, Parser = DOMParser) {
@@ -27,21 +27,28 @@ window.PlanMilT.mapLayers = Object.freeze({
             const titleNode = layerNode.getElementsByTagName('Title')[0];
 
             if (nameNode) {
+                const dimensions = [
+                    ...Array.from(layerNode.getElementsByTagName('Dimension')),
+                    ...Array.from(layerNode.getElementsByTagName('Extent'))
+                ].filter(node => !node.getAttribute || node.getAttribute('name')?.toLowerCase() === 'time');
+                const searchableMetadata = [
+                    nameNode.textContent,
+                    titleNode ? titleNode.textContent : '',
+                    ...dimensions.map(node => node.textContent)
+                ].join(' ');
+                const years = searchableMetadata.match(/\b(?:19|20)\d{2}\b/g) || [];
                 layers.push({
                     Name: nameNode.textContent,
-                    Title: titleNode ? titleNode.textContent : nameNode.textContent
+                    Title: titleNode ? titleNode.textContent : nameNode.textContent,
+                    LatestYear: years.length > 0 ? Math.max(...years.map(Number)) : 0
                 });
             }
         }
 
-        return layers.sort((first, second) => {
-            const firstTitle = first.Title.toLowerCase();
-            const secondTitle = second.Title.toLowerCase();
-
-            if (firstTitle < secondTitle) return -1;
-            if (firstTitle > secondTitle) return 1;
-            return 0;
-        });
+        return layers.sort((first, second) =>
+            second.LatestYear - first.LatestYear
+            || first.Title.localeCompare(second.Title, 'pt-BR', { sensitivity: 'base' })
+        );
     },
 
     /**
@@ -53,7 +60,7 @@ window.PlanMilT.mapLayers = Object.freeze({
      * @returns {Promise<Array<{Name: string, Title: string}>|null>} Camadas ordenadas ou null após falha.
      */
     async getWMSLayers(wmsURL, { apiClient, onError }) {
-        const capabilitiesURL = '/proxy.php?url=' + encodeURIComponent(`${wmsURL}?service=WMS&request=GetCapabilities`);
+        const capabilitiesURL = 'proxy.php?url=' + encodeURIComponent(`${wmsURL}?service=WMS&request=GetCapabilities`);
 
         try {
             const xmlText = await apiClient.getText(capabilitiesURL);
