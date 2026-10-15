@@ -4,7 +4,6 @@
  */
                 var selectedLayers = []; // Agora é um array para armazenar múltiplos usuários
                 var intervalId;     // Variável para armazenar o intervalo de atualização
-                var layerRegistry = {}; // Para garantir que as camadas estejam registradas corretamente
                 var previousGeoJsonData = {}; // Para armazenar o estado anterior da camada carregada
 
                 // Função para gerar um hash de um objeto GeoJSON
@@ -206,7 +205,7 @@
 
 
                 function showLayerCatalog() {
-                    let visibleLayers = [];
+                    let selectedLayer = null;
                     let searchTimer;
                     let searchGeneration = 0;
                     const endpoint = 'php/endpoints/map-layer-catalog.php';
@@ -225,23 +224,30 @@
                         Swal.fire({
                             title: 'Adicionar camada',
                             html: '<div class="layer-catalog-picker">'
-                                + '<label for="layerCatalogCategory">Categoria</label>'
-                                + '<select id="layerCatalogCategory"></select>'
-                                + '<label for="layerCatalogSearch">Buscar no catálogo completo</label>'
-                                + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100">'
-                                + '<select id="layerCatalogResults" size="9" aria-label="Camadas disponíveis"></select>'
+                                + '<div class="layer-catalog-filters">'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogCategory">Categoria</label>'
+                                + '<select id="layerCatalogCategory"></select></div>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogService">Sistema de Informação Geográfica</label>'
+                                + '<select id="layerCatalogService"><option value="">Todos os SIGs</option></select></div>'
+                                + '</div>'
+                                + '<div class="layer-catalog-field"><label for="layerCatalogSearch">Buscar em todas as camadas</label>'
+                                + '<input id="layerCatalogSearch" type="search" autocomplete="off" maxlength="100" placeholder="Nome, tema, município ou atributo"></div>'
                                 + '<div id="layerCatalogStatus" role="status"></div>'
+                                + '<div id="layerCatalogResults" class="layer-catalog-results" role="listbox" aria-label="Camadas disponíveis"></div>'
                                 + '</div>',
                             showCancelButton: true,
                             confirmButtonText: 'Adicionar camada',
                             cancelButtonText: 'Cancelar',
+                            customClass: { popup: 'layer-catalog-modal' },
                             focusConfirm: false,
                             didOpen: () => {
                                 const popup = Swal.getPopup();
                                 const categorySelect = popup.querySelector('#layerCatalogCategory');
+                                const serviceSelect = popup.querySelector('#layerCatalogService');
                                 const searchInput = popup.querySelector('#layerCatalogSearch');
-                                const resultsSelect = popup.querySelector('#layerCatalogResults');
+                                const resultsContainer = popup.querySelector('#layerCatalogResults');
                                 const status = popup.querySelector('#layerCatalogStatus');
+                                let activeCategories = categories;
 
                                 categories.forEach(category => {
                                     const option = document.createElement('option');
@@ -249,30 +255,89 @@
                                     option.textContent = category.name;
                                     categorySelect.appendChild(option);
                                 });
+                                (catalog.services || []).forEach(service => {
+                                    const option = document.createElement('option');
+                                    option.value = String(service.id);
+                                    option.textContent = service.name;
+                                    serviceSelect.appendChild(option);
+                                });
 
                                 const renderLayers = (layers, message) => {
-                                    visibleLayers = layers;
-                                    resultsSelect.replaceChildren();
+                                    selectedLayer = null;
+                                    resultsContainer.replaceChildren();
                                     layers.forEach((layer, index) => {
-                                        const option = document.createElement('option');
-                                        option.value = String(index);
-                                        option.textContent = `${layer.title || layer.layerName} | ${layer.serviceName}`;
-                                        resultsSelect.appendChild(option);
+                                        const resultButton = document.createElement('button');
+                                        resultButton.type = 'button';
+                                        resultButton.className = 'layer-catalog-result';
+                                        resultButton.setAttribute('role', 'option');
+                                        resultButton.setAttribute('aria-selected', 'false');
+                                        const title = document.createElement('span');
+                                        title.className = 'layer-catalog-result-title';
+                                        title.textContent = layer.title || layer.layerName;
+                                        const service = document.createElement('span');
+                                        service.className = 'layer-catalog-result-service';
+                                        service.textContent = layer.serviceName;
+                                        resultButton.append(title, service);
+                                        resultButton.addEventListener('click', () => {
+                                            selectedLayer = layer;
+                                            resultsContainer.querySelectorAll('.layer-catalog-result').forEach(button => {
+                                                const isSelected = button === resultButton;
+                                                button.classList.toggle('is-selected', isSelected);
+                                                button.setAttribute('aria-selected', String(isSelected));
+                                            });
+                                            Swal.getConfirmButton().disabled = false;
+                                        });
+                                        resultsContainer.appendChild(resultButton);
                                     });
                                     status.textContent = message;
-                                    Swal.getConfirmButton().disabled = layers.length === 0;
+                                    Swal.getConfirmButton().disabled = true;
                                 };
 
                                 const showCategory = () => {
-                                    const category = categories.find(item => item.code === categorySelect.value);
+                                    const category = activeCategories.find(item => item.code === categorySelect.value);
                                     const layers = category ? category.layers : [];
                                     renderLayers(layers, `${layers.length} recomendações nesta categoria.`);
                                 };
 
+                                const loadCategoryRecommendations = async () => {
+                                    const generation = ++searchGeneration;
+                                    const serviceId = serviceSelect.value;
+                                    if (serviceId === '') {
+                                        activeCategories = categories;
+                                        showCategory();
+                                        return;
+                                    }
+
+                                    status.textContent = 'Carregando categorias deste SIG...';
+                                    resultsContainer.replaceChildren();
+                                    try {
+                                        const result = await window.PlanMilT.apiClient.getJson(
+                                            `${endpoint}?service_id=${encodeURIComponent(serviceId)}`
+                                        );
+                                        if (generation !== searchGeneration) return;
+                                        activeCategories = result.categories || [];
+                                        showCategory();
+                                    } catch (error) {
+                                        if (generation === searchGeneration) {
+                                            renderLayers([], 'Não foi possível carregar as categorias deste SIG.');
+                                        }
+                                    }
+                                };
+
                                 categorySelect.addEventListener('change', () => {
-                                    searchGeneration++;
                                     searchInput.value = '';
-                                    showCategory();
+                                    if (serviceSelect.value !== '') {
+                                        loadCategoryRecommendations();
+                                    } else {
+                                        searchGeneration++;
+                                        showCategory();
+                                    }
+                                });
+
+                                serviceSelect.addEventListener('change', () => {
+                                    clearTimeout(searchTimer);
+                                    searchInput.value = '';
+                                    loadCategoryRecommendations();
                                 });
 
                                 searchInput.addEventListener('input', () => {
@@ -280,7 +345,7 @@
                                     const query = searchInput.value.trim();
                                     const generation = ++searchGeneration;
                                     if (query === '') {
-                                        showCategory();
+                                        loadCategoryRecommendations();
                                         return;
                                     }
                                     if (query.length < 2) {
@@ -290,7 +355,11 @@
 
                                     status.textContent = 'Pesquisando em todas as camadas...';
                                     searchTimer = setTimeout(() => {
-                                        window.PlanMilT.apiClient.getJson(`${endpoint}?q=${encodeURIComponent(query)}`)
+                                        const params = new URLSearchParams({ q: query });
+                                        if (serviceSelect.value !== '') {
+                                            params.set('service_id', serviceSelect.value);
+                                        }
+                                        window.PlanMilT.apiClient.getJson(`${endpoint}?${params.toString()}`)
                                             .then(result => {
                                                 if (generation !== searchGeneration) return;
                                                 const layers = result.results || [];
@@ -313,8 +382,6 @@
                                 }
                             },
                             preConfirm: () => {
-                                const selectedIndex = Number(Swal.getPopup().querySelector('#layerCatalogResults').value);
-                                const selectedLayer = visibleLayers[selectedIndex];
                                 if (!selectedLayer) {
                                     Swal.showValidationMessage('Selecione uma camada.');
                                     return false;

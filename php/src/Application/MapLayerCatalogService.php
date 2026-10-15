@@ -33,7 +33,7 @@ final class MapLayerCatalogService
      * @param string $query Texto pesquisado; vazio retorna apenas categorias e recomendações.
      * @return array<string, mixed> Dados do catálogo prontos para o endpoint.
      */
-    public function browse(string $query = ''): array
+    public function browse(string $query = '', ?int $serviceId = null): array
     {
         $totalLayers = (int) $this->database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn();
         $query = trim($query);
@@ -41,8 +41,8 @@ final class MapLayerCatalogService
             return [
                 'totalLayers' => $totalLayers,
                 'query' => $query,
-                'totalResults' => $this->countMatches($query),
-                'results' => $this->search($query),
+                'totalResults' => $this->countMatches($query, $serviceId),
+                'results' => $this->search($query, $serviceId),
             ];
         }
 
@@ -50,19 +50,32 @@ final class MapLayerCatalogService
             'SELECT code, name FROM map_layer_categories ORDER BY display_order'
         )->fetchAll(PDO::FETCH_ASSOC);
         foreach ($categories as &$category) {
+            $serviceCondition = $serviceId === null ? '' : ' AND ml.map_service_id = ?';
+            $order = $serviceId === null
+                ? 'ml.category_rank'
+                : 'CASE WHEN ml.feature_info_status = \'sample_received\' THEN 0 ELSE 1 END, '
+                    . 'COALESCE(ml.latest_year, 0) DESC, ml.layer_title COLLATE NOCASE';
+            $rankCondition = $serviceId === null ? ' AND ml.category_rank IS NOT NULL' : '';
             $statement = $this->database->prepare(
                 'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.name AS serviceName, '
                 . 'ms.url AS serviceUrl, ml.military_relevance AS relevance, ml.feature_info_status AS featureInfoStatus '
                 . 'FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id '
-                . 'WHERE ml.category_code = ? AND ml.category_rank IS NOT NULL '
-                . 'ORDER BY ml.category_rank LIMIT ' . self::CATEGORY_LIMIT
+                . 'WHERE ml.category_code = ?' . $rankCondition . $serviceCondition
+                . ' ORDER BY ' . $order . ' LIMIT ' . self::CATEGORY_LIMIT
             );
-            $statement->execute([$category['code']]);
+            $parameters = [$category['code']];
+            if ($serviceId !== null) {
+                $parameters[] = $serviceId;
+            }
+            $statement->execute($parameters);
             $category['layers'] = $statement->fetchAll(PDO::FETCH_ASSOC);
         }
         unset($category);
 
-        return ['totalLayers' => $totalLayers, 'categories' => $categories];
+        $services = $this->database->query('SELECT id, name FROM map_services ORDER BY name COLLATE NOCASE')
+            ->fetchAll(PDO::FETCH_ASSOC);
+
+        return ['totalLayers' => $totalLayers, 'categories' => $categories, 'services' => $services];
     }
 
     /**
@@ -181,7 +194,12 @@ final class MapLayerCatalogService
             return null;
         }
 
-        $category = $this->categoryCode($value('theme_suggestion'), $value('layer_title'), $value('feature_info_fields'));
+        $category = $this->categoryCode(
+            $value('theme_suggestion'),
+            $value('layer_name'),
+            $value('layer_title'),
+            $value('feature_info_fields')
+        );
         $evidenceSource = str_starts_with($value('review_notes'), 'GetFeatureInfo')
             ? 'feature_info'
             : 'metadata';
@@ -219,8 +237,12 @@ final class MapLayerCatalogService
      * @param string $title Título legível da camada.
      * @param string $fields Campos encontrados em GetFeatureInfo.
      */
-    private function categoryCode(string $suggestion, string $title, string $fields): ?string
+    private function categoryCode(string $suggestion, string $layerName, string $title, string $fields): ?string
     {
+        if (preg_match('/distrito federal|belo horizonte/iu', $layerName . ' ' . $title)) {
+            return null;
+        }
+
         $text = strtolower($title . ' ' . $fields);
         if (in_array($suggestion, ['Hidrografia e recursos hídricos'], true)) {
             return 'hydrography';
@@ -288,9 +310,9 @@ final class MapLayerCatalogService
      *
      * @param string $query Texto já validado e normalizado.
      */
-    private function countMatches(string $query): int
+    private function countMatches(string $query, ?int $serviceId): int
     {
-        [$where, $parameters] = $this->searchCondition($query);
+        [$where, $parameters] = $this->searchCondition($query, $serviceId);
         $statement = $this->database->prepare(
             'SELECT COUNT(*) FROM map_layers ml JOIN map_services ms ON ms.id = ml.map_service_id WHERE ' . $where
         );
@@ -305,9 +327,9 @@ final class MapLayerCatalogService
      * @param string $query Texto já validado e normalizado.
      * @return array<int, array<string, mixed>>
      */
-    private function search(string $query): array
+    private function search(string $query, ?int $serviceId): array
     {
-        [$where, $parameters] = $this->searchCondition($query);
+        [$where, $parameters] = $this->searchCondition($query, $serviceId);
         $statement = $this->database->prepare(
             'SELECT ml.layer_name AS layerName, ml.layer_title AS title, ms.name AS serviceName, '
             . 'ms.url AS serviceUrl, ml.category_code AS categoryCode, ml.military_relevance AS relevance, '
@@ -327,7 +349,7 @@ final class MapLayerCatalogService
      * @param string $query Texto buscado.
      * @return array{0: string, 1: array<int, string>}
      */
-    private function searchCondition(string $query): array
+    private function searchCondition(string $query, ?int $serviceId): array
     {
         $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query);
         $pattern = '%' . $escaped . '%';
@@ -335,8 +357,16 @@ final class MapLayerCatalogService
             'ml.layer_name', 'ml.layer_title', 'ml.abstract', 'ml.keywords',
             'ml.feature_info_fields', 'ml.feature_info_sample', 'ms.name',
         ];
-        $condition = implode(' OR ', array_map(static fn (string $column): string => $column . ' LIKE ? ESCAPE \'\\\'', $columns));
+        $condition = '(' . implode(' OR ', array_map(
+            static fn (string $column): string => $column . ' LIKE ? ESCAPE \'\\\'',
+            $columns
+        )) . ')';
+        $parameters = array_fill(0, count($columns), $pattern);
+        if ($serviceId !== null) {
+            $condition .= ' AND ml.map_service_id = ?';
+            $parameters[] = (string) $serviceId;
+        }
 
-        return [$condition, array_fill(0, count($columns), $pattern)];
+        return [$condition, $parameters];
     }
 }
