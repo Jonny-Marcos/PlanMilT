@@ -200,7 +200,8 @@ No backend, centralizar criação da conexão PDO, configuração, validação d
 
 - **Toda alteração de arquitetura deve constar neste `copilot-instructions.md`**, que é o principal documento para balizar o projeto. Registre aqui estrutura, caminhos, contratos e decisões no mesmo conjunto de mudanças que as introduz.
 - **Toda alteração deve ter ao menos um teste correspondente em `tests/`** (`tests/js/` ou `tests/php/`) que cubra o comportamento alterado ou adicionado. Inclua o teste no mesmo conjunto de mudanças e execute-o antes de concluir.
-- O frontend chama `sigs.php` diretamente em `/php/endpoints/sigs.php` (sem depender do rewrite legado); a URL `/sigs.php` continua reescrita no `.htaccess` por compatibilidade.
+- **Ao concluir cada conjunto de alterações, sugira uma mensagem profissional de commit** no formato Conventional Commits (`tipo(escopo): descrição`), coerente com as mudanças realizadas. Não crie o commit sem solicitação explícita.
+- O frontend chama `sigs.php` pelo caminho relativo `php/endpoints/sigs.php`, para funcionar quando o app estiver instalado em subdiretório; a URL legada `/sigs.php` continua reescrita no `.htaccess` por compatibilidade.
 - Antes de remover ou renomear algo, localize todos os consumidores, endpoints, links, dados e dependências relacionados.
 - Prefira alterações pequenas, orientadas a uma funcionalidade, e preserve o comportamento existente salvo requisito explícito em contrário.
 - Não faça reformat, renomeação global ou limpeza de bibliotecas de terceiros como parte de uma mudança localizada.

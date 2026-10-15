@@ -2,7 +2,7 @@
 
 Este documento registra os contratos observados nos endpoints PHP antes de uma migração completa. As rotas em inglês são os nomes canônicos atuais; as URLs legadas continuam funcionando por rewrite para compatibilidade.
 
-Todo o código PHP da aplicação agora fica sob `php/`. As URLs canônicas abaixo são encaminhadas pelo `.htaccess` da raiz a `php/endpoints/`; URLs antigas permanecem como aliases, sem adaptadores PHP na raiz. Os endpoints também podem ser chamados em `/php/endpoints/<arquivo>.php`. `php/.htaccess` bloqueia acesso direto a `php/src/` e `php/bootstrap.php`, mas deixa os endpoints públicos disponíveis.
+Todo o código PHP da aplicação agora fica sob `php/`. As URLs canônicas abaixo são encaminhadas pelo `.htaccess` da raiz a `php/endpoints/`; URLs antigas permanecem como aliases, sem adaptadores PHP na raiz. Os endpoints também podem ser chamados em `php/endpoints/<arquivo>.php`, relativo ao diretório publicado do app. `php/.htaccess` bloqueia acesso direto a `php/src/` e `php/bootstrap.php`, mas deixa os endpoints públicos disponíveis.
 
 ## Endpoints
 
@@ -40,7 +40,7 @@ O frontend mantém `/carregar.php` e `/salvar.php` para as operações de desenh
 
 ## Piloto: `sigs.php`
 
-O consumidor atual em `index.html` itera a resposta como array e usa `Nome` e `URL`. Essa forma de sucesso é preservada para não quebrar a interface.
+O consumidor atual em `index.html` itera a resposta como array e usa `Nome` e `URL`. A requisição usa o caminho relativo `php/endpoints/sigs.php` para suportar instalação do app na raiz ou em subdiretório. Essa forma de sucesso é preservada para não quebrar a interface.
 
 Contrato adotado para o piloto:
 
