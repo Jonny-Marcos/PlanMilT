@@ -7,6 +7,32 @@ window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.tacticalGraphics = Object.freeze({
     /**
+     * Cria o controle Leaflet de simbologia militar, posicionado abaixo do desenho à mão livre.
+     * @param {Object} dependencies - Dependências externas do controle.
+     * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar o controle.
+     * @returns {Object} Controle Leaflet; seu container é o botão que abre o seletor.
+     */
+    createControl({ leaflet }) {
+        const TacticalGraphicControl = leaflet.Control.extend({
+            options: { position: 'topleft' },
+            /**
+             * Cria o botão do controle; o título exibe "Simbologia militar" ao passar o mouse.
+             * @returns {HTMLElement} Elemento do botão.
+             */
+            onAdd() {
+                const container = leaflet.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-tactical-graphic');
+                container.innerHTML = '<i class="fas fa-shield-alt"></i>';
+                container.title = 'Simbologia militar';
+                container.setAttribute('role', 'button');
+                container.setAttribute('aria-label', 'Simbologia militar');
+                return container;
+            }
+        });
+
+        return new TacticalGraphicControl();
+    },
+
+    /**
      * Conecta o seletor de gráficos táticos ao mapa e ao grupo de desenhos.
      * @param {Object} dependencies - Dependências externas do recurso.
      * @param {Object} dependencies.map - Instância Leaflet do mapa.

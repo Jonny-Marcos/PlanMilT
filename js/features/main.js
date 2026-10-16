@@ -32,9 +32,6 @@
             </div>
 <img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
             </div>
-<div class="toolbar-item">
-<button id="tacticalGraphicButton" title="Adicionar gráfico tático">Gráfico tático</button>
-</div>
 <div class="toolbar-icons">
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
 <i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ"></i>
@@ -177,7 +174,9 @@
             var drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
 
-            var tacticalGraphicsButton = document.getElementById('tacticalGraphicButton');
+            var tacticalGraphicsControl = window.PlanMilT.tacticalGraphics.createControl({ leaflet: L });
+            map.addControl(tacticalGraphicsControl);
+            var tacticalGraphicsButton = tacticalGraphicsControl.getContainer();
             var tacticalGraphics = window.PlanMilTTacticalGraphics
                 ? window.PlanMilT.tacticalGraphics.attach({
                     map,
@@ -194,7 +193,7 @@
                 };
 
             if (!window.PlanMilTTacticalGraphics) {
-                tacticalGraphicsButton.disabled = true;
+                tacticalGraphicsButton.classList.add('is-disabled');
                 tacticalGraphicsButton.title = 'Biblioteca de gráfico tático indisponível';
                 console.error('[PlanMilT][Gráficos táticos] Bundle não carregado: js/library/tactical-graphics.min.js');
             }

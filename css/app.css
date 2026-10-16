@@ -151,21 +151,8 @@
                 border-radius: 4px;
             }
 
-            #tacticalGraphicButton {
-                padding: 10px;
-                cursor: pointer;
-                background-color: #495057;
-                color: #ffffff;
-                border: none;
-                border-radius: 4px;
-            }
-
             #iconSelectorToggle:hover {
                 background-color: #0056b3;
-            }
-
-            #tacticalGraphicButton:hover {
-                background-color: #343a40;
             }
 
             #iconSelectorContent {
@@ -1148,5 +1135,31 @@
             .leaflet-control-freehand i {
                 font-size: 29px;
                 margin: 0;
+            }
+
+            /* Botão "Simbologia militar", abaixo do desenho à mão livre */
+            .leaflet-control-tactical-graphic {
+                background-color: white;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .leaflet-control-tactical-graphic:hover {
+                background-color: #f4f4f4;
+            }
+
+            .leaflet-control-tactical-graphic i {
+                font-size: 20px;
+                margin: 0;
+                color: #495057;
+            }
+
+            .leaflet-control-tactical-graphic.is-disabled {
+                cursor: not-allowed;
+                opacity: 0.5;
             }
 

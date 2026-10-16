@@ -52,6 +52,7 @@
                 var layersControl = document.querySelector('.leaflet-control-layers'); // Seleciona o controle de camadas
                 var toggleControlsBtn = document.getElementById('toggleControlsBtn'); // Seleciona o botão de desativar controles
                 var freehandButton = freehandControl.getContainer();
+                var tacticalGraphicButton = tacticalGraphicsControl.getContainer();
                 var measureToggleButton; // Botão de medir distâncias e áreas
                 var translateButton = document.querySelector('.google-translate-control'); // Seleciona o botão de tradução
 
@@ -63,6 +64,7 @@
                     if (printButton) printButton.style.display = 'none';
                     if (layersControl) layersControl.style.display = 'none'; // Ocultar controle de camadas
                     if (freehandButton) freehandButton.style.display = 'none'; // Ocultar botão de desenho à mão livre
+                    if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'none';
                     if (measureToggleButton) measureToggleButton.style.display = 'none'; // Ocultar botão de medição
                     if (translateButton) translateButton.style.display = 'none'; // Ocultar botão de tradução
                 } else {
@@ -73,6 +75,7 @@
                     if (printButton) printButton.style.display = 'block';
                     if (layersControl) layersControl.style.display = 'block'; // Mostrar controle de camadas
                     if (freehandButton) freehandButton.style.display = 'block'; // Mostrar botão de desenho à mão livre
+                    if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'block';
                     if (measureToggleButton) measureToggleButton.style.display = 'block'; // Mostrar botão de medição
                     if (translateButton) translateButton.style.display = 'block'; // Mostrar botão de tradução
                     if (toggleControlsBtn) {
@@ -90,6 +93,7 @@
                         if (printButton) printButton.style.display = 'block'; // Mostrar botão de imprimir
                         if (layersControl) layersControl.style.display = 'block'; // Mostrar controle de camadas
                         if (freehandButton) freehandButton.style.display = 'block'; // Mostrar botão de desenho à mão livre
+                        if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'block';
                         if (measureToggleButton) measureToggleButton.style.display = 'block'; // Mostrar botão de medição
                         if (translateButton) translateButton.style.display = 'block'; // Mostrar botão de tradução
                         this.textContent = 'Ocultar Controles';
@@ -101,6 +105,7 @@
                         if (printButton) printButton.style.display = 'none'; // Ocultar botão de imprimir
                         if (layersControl) layersControl.style.display = 'none'; // Ocultar controle de camadas
                         if (freehandButton) freehandButton.style.display = 'none'; // Ocultar botão de desenho à mão livre
+                        if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'none';
                         if (measureToggleButton) measureToggleButton.style.display = 'none'; // Ocultar botão de medição
                         if (translateButton) translateButton.style.display = 'none'; // Ocultar botão de tradução
                         this.textContent = 'Mostrar Controles';

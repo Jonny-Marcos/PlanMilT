@@ -92,6 +92,19 @@ As implementações estão organizadas em `php/`; regras de rewrite preservam as
 
 Trate esta seção como referência inicial. Confirme o estado real dos arquivos e chamadas antes de cada alteração.
 
+## Padrão de UX para seletores em modal (SweetAlert2)
+
+O acesso ao seletor de gráficos táticos é um controle Leaflet (`tactical-graphics.js` → `createControl`, ícone `fa-shield-alt`, título "Simbologia militar") posicionado em `topleft` logo abaixo do desenho à mão livre; `map-tools.js` o mostra/oculta junto com os demais controles. Não existe mais botão "Gráfico tático" na toolbar.
+
+Referência: o catálogo "Adicionar camada" (`LAYER_CATALOG_STYLES` em `js/features/layer-management.js`) e o seletor de "Gráfico Tático" (`PICKER_STYLES` em `js/features/tactical-graphics.js`). Para criar outro seletor com a mesma aparência:
+
+1. **Embuta os estilos no próprio modal**: constante de CSS em template string, injetada como `html: '<style>' + STYLES + '</style>' + ...`. Não dependa de `css/app.css` para o visual do modal: o navegador mantém CSS/JS em cache e o usuário vê um modal sem estilo (fontes serifadas, SVGs enormes). O `app.css` também tem regras globais de `.swal2-popup` (largura 90%, `select` com 100%, título 18px) que interferem.
+2. **Escopo e prioridade**: prefixe tudo com o id do seletor (`#tacticalGraphicPicker …`) e use `customClass: { popup: 'meu-modal' }` com `.swal2-popup.meu-modal{width:min(820px,calc(100vw - 28px))!important;padding:20px!important}`. Use `!important` apenas na largura/padding do popup e no tamanho de SVGs.
+3. **Estrutura**: filtros compactos no topo (rótulo 13px/600 acima de input/select de 40px, borda `#c5cad2`, raio 6px); lista rolável (`height:min(45vh,380px)`, borda `#d3d8e0`); uma linha por item (`<label>` com `display:flex`, `border-bottom:1px solid #e1e5eb`, hover `#f3f6fa`, selecionado `#e6edf7` + `box-shadow:inset 3px 0 0 #435f88`); títulos de seção sticky (12px, maiúsculas, fundo `#f4f6f9`); barra de resumo "Selecionado: …" no rodapé (`#eef1f5`).
+4. **Linha**: controle à esquerda (radio ou checkbox 17px, `accent-color:#435f88`), nome 14px/600 e miniatura à direita em caixa fixa (64×40, `overflow:hidden`) com o SVG forçado a `60×36`. Miniaturas devem aparecer sem precisar selecionar o item.
+5. **Cache**: sempre que mudar JS/CSS do modal, acrescente/atualize `?v=` na tag `<script>`/`<link>` de `index.html` e ajuste o teste que confere a versão (`tests/js/layer-management.test.js`).
+6. **Testes**: o DOM falso de `tests/js/tactical-graphics.test.js` não tem `querySelector` nem `classList.toggle`; ao mudar a estrutura, mantenha os ids (`tacticalGraphicCategory`, `tacticalGraphicSearch`, `tacticalGraphicResults`, `tacticalGraphicSelection`) e atualize os índices de filhos.
+
 ## Direção arquitetural
 
 Evoluir para um **monólito modular**, mantendo uma aplicação e uma implantação simples. Não iniciar uma reescrita total nem introduzir um framework ou ORM sem uma necessidade concreta.

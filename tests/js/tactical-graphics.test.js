@@ -444,3 +444,42 @@ test('renderer errors are surfaced to the user and consumed', async () => {
     assert.equal(harness.alerts.at(-1).title, 'Não foi possível gerar o gráfico');
     assert.equal(harness.layers.length, 0);
 });
+
+test('military symbology control is a Leaflet button below freehand drawing', () => {
+    const container = {
+        attrs: {},
+        setAttribute(name, value) {
+            this.attrs[name] = value;
+        }
+    };
+    let className = '';
+    const leaflet = {
+        Control: {
+            extend(definition) {
+                return class {
+                    constructor() {
+                        this.options = definition.options;
+                        this.onAdd = definition.onAdd;
+                    }
+                };
+            }
+        },
+        DomUtil: {
+            create(tag, classes) {
+                className = classes;
+                return container;
+            }
+        }
+    };
+
+    const control = window.PlanMilT.tacticalGraphics.createControl({ leaflet });
+    const element = control.onAdd();
+
+    assert.equal(control.options.position, 'topleft');
+    assert.equal(element.title, 'Simbologia militar');
+    assert.match(className, /leaflet-control-tactical-graphic/);
+    assert.match(element.innerHTML, /fa-shield-alt/);
+    assert.equal(element.attrs['aria-label'], 'Simbologia militar');
+    const mainSource = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../js/features/main.js'), 'utf8');
+    assert.doesNotMatch(mainSource, /id="tacticalGraphicButton"/);
+});
