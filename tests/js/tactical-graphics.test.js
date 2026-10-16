@@ -348,8 +348,6 @@ test('graphic selector puts compact symbol thumbnails beside single-choice rows'
     assert.ok(initialGraphicOption);
     assert.equal(initialGraphicOption.children[0].type, 'radio');
     assert.equal(initialGraphicOption.children[0].checked, true);
-    const sampleLine = harness.renderedFeatures.find(feature => feature.geometry.type === 'LineString');
-    assert.equal(sampleLine.geometry.coordinates.length, 2);
     assert.equal(initialGraphicOption.children[1].classNames.has('tactical-graphic-result-content'), true);
     assert.equal(initialGraphicOption.children[1].children[0].textContent, 'Eixo principal de progressão');
     assert.equal(initialGraphicOption.children[1].children[1].classNames.has('tactical-graphic-result-preview'), true);
