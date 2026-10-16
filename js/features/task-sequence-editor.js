@@ -64,6 +64,58 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         'suggestRepeaterPositions': 'Sugerir posições para repetidores',
                         'compareRadioPresets': 'Comparar presets de rádio e visada'
                     };
+                    const taskDescriptions = {
+                        findHighestPoint: {
+                            purpose: 'Localiza o ponto de maior elevação perto de um ícone de referência e permite posicionar novos ícones a partir dessa referência.',
+                            setup: 'Tenha na camada escolhida os ícones de referência e deixe visível no mapa a área a analisar. O alcance define a distância máxima de busca a partir de cada ícone.',
+                            result: 'Adiciona à sugestão de planejamento os pontos encontrados e os novos ícones configurados.'
+                        },
+                        placeIcons: {
+                            purpose: 'Distribui vários ícones em locais da área que atendam ao critério de elevação definido.',
+                            setup: 'Enquadre no mapa a área a analisar e escolha o critério de elevação e a distância mínima entre posições.',
+                            result: 'Adiciona os ícones posicionados à sugestão de planejamento.'
+                        },
+                        drawLinesBetweenIcons: {
+                            purpose: 'Cria conexões entre ícones do mesmo tipo, respeitando distâncias e limites de conexões.',
+                            setup: 'Coloque pelo menos dois ícones do tipo escolhido na camada selecionada e deixe visível no mapa a área desejada.',
+                            result: 'Desenha as linhas aceitas na sugestão de planejamento.'
+                        },
+                        connectDifferentIcons: {
+                            purpose: 'Conecta dois tipos de ícones diferentes, limitando o número de conexões por unidade.',
+                            setup: 'Coloque os dois tipos de ícone na camada escolhida e ajuste a área visível do mapa para a região de interesse.',
+                            result: 'Desenha conexões entre os dois grupos na sugestão de planejamento.'
+                        },
+                        drawCoverageArea: {
+                            purpose: 'Seleciona posições centrais para cobrir os tipos de ícone escolhidos dentro de um raio.',
+                            setup: 'Tenha os ícones a cobrir na camada selecionada e enquadre a região de interesse no mapa. Configure também o raio de cobertura.',
+                            result: 'Adiciona ícones centrais e polígonos aproximados de cobertura.'
+                        },
+                        verifyRadioLinks: {
+                            purpose: 'Analisa cada par de unidades do tipo selecionado e classifica os enlaces segundo um preset RF ou ótico.',
+                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar dentro da área visível do mapa. Escolha um preset e a distância máxima.',
+                            result: 'Desenha enlaces viáveis em verde e falhos em vermelho, com distância, sinal e obstrução no popup.'
+                        },
+                        identifyCoverageGaps: {
+                            purpose: 'Estima a cobertura RF ou de visada em uma grade e aponta células que nenhuma estação selecionada consegue alcançar.',
+                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. Uma resolução menor mostra mais detalhes e pode exigir mais cálculos.',
+                            result: 'Desenha células cobertas em verde e lacunas estimadas em vermelho na sugestão de planejamento.'
+                        },
+                        checkRouteCommunication: {
+                            purpose: 'Verifica se os pontos de uma ou mais linhas de rota mantêm enlace com pelo menos uma estação próxima.',
+                            setup: 'Na mesma camada, desenhe a rota como linha e coloque os marcadores das estações. Deixe visível no mapa o trecho que deseja avaliar.',
+                            result: 'Marca amostras com comunicação estimada em verde e falhas em vermelho; a distância entre amostras é configurável.'
+                        },
+                        suggestRepeaterPositions: {
+                            purpose: 'Compara locais candidatos e encontra os que conseguem alcançar unidades dos dois grupos definidos.',
+                            setup: 'Na camada escolhida, coloque ícones nos locais candidatos e nos dois grupos de unidades; deixe a região de interesse visível no mapa.',
+                            result: 'Destaca a melhor posição em verde e as alternativas em azul, com a quantidade de unidades alcançadas.'
+                        },
+                        compareRadioPresets: {
+                            purpose: 'Avalia os mesmos pares de unidades com todos os presets RF e óticos e facilita comparar quais configurações atendem.',
+                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar na área visível do mapa. Defina a distância máxima; são comparados até 30 pares.',
+                            result: 'Desenha cada par e mostra no popup a viabilidade e o sinal estimado de cada preset.'
+                        }
+                    };
 
                     // Variáveis para rastrear o modo de edição
                     let isEditing = false;
@@ -78,6 +130,7 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
 <option value="" disabled ${selectedTask ? '' : 'selected'}>Selecione uma tarefa</option>
 ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" ${selectedTask === value ? 'selected' : ''}>${text}</option>`).join('')}
             </select>
+<div id="taskDescription" role="status" style="margin: 8px 0 14px; padding: 12px; border-left: 4px solid #435f88; background: #f3f6fa; color: #303846; font-size: 13px; line-height: 1.5;"></div>
 <div id="taskParameters" style="margin-top: 10px;"></div>
 <button id="addTaskButton" class="swal2-confirm swal2-styled" style="margin-top: 10px;"><i class="fa fa-plus"></i> Adicionar Tarefa</button>
 <button id="clearTasksButton" class="swal2-cancel swal2-styled" style="margin-top: 10px; margin-left: 10px;"><i class="fa fa-trash"></i> Limpar Tarefa(s)</button>
@@ -116,11 +169,36 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             const executeSequenceButton = popup.querySelector('#executeSequenceButton');
                             const deleteSequenceButton = popup.querySelector('#deleteSequenceButton');
                             const clearTasksButton = popup.querySelector('#clearTasksButton');
+                            const taskDescriptionDiv = popup.querySelector('#taskDescription');
 
+                            function updateTaskDescription(taskName) {
+                                const description = taskDescriptions[taskName];
+                                if (!description) {
+                                    taskDescriptionDiv.innerHTML = `
+Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resultado será criado.
+<br><strong>Área de análise:</strong> quando a tarefa pedir para enquadrar uma região, o cálculo considera a área visível do mapa no momento da execução.
+<br><strong>Camada de sugestões:</strong> se for usar itens já existentes nessa camada como entrada, escolha <em>Não</em> na confirmação de limpeza exibida antes deste painel.`;
+                                    return;
+                                }
+                                taskDescriptionDiv.innerHTML = `
+<strong>Para que serve:</strong> ${description.purpose}<br>
+<strong>Antes de executar:</strong> ${description.setup}<br>
+<strong>Resultado:</strong> ${description.result}`;
+                            }
+
+                            async function renderTaskParameters(taskName, parameters) {
+                                taskParametersDiv.innerHTML = await taskParameters.getHtml(taskName, parameters);
+                                if (typeof taskParameters.bind === 'function') {
+                                    taskParameters.bind(taskName, taskParametersDiv);
+                                }
+                            }
 
                             // Atualiza os parâmetros da tarefa se uma tarefa já estiver selecionada
                             if (selectedTask) {
-                                taskParametersDiv.innerHTML = await taskParameters.getHtml(selectedTask, existingParameters);
+                                updateTaskDescription(selectedTask);
+                                await renderTaskParameters(selectedTask, existingParameters);
+                            } else {
+                                updateTaskDescription('');
                             }
 
                             // Função para atualizar a lista de tarefas
@@ -172,8 +250,8 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                             taskSelect.addEventListener('change', async () => {
                                 selectedTask = taskSelect.value;
                                 existingParameters = {}; // Reset existing parameters
-                                // Mostrar parâmetros para a tarefa selecionada
-                                taskParametersDiv.innerHTML = await taskParameters.getHtml(selectedTask, existingParameters);
+                                updateTaskDescription(selectedTask);
+                                await renderTaskParameters(selectedTask, existingParameters);
                             });
 
                             // Evento ao clicar em "Adicionar/Atualizar Tarefa"
@@ -204,6 +282,7 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                     // Limpar seleção
                                     taskSelect.value = '';
                                     taskParametersDiv.innerHTML = '';
+                                    updateTaskDescription('');
                                     existingParameters = {};
                                     selectedTask = '';
                                     // Atualizar a lista de tarefas
@@ -266,15 +345,84 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                     return;
                                 }
 
-                                let paramsHtml = '<ul>';
-                                for (const [key, value] of Object.entries(taskParams)) {
-                                    paramsHtml += `<li><strong>${key}:</strong> ${value}</li>`;
-                                }
-                                paramsHtml += '</ul>';
+                                const parameterLabels = {
+                                    iconLayer: 'Camada de origem',
+                                    iconType: 'Tipo de ícone',
+                                    iconType1: 'Ícone de origem / grupo 1',
+                                    iconType2: 'Ícone de destino / grupo 2',
+                                    stationIcon: 'Ícone das estações',
+                                    candidateIcon: 'Ícone das posições candidatas',
+                                    radioPreset: 'Preset de rádio/visada',
+                                    maxDistance: 'Distância máxima (km)',
+                                    cellSizeKm: 'Resolução da grade (km)',
+                                    sampleInterval: 'Intervalo entre amostras (km)',
+                                    numberOfNewIcons: 'Quantidade de novos ícones',
+                                    maxDistanceBetweenNewIcons: 'Distância entre novos ícones (km)',
+                                    maxConnectionsPerIcon: 'Máximo de conexões por ícone',
+                                    maxConnectionsSource: 'Máximo de conexões na origem',
+                                    maxConnectionsTarget: 'Máximo de conexões no destino',
+                                    minDistanceBetweenIcons: 'Distância mínima entre ícones (m)',
+                                    minDistanceBetweenLines: 'Distância mínima entre linhas (m)',
+                                    connectionCriterion: 'Critério de conexão',
+                                    radius: 'Raio de cobertura (km)',
+                                    iconTypesToCover: 'Tipos de ícones a cobrir',
+                                    iconToInsert: 'Ícone a inserir',
+                                    iconUrl: 'Ícone a inserir',
+                                    criteria: 'Critério de elevação',
+                                    coverageLayer: 'Camada dos ícones a cobrir',
+                                    maxNumberOfIcons: 'Quantidade máxima de ícones'
+                                };
+                                const layerLabels = {
+                                    drawnItems: 'Camada de Desenho Atual',
+                                    planningSuggestions: 'Sugestão de Planejamento'
+                                };
+                                const escapeHtml = value => String(value)
+                                    .replaceAll('&', '&amp;')
+                                    .replaceAll('<', '&lt;')
+                                    .replaceAll('>', '&gt;')
+                                    .replaceAll('"', '&quot;')
+                                    .replaceAll("'", '&#039;');
+                                const formatValue = (key, value) => {
+                                    if (value === null || value === undefined || value === '') return '';
+                                    if (key === 'iconLayer' || key === 'coverageLayer') {
+                                        return layerLabels[value] || escapeHtml(value);
+                                    }
+                                    if (key === 'radioPreset') {
+                                        return escapeHtml(taskParameters.getPresetLabel?.(value) || value);
+                                    }
+                                    if (key === 'connectionCriterion') {
+                                        return value === 'closest' ? 'Ícones mais próximos' : 'Ícones mais distantes';
+                                    }
+                                    if (key === 'criteria') return `${escapeHtml(value)} m`;
+                                    if (key.toLowerCase().includes('icon') && typeof value === 'string') {
+                                        return escapeHtml(value.substring(value.lastIndexOf('/') + 1).split('.')[0]);
+                                    }
+                                    if (Array.isArray(value)) {
+                                        return escapeHtml(value.map(item => String(item).substring(String(item).lastIndexOf('/') + 1).split('.')[0]).join(', '));
+                                    }
+                                    if (typeof value === 'object') return escapeHtml(JSON.stringify(value));
+                                    return escapeHtml(value);
+                                };
+                                const paramsHtml = Object.entries(taskParams)
+                                    .map(([key, value]) => {
+                                        const displayValue = formatValue(key, value);
+                                        return displayValue
+                                            ? `<li><strong>${parameterLabels[key] || key}:</strong> ${displayValue}</li>`
+                                            : '';
+                                    })
+                                    .filter(Boolean)
+                                    .join('');
+                                const description = taskDescriptions[task.task];
+                                const safeTaskName = escapeHtml(taskName);
 
                                 Swal.fire({
                                     title: `<i class="fa fa-info-circle"></i> Detalhes da Tarefa`,
-                                    html: `<b>${index + 1}. ${taskName}</b><br>${paramsHtml}`,
+                                    html: `
+<div style="text-align:left; line-height:1.5">
+<b>${index + 1}. ${safeTaskName}</b>
+${description ? `<p><strong>Para que serve:</strong> ${description.purpose}</p><p><strong>Antes de executar:</strong> ${description.setup}</p><p><strong>Resultado:</strong> ${description.result}</p>` : ''}
+<strong>Parâmetros:</strong><ul>${paramsHtml || '<li>Nenhum parâmetro adicional.</li>'}</ul>
+</div>`,
                                     icon: 'info',
                                     confirmButtonText: '<i class="fa fa-check"></i> Fechar',
                                     allowOutsideClick: false
@@ -300,7 +448,8 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                 isEditing = true;
                                 editingIndex = index;
                                 // Mostrar os parâmetros da tarefa para edição
-                                taskParametersDiv.innerHTML = await taskParameters.getHtml(selectedTask, existingParameters);
+                                updateTaskDescription(selectedTask);
+                                await renderTaskParameters(selectedTask, existingParameters);
                                 // Atualizar o botão para "Atualizar Tarefa"
                                 addTaskButton.innerHTML = '<i class="fa fa-sync-alt"></i> Atualizar Tarefa';
                                 // Atualizar a seleção no select
@@ -352,6 +501,7 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                     // Resetar as seleções e parâmetros
                                     taskSelect.value = '';
                                     taskParametersDiv.innerHTML = '';
+                                    updateTaskDescription('');
                                     existingParameters = {};
                                     selectedTask = '';
                                     isEditing = false;

@@ -100,12 +100,29 @@
                     radioPlanning: radioPlanningService,
                     log: addToLog
                 });
+                function getLayerIconCounts(layerName) {
+                    const sourceLayer = layerName === 'drawnItems'
+                        ? drawnItems
+                        : layerName === 'planningSuggestions'
+                            ? planejamentoLayer
+                            : null;
+                    const counts = {};
+                    if (!sourceLayer) return counts;
+
+                    sourceLayer.eachLayer(layer => {
+                        if (!(layer instanceof L.Marker) || !layer.options.icon || !layer.options.icon.options.iconUrl) return;
+                        const iconUrl = layer.options.icon.options.iconUrl;
+                        counts[iconUrl] = (counts[iconUrl] || 0) + 1;
+                    });
+                    return counts;
+                }
 
                 // Função para iniciar o processo de criação de tarefas
                 var taskParameters = window.PlanMilT.taskParameters.attach({
                     apiClient: window.PlanMilT.apiClient,
                     sweetAlert: Swal,
-                    radioPresets: radioPlanningService.getPresets()
+                    radioPresets: radioPlanningService.getPresets(),
+                    getLayerIconCounts
                 });
                 var taskEditor = window.PlanMilT.taskSequenceEditor.attach({
                     getTasks: () => taskSequence,

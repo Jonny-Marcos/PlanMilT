@@ -151,7 +151,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         async function identifyCoverageGaps(params) {
             const area = params.area || map.getBounds();
             const stations = collectMarkers(params.iconLayer).filter(marker => marker.iconUrl === params.stationIcon);
-            if (stations.length === 0) throw new Error('Nenhuma estação do tipo selecionado foi encontrada na camada.');
+            if (stations.length === 0) {
+                throw new Error('Nenhuma estação do tipo selecionado foi encontrada na camada de origem. Adicione esse marcador ou escolha outra camada e tipo de ícone.');
+            }
             if (stations.length > maxAnalyzedLinks) {
                 throw new Error(`Há ${stations.length} estações na camada; limite da análise: ${maxAnalyzedLinks}.`);
             }
@@ -189,7 +191,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                     if (isWithinArea(position, area)) cells.push(position);
                 }
             }
-            if (cells.length === 0) throw new Error('A área selecionada não contém células para analisar.');
+            if (cells.length === 0) {
+                throw new Error('A área visível do mapa não contém células para analisar. Ajuste o zoom ou enquadre a região desejada.');
+            }
             const links = [];
             const linkCellIndices = [];
             const directlyCoveredCells = new Set();
@@ -253,7 +257,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         async function checkRouteCommunication(params) {
             const area = params.area || map.getBounds();
             const stations = collectMarkers(params.iconLayer).filter(marker => marker.iconUrl === params.stationIcon);
-            if (stations.length === 0) throw new Error('Nenhuma estação do tipo selecionado foi encontrada.');
+            if (stations.length === 0) {
+                throw new Error('Nenhuma estação do tipo selecionado foi encontrada na camada de origem. Adicione esse marcador ou escolha outro tipo de ícone.');
+            }
 
             const routes = [];
             getSourceLayer(params.iconLayer).eachLayer(layer => {
@@ -261,7 +267,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 const positions = layer.getLatLngs().flat(Infinity);
                 if (positions.length >= 2) routes.push(positions);
             });
-            if (routes.length === 0) throw new Error('A camada selecionada não contém linhas de rota.');
+            if (routes.length === 0) {
+                throw new Error('A camada selecionada não contém uma linha de rota. Desenhe uma linha na mesma camada das estações antes de executar.');
+            }
 
             const samples = [];
             const lines = [];
@@ -291,7 +299,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                     }
                 }
             }
-            if (samples.length === 0) throw new Error('Nenhum ponto de amostragem da rota está dentro da área selecionada.');
+            if (samples.length === 0) {
+                throw new Error('Nenhum ponto da rota está na área visível do mapa. Ajuste o zoom ou enquadre o trecho que deseja avaliar.');
+            }
             if (samples.length > maxAnalyzedLinks) {
                 throw new Error(`A rota teria ${samples.length} pontos de amostragem. Aumente o intervalo entre amostras (limite: ${maxAnalyzedLinks}).`);
             }
@@ -337,8 +347,15 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             const candidates = markers.filter(marker => marker.iconUrl === params.candidateIcon);
             const firstGroup = markers.filter(marker => marker.iconUrl === params.iconType1);
             const secondGroup = markers.filter(marker => marker.iconUrl === params.iconType2);
-            if (candidates.length === 0 || firstGroup.length === 0 || secondGroup.length === 0) {
-                throw new Error('É necessário ter ícones para os dois grupos e ao menos uma posição candidata dentro da área.');
+            if (candidates.length === 0) {
+                throw new Error('Nenhuma posição candidata foi encontrada na área visível. Adicione marcadores candidatos na camada e enquadre a região no mapa.');
+            }
+            if (firstGroup.length === 0 || secondGroup.length === 0) {
+                const missingGroups = [
+                    firstGroup.length === 0 ? 'primeiro' : '',
+                    secondGroup.length === 0 ? 'segundo' : ''
+                ].filter(Boolean).join(' e ');
+                throw new Error(`Nenhuma unidade do ${missingGroups} grupo foi encontrada na área visível. Confira os tipos de ícone e a camada selecionada.`);
             }
 
             const links = [];
@@ -381,7 +398,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 .filter(candidate => candidate.firstCount > 0 && candidate.secondCount > 0)
                 .sort((a, b) => Math.min(b.firstCount, b.secondCount) - Math.min(a.firstCount, a.secondCount) ||
                     (b.firstCount + b.secondCount) - (a.firstCount + a.secondCount));
-            if (bridges.length === 0) throw new Error('Nenhuma posição candidata alcança os dois grupos com esse preset e alcance.');
+            if (bridges.length === 0) {
+                throw new Error('As posições candidatas não alcançam os dois grupos com o preset e alcance atuais. Aumente o alcance ou confira a posição dos candidatos e das unidades.');
+            }
 
             bridges.forEach((candidate, index) => {
                 drawCircle(
@@ -405,7 +424,18 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             const area = params.area || map.getBounds();
             const markers = collectMarkers(params.iconLayer, area);
             const pairs = collectPairs(markers, params.iconType1, params.iconType2, params.maxDistance);
-            if (pairs.length === 0) throw new Error('Nenhum par de ícones foi encontrado dentro da distância máxima.');
+            if (pairs.length === 0) {
+                const firstCount = markers.filter(marker => marker.iconUrl === params.iconType1).length;
+                const secondCount = markers.filter(marker => marker.iconUrl === params.iconType2).length;
+                if (firstCount === 0 || secondCount === 0) {
+                    const missingGroups = [
+                        firstCount === 0 ? 'origem' : '',
+                        secondCount === 0 ? 'destino' : ''
+                    ].filter(Boolean).join(' e ');
+                    throw new Error(`Nenhum ícone do grupo de ${missingGroups} está na área visível do mapa. Confira os tipos escolhidos, a camada de origem e enquadre as unidades.`);
+                }
+                throw new Error('Há ícones dos dois grupos na área visível, mas nenhum par está dentro da distância máxima. Aumente o alcance ou aproxime as unidades.');
+            }
             if (pairs.length > maxComparedPairs) {
                 throw new Error(`A comparação geraria ${pairs.length} pares. Reduza a área ou a distância máxima (limite: ${maxComparedPairs}).`);
             }

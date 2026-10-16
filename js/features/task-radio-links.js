@@ -59,13 +59,21 @@ window.PlanMilT.taskRadioLinks = Object.freeze({
                 }
             }
 
+            if (sourceMarkers.length === 0 || targetMarkers.length === 0) {
+                const missingGroups = [
+                    sourceMarkers.length === 0 ? 'origem' : '',
+                    targetMarkers.length === 0 ? 'destino' : ''
+                ].filter(Boolean).join(' e ');
+                throw new Error(`Nenhum ícone do grupo de ${missingGroups} está na área visível do mapa. Confira os tipos escolhidos, a camada de origem e ajuste o mapa para enquadrar as unidades.`);
+            }
+
             const maximumDistanceMeters = params.maxDistance * 1000;
             const candidates = pairs.filter(([source, target]) => {
                 const distanceMeters = map.distance(source.getLatLng(), target.getLatLng());
                 return distanceMeters > 0 && distanceMeters <= maximumDistanceMeters;
             });
             if (candidates.length === 0) {
-                throw new Error('Nenhum par de ícones foi encontrado dentro da distância máxima selecionada.');
+                throw new Error('Os ícones estão visíveis, mas nenhum par está dentro da distância máxima selecionada. Aumente o alcance ou aproxime/enquadre as unidades no mapa.');
             }
             const preset = radioPlanning.getPresets().find(item => item.id === params.radioPreset);
             if (!preset) throw new Error('Preset de rádio ou visada inválido.');

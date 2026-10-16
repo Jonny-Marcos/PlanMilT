@@ -238,3 +238,43 @@ test('preset comparison reports per-radio viability and draws the tested pair', 
     assert.equal(generated.length, 1);
     assert.match(generated[0].popup, /Rádio: falho/);
 });
+
+test('radio task failures explain which map input is missing', async () => {
+    const { task } = setup();
+
+    await assert.rejects(
+        task.checkRouteCommunication({
+            iconLayer: 'drawnItems',
+            stationIcon: 'station',
+            radioPreset: 'radio',
+            maxDistance: 20,
+            sampleInterval: 1,
+            area: null
+        }),
+        /Nenhuma estação do tipo selecionado.*Adicione esse marcador/
+    );
+
+    await assert.rejects(
+        task.suggestRepeaterPositions({
+            iconLayer: 'drawnItems',
+            candidateIcon: 'candidate',
+            iconType1: 'group-a',
+            iconType2: 'group-b',
+            radioPreset: 'radio',
+            maxDistance: 20,
+            area: null
+        }),
+        /Nenhuma posição candidata.*área visível/
+    );
+
+    await assert.rejects(
+        task.compareRadioPresets({
+            iconLayer: 'drawnItems',
+            iconType1: 'unit-a',
+            iconType2: 'unit-b',
+            maxDistance: 20,
+            area: null
+        }),
+        /Nenhum ícone do grupo de origem e destino.*área visível/
+    );
+});

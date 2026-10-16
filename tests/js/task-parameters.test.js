@@ -4,7 +4,13 @@ const test = require('node:test');
 global.window = {};
 require('../../js/features/task-parameters.js');
 
-function createParametersModule({ values = {}, selectedOptions = [], icons = [], radioPresets = [] } = {}) {
+function createParametersModule({
+    values = {},
+    selectedOptions = [],
+    icons = [],
+    radioPresets = [],
+    getLayerIconCounts = () => ({})
+} = {}) {
     const alerts = [];
     const popup = {
         querySelector(selector) {
@@ -25,6 +31,7 @@ function createParametersModule({ values = {}, selectedOptions = [], icons = [],
             }
         },
         radioPresets,
+        getLayerIconCounts,
         sweetAlert: {
             getPopup: () => popup,
             async fire(...args) {
@@ -150,6 +157,107 @@ test('radio-link task renders reusable presets and preserves its selected values
         maxDistance: 12,
         area: null
     });
+    assert.equal(module.getPresetLabel('harris_hh'), 'Harris portátil');
+});
+
+test('task icon selectors show only markers in the chosen layer and refresh when the layer changes', () => {
+    const friend = 'symbols/friend/alpha.svg';
+    const enemy = 'symbols/enemy/bravo.svg';
+    const layerCounts = {
+        drawnItems: { [friend]: 2, [enemy]: 1 },
+        planningSuggestions: { [friend]: 3 },
+        empty: {}
+    };
+    const { module } = createParametersModule({
+        getLayerIconCounts: layerName => layerCounts[layerName]
+    });
+    const listeners = {};
+    const makeSelect = value => ({
+        value,
+        html: '',
+        addEventListener(event, callback) {
+            listeners[event] = callback;
+        },
+        set innerHTML(html) {
+            this.html = html;
+            const selected = html.match(/<option value="([^"]*)" selected>/);
+            const first = html.match(/<option value="([^"]*)"/);
+            this.value = selected?.[1] || first?.[1] || '';
+        },
+        get innerHTML() {
+            return this.html;
+        }
+    });
+    const layerSelect = makeSelect('drawnItems');
+    const group1 = makeSelect(enemy);
+    const group2 = makeSelect(friend);
+    const status = { textContent: '' };
+    const elements = {
+        '#iconLayerSelect': layerSelect,
+        '#iconType1': group1,
+        '#iconType2': group2,
+        '#iconType1Image': { src: '' },
+        '#iconType2Image': { src: '' },
+        '#taskLayerStatus': status
+    };
+    const root = {
+        querySelector(selector) {
+            return selector.split(', ').map(item => elements[item]).find(Boolean) || null;
+        }
+    };
+
+    module.bind('connectDifferentIcons', root);
+
+    assert.equal(group1.value, enemy);
+    assert.equal(group2.value, friend);
+    assert.match(group1.innerHTML, /1 disponível/);
+    assert.match(status.textContent, /2 tipos de ícone encontrados/);
+
+    layerSelect.value = 'planningSuggestions';
+    listeners.change();
+    assert.equal(group1.value, friend);
+    assert.equal(group2.value, friend);
+    assert.equal(elements['#iconType1Image'].src, friend);
+    assert.match(status.textContent, /1 tipo de ícone encontrado/);
+
+    layerSelect.value = 'empty';
+    listeners.change();
+    assert.equal(group1.value, '');
+    assert.match(group1.innerHTML, /Nenhum ícone encontrado/);
+    assert.match(status.textContent, /Escolha outra camada ou adicione os ícones/);
+});
+
+test('coverage task filters its multi-select by the selected source layer', () => {
+    const friend = 'symbols/friend/alpha.svg';
+    const enemy = 'symbols/enemy/bravo.svg';
+    const { module } = createParametersModule({
+        getLayerIconCounts: () => ({ [friend]: 1, [enemy]: 2 })
+    });
+    const layerSelect = { value: 'drawnItems', addEventListener() {} };
+    const selectedOptions = [{ value: enemy }];
+    const iconTypes = {
+        value: enemy,
+        selectedOptions,
+        set innerHTML(html) {
+            this.html = html;
+        },
+        get innerHTML() {
+            return this.html;
+        }
+    };
+    const root = {
+        querySelector(selector) {
+            return {
+                '#coverageLayerSelect': layerSelect,
+                '#iconTypesToCover': iconTypes
+            }[selector] || null;
+        }
+    };
+
+    module.bind('drawCoverageArea', root);
+    assert.match(iconTypes.innerHTML, /friend\/alpha/);
+    assert.match(iconTypes.innerHTML, /enemy\/bravo/);
+    assert.match(iconTypes.innerHTML, /selected/);
 });
 
 test('additional radio task forms collect coverage, route, repeater and preset settings', async () => {

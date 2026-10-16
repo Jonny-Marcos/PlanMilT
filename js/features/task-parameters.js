@@ -11,8 +11,10 @@ window.PlanMilT.taskParameters = Object.freeze({
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
      * @param {Object} dependencies.apiClient - Cliente compartilhado para chamadas à API.
      * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
+     * @param {Array<Object>} [dependencies.radioPresets] - Presets de rádio e visada disponíveis.
+     * @param {Function} [dependencies.getLayerIconCounts] - Conta marcadores por tipo na camada indicada.
      */
-    attach({ apiClient, sweetAlert, radioPresets = [] }) {
+    attach({ apiClient, sweetAlert, radioPresets = [], getLayerIconCounts = () => ({}) }) {
         const Swal = sweetAlert;
 
                 /**
@@ -38,8 +40,31 @@ window.PlanMilT.taskParameters = Object.freeze({
                     return icons.map(icon => {
                         const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
                         const label = `${icon.split('/')[2]}/${fileName}`;
-                        return `<option value="${icon}" ${selectedIcon === icon ? 'selected' : ''}>${label}</option>`;
+                        return `<option value="${escapeHtml(icon)}" ${selectedIcon === icon ? 'selected' : ''}>${escapeHtml(label)}</option>`;
                     }).join('');
+                }
+
+                /**
+                 * Codifica texto antes de inseri-lo em conteúdo HTML.
+                 * @param {*} value - Valor que será exibido.
+                 * @returns {string} Texto seguro para HTML.
+                 */
+                function escapeHtml(value) {
+                    return String(value)
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#039;');
+                }
+
+                /**
+                 * Retorna o nome amigável de um preset de rádio/visada.
+                 * @param {string} presetId - Identificador do preset.
+                 * @returns {string} Nome do preset ou o próprio identificador.
+                 */
+                function getRadioPresetLabel(presetId) {
+                    return radioPresets.find(preset => preset.id === presetId)?.label || String(presetId || '');
                 }
 
                 /**
@@ -63,6 +88,74 @@ ${preset.label}
                     return `
 <option value="drawnItems" ${selectedLayer !== 'planningSuggestions' ? 'selected' : ''}>Camada de Desenho Atual</option>
 <option value="planningSuggestions" ${selectedLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>`;
+                }
+
+                /**
+                 * Atualiza seletores de ícones para exibir apenas tipos presentes na camada escolhida.
+                 * @param {string} selectedTask - Identificador da tarefa exibida no formulário.
+                 * @param {HTMLElement} root - Elemento DOM que contém os parâmetros da tarefa.
+                 * @returns {void}
+                 */
+                function bindRadioTaskForm(selectedTask, root) {
+                    const formConfig = {
+                        findHighestPoint: { layer: '#iconLayerSelect', icons: ['#iconType'], previews: { '#iconType': '#iconTypeImage' } },
+                        drawLinesBetweenIcons: { layer: '#iconLayerSelect', icons: ['#iconType'] },
+                        connectDifferentIcons: {
+                            layer: '#iconLayerSelect',
+                            icons: ['#iconType1', '#iconType2'],
+                            previews: { '#iconType1': '#iconType1Image', '#iconType2': '#iconType2Image' }
+                        },
+                        drawCoverageArea: { layer: '#coverageLayerSelect', icons: ['#iconTypesToCover'], multiple: ['#iconTypesToCover'] },
+                        verifyRadioLinks: { layer: '#linkLayerSelect', icons: ['#linkIconType1', '#linkIconType2'] },
+                        identifyCoverageGaps: { layer: '#coverageGapLayer', icons: ['#coverageGapStationIcon'] },
+                        checkRouteCommunication: { layer: '#routeRadioLayer', icons: ['#routeStationIcon'] },
+                        suggestRepeaterPositions: {
+                            layer: '#repeaterLayer',
+                            icons: ['#repeaterCandidateIcon', '#repeaterGroup1', '#repeaterGroup2']
+                        },
+                        compareRadioPresets: { layer: '#compareRadioLayer', icons: ['#compareRadioIcon1', '#compareRadioIcon2'] }
+                    }[selectedTask];
+                    if (!formConfig || !root) return;
+
+                    const layerSelect = root.querySelector(formConfig.layer);
+                    const status = root.querySelector('#radioTaskLayerStatus, #taskLayerStatus');
+                    if (!layerSelect) return;
+
+                    const refreshIconOptions = () => {
+                        const counts = getLayerIconCounts(layerSelect.value) || {};
+                        const icons = Object.entries(counts).filter(([, count]) => count > 0);
+                        for (const selector of formConfig.icons) {
+                            const select = root.querySelector(selector);
+                            if (!select) continue;
+                            const previousValues = formConfig.multiple?.includes(selector)
+                                ? Array.from(select.selectedOptions || []).map(option => option.value)
+                                : [select.value];
+                            const availableValues = icons.map(([icon]) => icon);
+                            const selectedValues = previousValues.filter(value => availableValues.includes(value));
+                            if (selectedValues.length === 0 && icons.length > 0) selectedValues.push(icons[0][0]);
+                            select.innerHTML = icons.length > 0
+                                ? icons.map(([icon, count]) => {
+                                    const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
+                                    const label = `${icon.split('/')[2]}/${fileName} (${count} ${count === 1 ? 'disponível' : 'disponíveis'})`;
+                                    return `<option value="${escapeHtml(icon)}" ${selectedValues.includes(icon) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                                }).join('')
+                                : '<option value="">Nenhum ícone encontrado nesta camada</option>';
+                            if (icons.length === 0) select.value = '';
+                            const preview = formConfig.previews?.[selector]
+                                ? root.querySelector(formConfig.previews[selector])
+                                : null;
+                            if (preview && select.value) preview.src = select.value;
+                        }
+
+                        if (status) {
+                            status.textContent = icons.length > 0
+                                ? `${icons.length} tipo${icons.length === 1 ? '' : 's'} de ícone encontrado${icons.length === 1 ? '' : 's'}. Os seletores mostram apenas marcadores desta camada e informam a quantidade disponível.`
+                                : 'Nenhum marcador com ícone foi encontrado nesta camada. Escolha outra camada ou adicione os ícones ao mapa antes de executar.';
+                        }
+                    };
+
+                    layerSelect.addEventListener('change', refreshIconOptions);
+                    refreshIconOptions();
                 }
 
                 /**
@@ -91,6 +184,7 @@ ${text}
 `).join('')}
             </select>
             </div>
+<div id="taskLayerStatus" role="status" style="margin: 6px 0 12px; font-size: 12px; color: #4b5563;"></div>
 `;
 
                             // Obter a lista de ícones disponíveis para seleção
@@ -147,6 +241,7 @@ ${icon.split('/')[2]}/${iconName}
 
                             return `
 ${layerSelectHtmlFind}
+<div id="taskLayerStatus" role="status" style="margin: 6px 0 12px; font-size: 12px; color: #4b5563;"></div>
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
 <label for="iconType" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
 <i class="fas fa-icons" style="margin-right: 8px;"></i> Selecione o Tipo de Ícone Existente:
@@ -306,6 +401,7 @@ ${icon.split('/')[2]}/${iconName}
 
                             return `
 ${layerSelectHtmlLines}
+<div id="taskLayerStatus" role="status" style="margin: 6px 0 12px; font-size: 12px; color: #4b5563;"></div>
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
 <label for="iconType" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
 <i class="fas fa-link" style="margin-right: 8px;"></i> Selecione o Tipo de Ícones para Conectar:
@@ -408,6 +504,7 @@ ${icon.split('/')[2]}/${iconName}
 
                             return `
 ${layerSelectHtmlConnect}
+<div id="taskLayerStatus" role="status" style="margin: 6px 0 12px; font-size: 12px; color: #4b5563;"></div>
 
 <!-- Select para o Primeiro Tipo de Ícone com Imagem -->
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -518,6 +615,7 @@ ${icon.split('/')[2]}/${iconName}
 
                             return `
 ${layerSelectHtmlCoverage}
+<div id="taskLayerStatus" role="status" style="margin: 6px 0 12px; font-size: 12px; color: #4b5563;"></div>
 
 <!-- Select para o Ícone Central com Imagem -->
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -592,6 +690,7 @@ ${preset.label}
 <option value="planningSuggestions" ${existingParameters.iconLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>
 </select>
 </div>
+<div id="radioTaskLayerStatus" role="status"></div>
 <div class="form-group">
 <label for="linkIconType1">Ícone de origem:</label>
 <select id="linkIconType1" class="swal2-input">${makeIconOptions(existingParameters.iconType1 || iconList[0])}</select>
@@ -632,6 +731,7 @@ ${preset.label}
 <p>Estima a cobertura em uma grade sobre a área selecionada; células verdes indicam cobertura por ao menos uma estação e vermelhas indicam lacunas. A grade pode ser ampliada automaticamente para limitar o número de cálculos.</p>
 <label for="coverageGapLayer">Camada com as estações:</label>
 <select id="coverageGapLayer" class="swal2-input">${layerOptions}</select>
+<div id="radioTaskLayerStatus" role="status"></div>
 <label for="coverageGapStationIcon">Ícone das estações:</label>
 <select id="coverageGapStationIcon" class="swal2-input">${stationOptions}</select>
 <label for="coverageGapPreset">Rádio ou visada:</label>
@@ -648,6 +748,7 @@ ${preset.label}
 <p>A tarefa amostra as linhas da camada selecionada e verifica se há enlace viável com ao menos uma estação próxima.</p>
 <label for="routeRadioLayer">Camada com as estações e rotas:</label>
 <select id="routeRadioLayer" class="swal2-input">${layerOptions}</select>
+<div id="radioTaskLayerStatus" role="status"></div>
 <label for="routeStationIcon">Ícone das estações:</label>
 <select id="routeStationIcon" class="swal2-input">${stationOptions}</select>
 <label for="routeRadioPreset">Rádio ou visada:</label>
@@ -664,6 +765,7 @@ ${preset.label}
 <p>Marque previamente no mapa as posições candidatas usando o ícone escolhido. A tarefa classifica as posições que alcançam os dois grupos.</p>
 <label for="repeaterLayer">Camada dos grupos e candidatos:</label>
 <select id="repeaterLayer" class="swal2-input">${layerOptions}</select>
+<div id="radioTaskLayerStatus" role="status"></div>
 <label for="repeaterCandidateIcon">Ícone usado nas posições candidatas:</label>
 <select id="repeaterCandidateIcon" class="swal2-input">${candidateOptions}</select>
 <label for="repeaterGroup1">Ícone do primeiro grupo:</label>
@@ -680,6 +782,7 @@ ${preset.label}
                             return `
 <label for="compareRadioLayer">Camada de origem dos ícones:</label>
 <select id="compareRadioLayer" class="swal2-input">${layerOptions}</select>
+<div id="radioTaskLayerStatus" role="status"></div>
 <label for="compareRadioIcon1">Ícone de origem:</label>
 <select id="compareRadioIcon1" class="swal2-input">${sourceOptions}</select>
 <label for="compareRadioIcon2">Ícone de destino:</label>
@@ -912,7 +1015,9 @@ ${preset.label}
 
         return Object.freeze({
             getHtml: getTaskParametersHtml,
-            getValues: getTaskParametersValues
+            getValues: getTaskParametersValues,
+            bind: bindRadioTaskForm,
+            getPresetLabel: getRadioPresetLabel
         });
     }
 });

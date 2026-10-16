@@ -128,3 +128,35 @@ test('radio-link task analyzes icon pairs and stores colored results in the plan
     assert.match(generatedLayers[0].popup, /VIÁVEL/);
     assert.match(alerts[0], /1 enlaces analisados/);
 });
+
+test('radio-link task explains when the selected icon groups are not visible', async () => {
+    class Marker {}
+    class LatLngBounds {}
+    const task = window.PlanMilT.taskRadioLinks.attach({
+        map: {
+            getBounds: () => new LatLngBounds(),
+            distance: () => 1000
+        },
+        leaflet: {
+            Marker,
+            LatLngBounds,
+            Polygon: class Polygon {}
+        },
+        drawnItems: { eachLayer() {} },
+        planningLayer: { eachLayer() {} },
+        radioPlanning: { getPresets: () => [] },
+        log() {}
+    });
+
+    await assert.rejects(
+        task.verify({
+            iconLayer: 'drawnItems',
+            iconType1: 'symbols/friend/unit.svg',
+            iconType2: 'symbols/enemy/unit.svg',
+            radioPreset: 'optical',
+            maxDistance: 20,
+            area: null
+        }),
+        /Nenhum ícone do grupo de origem e destino.*área visível/
+    );
+});
