@@ -123,6 +123,59 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
 
                     // HTML para o modal
                     let modalContent = `
+<style>
+#taskParameters .task-parameter-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    margin-top: 12px;
+}
+#taskParameters .task-parameter-description,
+#taskParameters .task-parameter-status {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+#taskParameters .task-parameter-description {
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.45;
+}
+#taskParameters .task-parameter-field {
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    min-width: 0;
+}
+#taskParameters .task-parameter-field label {
+    display: block;
+    margin: 0;
+    color: #303846;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+#taskParameters .task-parameter-form .swal2-input {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100%;
+    height: 40px;
+    margin: 0 !important;
+    padding: 0 10px;
+    border: 1px solid #c5cad2;
+    border-radius: 6px;
+    font-size: 14px;
+}
+#taskParameters .task-parameter-status {
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.4;
+}
+@media (max-width: 640px) {
+    #taskParameters .task-parameter-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+</style>
 <div style="text-align: left; max-height: 80vh; overflow-y: auto; padding: 20px;">
 
 <label for="taskSelect">Selecione uma Tarefa:</label>

@@ -683,29 +683,31 @@ ${preset.label}
 </option>`).join('');
 
                             return `
-<div class="form-group">
+<div class="task-parameter-form">
+<div class="task-parameter-field">
 <label for="linkLayerSelect">Camada de origem dos ícones:</label>
 <select id="linkLayerSelect" class="swal2-input">
 <option value="drawnItems" ${existingParameters.iconLayer !== 'planningSuggestions' ? 'selected' : ''}>Camada de Desenho Atual</option>
 <option value="planningSuggestions" ${existingParameters.iconLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>
 </select>
 </div>
-<div id="radioTaskLayerStatus" role="status"></div>
-<div class="form-group">
+<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
+<div class="task-parameter-field">
 <label for="linkIconType1">Ícone de origem:</label>
 <select id="linkIconType1" class="swal2-input">${makeIconOptions(existingParameters.iconType1 || iconList[0])}</select>
 </div>
-<div class="form-group">
+<div class="task-parameter-field">
 <label for="linkIconType2">Ícone de destino:</label>
 <select id="linkIconType2" class="swal2-input">${makeIconOptions(existingParameters.iconType2 || iconList[0])}</select>
 </div>
-<div class="form-group">
+<div class="task-parameter-field">
 <label for="linkRadioPreset">Rádio ou visada:</label>
 <select id="linkRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
-<div class="form-group">
+<div class="task-parameter-field">
 <label for="linkMaxDistance">Distância máxima entre unidades (km):</label>
 <input id="linkMaxDistance" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.maxDistance || 20}">
+</div>
 </div>
 `;
                         }
@@ -728,68 +730,116 @@ ${preset.label}
 
                             if (selectedTask === 'identifyCoverageGaps') {
                                 return `
-<p>Estima a cobertura em uma grade sobre a área selecionada; células verdes indicam cobertura por ao menos uma estação e vermelhas indicam lacunas. A grade pode ser ampliada automaticamente para limitar o número de cálculos.</p>
+<div class="task-parameter-form">
+<p class="task-parameter-description">Estima a cobertura da região visível. Células verdes indicam cobertura por ao menos uma estação; células vermelhas indicam lacunas. A grade pode ser simplificada automaticamente para limitar os cálculos.</p>
+<div class="task-parameter-field">
 <label for="coverageGapLayer">Camada com as estações:</label>
 <select id="coverageGapLayer" class="swal2-input">${layerOptions}</select>
-<div id="radioTaskLayerStatus" role="status"></div>
+</div>
+<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
+<div class="task-parameter-field">
 <label for="coverageGapStationIcon">Ícone das estações:</label>
 <select id="coverageGapStationIcon" class="swal2-input">${stationOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="coverageGapPreset">Rádio ou visada:</label>
 <select id="coverageGapPreset" class="swal2-input">${presetOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="coverageGapCellSize">Resolução aproximada da grade (km):</label>
 <input id="coverageGapCellSize" class="swal2-input" type="number" min="0.2" step="0.2" value="${existingParameters.cellSizeKm || 2}">
+</div>
+<div class="task-parameter-field">
 <label for="coverageGapMaxDistance">Alcance máximo para avaliar cada estação (km):</label>
 <input id="coverageGapMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+</div>
+</div>
 `;
                             }
 
                             if (selectedTask === 'checkRouteCommunication') {
                                 return `
-<p>A tarefa amostra as linhas da camada selecionada e verifica se há enlace viável com ao menos uma estação próxima.</p>
+<div class="task-parameter-form">
+<p class="task-parameter-description">Amostra as rotas da camada escolhida e verifica se cada ponto tem enlace viável com ao menos uma estação próxima.</p>
+<div class="task-parameter-field">
 <label for="routeRadioLayer">Camada com as estações e rotas:</label>
 <select id="routeRadioLayer" class="swal2-input">${layerOptions}</select>
-<div id="radioTaskLayerStatus" role="status"></div>
+</div>
+<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
+<div class="task-parameter-field">
 <label for="routeStationIcon">Ícone das estações:</label>
 <select id="routeStationIcon" class="swal2-input">${stationOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="routeRadioPreset">Rádio ou visada:</label>
 <select id="routeRadioPreset" class="swal2-input">${presetOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="routeRadioMaxDistance">Distância máxima estação-rota (km):</label>
 <input id="routeRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+</div>
+<div class="task-parameter-field">
 <label for="routeRadioInterval">Intervalo entre amostras (km):</label>
 <input id="routeRadioInterval" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.sampleInterval || 2}">
+</div>
+</div>
 `;
                             }
 
                             if (selectedTask === 'suggestRepeaterPositions') {
                                 return `
-<p>Marque previamente no mapa as posições candidatas usando o ícone escolhido. A tarefa classifica as posições que alcançam os dois grupos.</p>
+<div class="task-parameter-form">
+<p class="task-parameter-description">Marque no mapa as posições candidatas e os dois grupos de unidades. A tarefa classifica quais posições alcançam ambos os grupos.</p>
+<div class="task-parameter-field">
 <label for="repeaterLayer">Camada dos grupos e candidatos:</label>
 <select id="repeaterLayer" class="swal2-input">${layerOptions}</select>
-<div id="radioTaskLayerStatus" role="status"></div>
+</div>
+<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
+<div class="task-parameter-field">
 <label for="repeaterCandidateIcon">Ícone usado nas posições candidatas:</label>
 <select id="repeaterCandidateIcon" class="swal2-input">${candidateOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="repeaterGroup1">Ícone do primeiro grupo:</label>
 <select id="repeaterGroup1" class="swal2-input">${sourceOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="repeaterGroup2">Ícone do segundo grupo:</label>
 <select id="repeaterGroup2" class="swal2-input">${targetOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="repeaterRadioPreset">Rádio ou visada:</label>
 <select id="repeaterRadioPreset" class="swal2-input">${presetOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="repeaterMaxDistance">Alcance máximo de cada enlace (km):</label>
 <input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+</div>
+</div>
 `;
                             }
 
                             return `
+<div class="task-parameter-form">
+<p class="task-parameter-description">Compara todos os presets RF e óticos para os pares encontrados na região visível (até 30 pares por execução).</p>
+<div class="task-parameter-field">
 <label for="compareRadioLayer">Camada de origem dos ícones:</label>
 <select id="compareRadioLayer" class="swal2-input">${layerOptions}</select>
-<div id="radioTaskLayerStatus" role="status"></div>
+</div>
+<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
+<div class="task-parameter-field">
 <label for="compareRadioIcon1">Ícone de origem:</label>
 <select id="compareRadioIcon1" class="swal2-input">${sourceOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="compareRadioIcon2">Ícone de destino:</label>
 <select id="compareRadioIcon2" class="swal2-input">${targetOptions}</select>
+</div>
+<div class="task-parameter-field">
 <label for="compareRadioMaxDistance">Distância máxima entre unidades (km):</label>
 <input id="compareRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
-<p>A comparação avalia todos os presets RF e óticos cadastrados para cada par, até 30 pares por execução.</p>
+</div>
+</div>
 `;
                         }
 

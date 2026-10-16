@@ -32,4 +32,7 @@ test('task help covers all task types and details use injected preset labels', (
     assert.doesNotMatch(source, /radioPlanningService/);
     assert.match(source, /safeTaskName/);
     assert.match(source, /escolha <em>Não<\/em> na confirmação de limpeza/);
+    assert.match(source, /#taskParameters \.task-parameter-form\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(source, /#taskParameters \.task-parameter-form \.swal2-input\s*\{[\s\S]*?width: 100% !important/);
+    assert.match(source, /@media \(max-width: 640px\)/);
 });

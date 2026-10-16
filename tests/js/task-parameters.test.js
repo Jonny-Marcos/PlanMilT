@@ -146,6 +146,8 @@ test('radio-link task renders reusable presets and preserves its selected values
         radioPreset: 'harris_hh'
     });
 
+    assert.match(html, /class="task-parameter-form"/);
+    assert.match(html, /class="task-parameter-field">\s*<label for="linkLayerSelect"/);
     assert.match(html, /Harris portátil/);
     assert.match(html, /value="symbols\/friend\/alpha\.svg" selected/);
     assert.match(html, /value="symbols\/enemy\/bravo\.svg" selected/);
@@ -300,6 +302,11 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(routeHtml, /Intervalo entre amostras/);
     assert.match(repeaterHtml, /posições candidatas/);
     assert.match(compareHtml, /todos os presets RF e óticos/);
+    for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
+        assert.match(html, /class="task-parameter-form"/);
+        assert.match(html, /class="task-parameter-field">\s*<label/);
+        assert.match(html, /class="task-parameter-description"/);
+    }
 
     assert.deepEqual(await module.getValues('identifyCoverageGaps', {}), {
         iconLayer: 'drawnItems',
