@@ -29,13 +29,13 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                 // Banco de dados de Presets (Incluindo Linha de Visada)
                 const radioPresets = {
-                    'custom': { freq: 450, txPower: 37, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -105, radius: 5 },
-                    'optical': { freq: 0, txPower: 0, txGain: 0, txHeight: 1.5, rxGain: 0, rxHeight: 1.5, rxSens: 0, radius: 3 }, // Linha de Visada
-                    'harris_hh': { freq: 50, txPower: 40, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -116, radius: 15 }, 
-                    'harris_v51x': { freq: 50, txPower: 47, txGain: 3, txHeight: 3.0, rxGain: 3, rxHeight: 1.5, rxSens: -116, radius: 30 },
-                    'apx2000': { freq: 850, txPower: 35, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -119, radius: 8 }, 
-                    'gtr8000': { freq: 850, txPower: 50, txGain: 6, txHeight: 30, rxGain: 6, rxHeight: 1.5, rxSens: -118, radius: 40 }, 
-                    'airgrid_m5': { freq: 5800, txPower: 25, txGain: 23, txHeight: 15, rxGain: 23, rxHeight: 15, rxSens: -85, radius: 20 }
+                    'custom': { label: 'Personalizado / Manual (RF)', freq: 450, txPower: 37, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -105, radius: 5 },
+                    'optical': { label: 'Ótico (Linha de Visada)', freq: 0, txPower: 0, txGain: 0, txHeight: 1.5, rxGain: 0, rxHeight: 1.5, rxSens: 0, radius: 3 },
+                    'harris_hh': { label: 'Harris RF-7800V-HH (VHF Portátil 10W)', freq: 50, txPower: 40, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -116, radius: 15 },
+                    'harris_v51x': { label: 'Harris RF-7800V-V51X (VHF Veicular 50W)', freq: 50, txPower: 47, txGain: 3, txHeight: 3.0, rxGain: 3, rxHeight: 1.5, rxSens: -116, radius: 30 },
+                    'apx2000': { label: 'Motorola APX 2000 (800MHz Portátil 3W)', freq: 850, txPower: 35, txGain: 2, txHeight: 1.5, rxGain: 2, rxHeight: 1.5, rxSens: -119, radius: 8 },
+                    'gtr8000': { label: 'Motorola GTR-8000 (800MHz Repetidora 100W)', freq: 850, txPower: 50, txGain: 6, txHeight: 30, rxGain: 6, rxHeight: 1.5, rxSens: -118, radius: 40 },
+                    'airgrid_m5': { label: 'Ubiquiti AirGrid M5 (5.8GHz Dados PTP)', freq: 5800, txPower: 25, txGain: 23, txHeight: 15, rxGain: 23, rxHeight: 15, rxSens: -85, radius: 20 }
                 };
 
                 document.getElementById('linkPredictionBtn').addEventListener('click', async function() {
@@ -236,73 +236,74 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} pt2 - Segundo ponto do enlace.
                  * @param {Object} p - Parâmetros de configuração da simulação.
                  */
+                async function analisarEnlace(pt1, pt2, p) {
+                    let line = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]]);
+                    let distTotalKm = turf.length(line, { units: 'kilometers' });
+                    let segments = Math.max(1, Math.ceil(distTotalKm / 0.03));
+                    let pointsArray = [];
+                    for (let i = 0; i <= segments; i++) {
+                        let dist = (i / segments) * distTotalKm;
+                        let point = turf.along(line, dist, { units: 'kilometers' });
+                        pointsArray.push({ latitude: point.geometry.coordinates[1], longitude: point.geometry.coordinates[0], distKm: dist });
+                    }
+
+                    const data = await requestElevation(pointsArray);
+                    let hasObstruction = false;
+                    let hTx = data[0].elevation + p.txHeight;
+                    let hRx = data[data.length - 1].elevation + p.rxHeight;
+                    let topoData = [], losData = [], fresnelDataLower = [], fresnelDataUpper = [], labels = [];
+                    let freqGHz = p.isOptical ? 1 : (p.freq / 1000);
+
+                    for (let i = 0; i < data.length; i++) {
+                        let d1 = pointsArray[i].distKm;
+                        let d2 = distTotalKm - d1;
+                        let curvatura = (d1 * d2) / (12.74 * 1.333);
+                        let hAdjusted = data[i].elevation + curvatura;
+                        let hLos = hTx - ((hTx - hRx) * (d1 / distTotalKm));
+                        let fresnelRadius = (p.isOptical || d1 <= 0 || d2 <= 0) ? 0 : 17.32 * Math.sqrt((d1 * d2) / (freqGHz * distTotalKm));
+                        let hFresnelLower = hLos - (0.6 * fresnelRadius);
+                        let hFresnelUpper = hLos + (0.6 * fresnelRadius);
+                        if (hAdjusted > hFresnelLower && i > 0 && i < data.length - 1) hasObstruction = true;
+                        topoData.push(hAdjusted.toFixed(2));
+                        losData.push(hLos.toFixed(2));
+                        fresnelDataLower.push(hFresnelLower.toFixed(2));
+                        fresnelDataUpper.push(hFresnelUpper.toFixed(2));
+                        labels.push(d1.toFixed(2) + ' km');
+                    }
+
+                    let rxPower = 0;
+                    let isViable;
+                    if (p.isOptical) {
+                        isViable = !hasObstruction;
+                    } else {
+                        let fspl = 20 * Math.log10(distTotalKm) + 20 * Math.log10(p.freq) + 32.44;
+                        rxPower = p.txPower + p.txGain - fspl + p.rxGain;
+                        let isMicrowave = p.freq > 1000;
+                        isViable = isMicrowave ? (!hasObstruction && rxPower >= p.rxSens) : (rxPower >= p.rxSens);
+                    }
+
+                    return { distTotalKm, hasObstruction, rxPower, isViable, labels, topoData, losData, fresnelDataLower, fresnelDataUpper };
+                }
+
+                /**
+                 * Avalia um enlace com os parâmetros já usados pela ferramenta de predição.
+                 * @param {Object} pt1 - Primeiro ponto geográfico do enlace.
+                 * @param {Object} pt2 - Segundo ponto geográfico do enlace.
+                 * @param {string} presetId - Identificador do preset de rádio ou visada.
+                 * @returns {Promise<Object>} Métricas de viabilidade e perfil do enlace.
+                 */
+                async function analisarEnlaceComPreset(pt1, pt2, presetId) {
+                    const preset = radioPresets[presetId];
+                    if (!preset || presetId === 'custom') throw new Error('Preset de enlace inválido.');
+                    return analisarEnlace(pt1, pt2, { ...preset, isOptical: presetId === 'optical' });
+                }
+
                 async function calcularPTP(pt1, pt2, p) {
                     Swal.fire({ title: 'Simulando Enlace...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     try {
-                        let line = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]]);
-                        let distTotalKm = turf.length(line, {units: 'kilometers'});
-                        let stepKm = 0.03; 
-                        let segments = Math.ceil(distTotalKm / stepKm); 
-
-                        let pointsArray = [];
-                        for (let i = 0; i <= segments; i++) {
-                            let dist = (i / segments) * distTotalKm;
-                            let point = turf.along(line, dist, {units: 'kilometers'});
-                            pointsArray.push({ latitude: point.geometry.coordinates[1], longitude: point.geometry.coordinates[0], distKm: dist });
-                        }
-
-                        const data = await requestElevation(pointsArray);
-                        if (!data) return;
-
-                        let K = 1.333; // Curvatura padrão 4/3
-                        let hasObstruction = false;
-                        let hTx = data[0].elevation + p.txHeight;
-                        let hRx = data[data.length - 1].elevation + p.rxHeight;
-                        
-                        let topoData = [], losData = [], fresnelDataLower = [], fresnelDataUpper = [], labels = [];
-                        let freqGHz = p.isOptical ? 1 : (p.freq / 1000); 
-
-                        for (let i = 0; i < data.length; i++) {
-                            let d1 = pointsArray[i].distKm;
-                            let d2 = distTotalKm - d1;
-
-                            let curvatura = (d1 * d2) / (12.74 * K);
-                            let hAdjusted = data[i].elevation + curvatura;
-                            let hLos = hTx - ( (hTx - hRx) * (d1 / distTotalKm) );
-                            
-                            // Se for ótico, o raio de Fresnel é zero (não existe gordinho da onda, é reto).
-                            let fresnelRadius = (p.isOptical || d1 <= 0 || d2 <= 0) ? 0 : 17.32 * Math.sqrt((d1 * d2) / (freqGHz * distTotalKm));
-                            
-                            // Limites da Zona de Fresnel (Inferior e Superior)
-                            let hFresnelLower = hLos - (0.6 * fresnelRadius);
-                            let hFresnelUpper = hLos + (0.6 * fresnelRadius);
-
-                            // Checagem de Obstrução 
-                            if (hAdjusted > hFresnelLower && i > 0 && i < data.length - 1) {
-                                hasObstruction = true;
-                            }
-
-                            topoData.push(hAdjusted.toFixed(2));
-                            losData.push(hLos.toFixed(2));
-                            fresnelDataLower.push(hFresnelLower.toFixed(2));
-                            fresnelDataUpper.push(hFresnelUpper.toFixed(2));
-                            labels.push(d1.toFixed(2) + " km");
-                        }
-
-                        let isViable;
-                        let rxPower = 0;
-
-                        if (p.isOptical) {
-                            isViable = !hasObstruction;
-                        } else {
-                            let fspl = 20 * Math.log10(distTotalKm) + 20 * Math.log10(p.freq) + 32.44;
-                            rxPower = p.txPower + p.txGain - fspl + p.rxGain;
-                            let isMicrowave = p.freq > 1000;
-                            isViable = isMicrowave ? (!hasObstruction && rxPower >= p.rxSens) : (rxPower >= p.rxSens);
-                        }
-
+                        const result = await analisarEnlace(pt1, pt2, p);
+                        const { distTotalKm, hasObstruction, rxPower, isViable, labels, topoData, losData, fresnelDataLower, fresnelDataUpper } = result;
                         Swal.close();
-
                         let linkColor = isViable ? '#00ff00' : '#ff0000';
                         let linkPolyline = L.polyline([pt1, pt2], { color: linkColor, weight: 4, dashArray: '10, 5' }).addTo(drawnItems); 
 
@@ -662,5 +663,13 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         }]
                     });
                 }
+        return Object.freeze({
+            getPresets() {
+                return Object.entries(radioPresets)
+                    .filter(([id]) => id !== 'custom')
+                    .map(([id, preset]) => Object.freeze({ id, label: preset.label }));
+            },
+            analyzeLink: analisarEnlaceComPreset
+        });
     }
 });

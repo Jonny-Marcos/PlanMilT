@@ -57,7 +57,8 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         'placeIcons': 'Colocar múltiplos ícones em locais que atendam a certos critérios',
                         'drawLinesBetweenIcons': 'Desenhar linhas entre ícones do mesmo tipo',
                         'connectDifferentIcons': 'Conectar ícones diferentes com linhas',
-                        'drawCoverageArea': 'Desenhar área de cobertura com ícone central'
+                        'drawCoverageArea': 'Desenhar área de cobertura com ícone central',
+                        'verifyRadioLinks': 'Verificar enlaces de rádio e visada entre ícones'
                     };
 
                     // Variáveis para rastrear o modo de edição

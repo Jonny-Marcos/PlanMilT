@@ -12,7 +12,7 @@ window.PlanMilT.taskParameters = Object.freeze({
      * @param {Object} dependencies.apiClient - Cliente compartilhado para chamadas à API.
      * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
      */
-    attach({ apiClient, sweetAlert }) {
+    attach({ apiClient, sweetAlert, radioPresets = [] }) {
         const Swal = sweetAlert;
 
                 /**
@@ -513,6 +513,54 @@ ${iconTypesToCoverOptions}
             </div>
 `;
 
+                        case 'verifyRadioLinks': {
+                            const iconList = await apiClient.getJson('symbols/icons.php').catch(error => {
+                                console.error('Erro ao obter a lista de ícones para enlaces:', error);
+                                Swal.fire('Erro', 'Não foi possível obter a lista de ícones para verificar os enlaces.', 'error');
+                                return [];
+                            });
+                            if (!Array.isArray(iconList) || iconList.length === 0) {
+                                return '<p style="text-align: center;"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Nenhum ícone disponível.</p>';
+                            }
+
+                            const makeIconOptions = selectedIcon => iconList.map(icon => {
+                                const name = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
+                                const label = `${icon.split('/')[2]}/${name}`;
+                                return `<option value="${icon}" ${selectedIcon === icon ? 'selected' : ''}>${label}</option>`;
+                            }).join('');
+                            const presets = radioPresets.filter(preset => preset && preset.id && preset.label);
+                            const presetOptions = presets.map(preset => `
+<option value="${preset.id}" ${existingParameters.radioPreset === preset.id || (!existingParameters.radioPreset && preset.id === 'optical') ? 'selected' : ''}>
+${preset.label}
+</option>`).join('');
+
+                            return `
+<div class="form-group">
+<label for="linkLayerSelect">Camada de origem dos ícones:</label>
+<select id="linkLayerSelect" class="swal2-input">
+<option value="drawnItems" ${existingParameters.iconLayer !== 'planningSuggestions' ? 'selected' : ''}>Camada de Desenho Atual</option>
+<option value="planningSuggestions" ${existingParameters.iconLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>
+</select>
+</div>
+<div class="form-group">
+<label for="linkIconType1">Ícone de origem:</label>
+<select id="linkIconType1" class="swal2-input">${makeIconOptions(existingParameters.iconType1 || iconList[0])}</select>
+</div>
+<div class="form-group">
+<label for="linkIconType2">Ícone de destino:</label>
+<select id="linkIconType2" class="swal2-input">${makeIconOptions(existingParameters.iconType2 || iconList[0])}</select>
+</div>
+<div class="form-group">
+<label for="linkRadioPreset">Rádio ou visada:</label>
+<select id="linkRadioPreset" class="swal2-input">${presetOptions}</select>
+</div>
+<div class="form-group">
+<label for="linkMaxDistance">Distância máxima entre unidades (km):</label>
+<input id="linkMaxDistance" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.maxDistance || 20}">
+</div>
+`;
+                        }
+
 
                         default:
                             return '<p style="text-align: center;"><i class="fas fa-question-circle" style="color: #6c757d;"></i> Tarefa desconhecida.</p>';
@@ -641,6 +689,29 @@ ${iconTypesToCoverOptions}
                                 radius,
                                 iconTypesToCover,
                                 coverageLayer, // Adicionado
+                                area: existingParameters.area || null
+                            };
+                        }
+
+                        case 'verifyRadioLinks': {
+                            const iconLayer = popup.querySelector('#linkLayerSelect').value;
+                            const iconType1 = popup.querySelector('#linkIconType1').value;
+                            const iconType2 = popup.querySelector('#linkIconType2').value;
+                            const radioPreset = popup.querySelector('#linkRadioPreset').value;
+                            const maxDistance = parseFloat(popup.querySelector('#linkMaxDistance').value);
+                            const availablePreset = radioPresets.some(preset => preset.id === radioPreset);
+
+                            if (!iconLayer || !iconType1 || !iconType2 || !availablePreset || !Number.isFinite(maxDistance) || maxDistance <= 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones e o perfil de rádio e informe uma distância máxima válida.', 'warning');
+                                return null;
+                            }
+
+                            return {
+                                iconLayer,
+                                iconType1,
+                                iconType2,
+                                radioPreset,
+                                maxDistance,
                                 area: existingParameters.area || null
                             };
                         }

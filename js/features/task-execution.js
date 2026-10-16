@@ -75,7 +75,7 @@
              // ==========================================
                 // FERRAMENTA AVANÇADA DE PREDIÇÃO RF E ÓTICA
                 // ==========================================
-                window.PlanMilT.radioPlanning.attach({
+                var radioPlanningService = window.PlanMilT.radioPlanning.attach({
                     map,
                     leaflet: L,
                     turf,
@@ -83,11 +83,20 @@
                     sweetAlert: Swal,
                     chartConstructor: Chart
                 });
+                var taskRadioLinks = window.PlanMilT.taskRadioLinks.attach({
+                    map,
+                    leaflet: L,
+                    drawnItems,
+                    planningLayer: planejamentoLayer,
+                    radioPlanning: radioPlanningService,
+                    log: addToLog
+                });
 
                 // Função para iniciar o processo de criação de tarefas
                 var taskParameters = window.PlanMilT.taskParameters.attach({
                     apiClient: window.PlanMilT.apiClient,
-                    sweetAlert: Swal
+                    sweetAlert: Swal,
+                    radioPresets: radioPlanningService.getPresets()
                 });
                 var taskEditor = window.PlanMilT.taskSequenceEditor.attach({
                     getTasks: () => taskSequence,
@@ -175,6 +184,10 @@
 
                                 case 'drawCoverageArea':
                                     await performDrawCoverageArea(task.parameters);
+                                    break;
+
+                                case 'verifyRadioLinks':
+                                    await taskRadioLinks.verify(task.parameters);
                                     break;
 
                                 default:

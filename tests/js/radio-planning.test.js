@@ -50,3 +50,73 @@ test('radio planning attaches the UI/map listeners and keeps generated layers pr
     assert.equal(buttonListeners.has('linkPredictionBtn:click'), true);
     assert.equal(window.rfGeneratedLayers, undefined);
 });
+
+test('radio planning exposes shared presets and reusable point-to-point analysis', async () => {
+    const map = {
+        on() {}
+    };
+    const leaflet = {
+        layerGroup: () => temporaryLayer
+    };
+    const requests = [];
+    let elevations = [100, 100, 100];
+    window.PlanMilT.apiClient = {
+        async request(url, options) {
+            requests.push({ url, options });
+            return {
+                ok: true,
+                async json() {
+                    return elevations.map(elevation => ({ elevation }));
+                }
+            };
+        }
+    };
+    const turf = {
+        lineString: coordinates => ({ coordinates }),
+        length: () => 0.06,
+        along(line, distance) {
+            return { geometry: { coordinates: [distance, 0] } };
+        }
+    };
+
+    const radioPlanning = window.PlanMilT.radioPlanning.attach({
+        map,
+        leaflet,
+        turf,
+        drawnItems: {},
+        sweetAlert: {},
+        chartConstructor: class {}
+    });
+
+    assert.deepEqual(radioPlanning.getPresets().map(preset => preset.id), [
+        'optical',
+        'harris_hh',
+        'harris_v51x',
+        'apx2000',
+        'gtr8000',
+        'airgrid_m5'
+    ]);
+    const result = await radioPlanning.analyzeLink(
+        { lat: 0, lng: 0 },
+        { lat: 0, lng: 0.06 },
+        'optical'
+    );
+
+    assert.equal(result.isViable, true);
+    assert.equal(result.hasObstruction, false);
+    assert.equal(result.distTotalKm, 0.06);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, 'elevation-profile.php');
+    assert.equal(JSON.parse(requests[0].options.body).points.length, 3);
+
+    elevations = [100, 120, 100];
+    const radioResult = await radioPlanning.analyzeLink(
+        { lat: 0, lng: 0 },
+        { lat: 0, lng: 0.06 },
+        'harris_hh'
+    );
+    assert.equal(radioResult.hasObstruction, true);
+    assert.equal(radioResult.isViable, true);
+    assert.ok(Number.isFinite(radioResult.rxPower));
+    assert.equal(requests.length, 2);
+});

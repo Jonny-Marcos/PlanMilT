@@ -4,7 +4,7 @@ const test = require('node:test');
 global.window = {};
 require('../../js/features/task-parameters.js');
 
-function createParametersModule({ values = {}, selectedOptions = [], icons = [] } = {}) {
+function createParametersModule({ values = {}, selectedOptions = [], icons = [], radioPresets = [] } = {}) {
     const alerts = [];
     const popup = {
         querySelector(selector) {
@@ -24,6 +24,7 @@ function createParametersModule({ values = {}, selectedOptions = [], icons = [] 
                 return icons;
             }
         },
+        radioPresets,
         sweetAlert: {
             getPopup: () => popup,
             async fire(...args) {
@@ -112,6 +113,43 @@ test('line task form uses icon paths returned by the shared API client', async (
     assert.match(html, /symbols\/friend\/alpha\.svg/);
     assert.match(html, /maxConnectionsPerIcon/);
     assert.match(html, /minDistanceBetweenLines/);
+});
+
+test('radio-link task renders reusable presets and preserves its selected values', async () => {
+    const icons = ['symbols/friend/alpha.svg', 'symbols/enemy/bravo.svg'];
+    const radioPresets = [
+        { id: 'optical', label: 'Ótico (Linha de Visada)' },
+        { id: 'harris_hh', label: 'Harris portátil' }
+    ];
+    const { module } = createParametersModule({
+        icons,
+        radioPresets,
+        values: {
+            '#linkLayerSelect': 'planningSuggestions',
+            '#linkIconType1': icons[0],
+            '#linkIconType2': icons[1],
+            '#linkRadioPreset': 'harris_hh',
+            '#linkMaxDistance': '12'
+        }
+    });
+
+    const html = await module.getHtml('verifyRadioLinks', {
+        iconType1: icons[0],
+        iconType2: icons[1],
+        radioPreset: 'harris_hh'
+    });
+
+    assert.match(html, /Harris portátil/);
+    assert.match(html, /value="symbols\/friend\/alpha\.svg" selected/);
+    assert.match(html, /value="symbols\/enemy\/bravo\.svg" selected/);
+    assert.deepEqual(await module.getValues('verifyRadioLinks', {}), {
+        iconLayer: 'planningSuggestions',
+        iconType1: icons[0],
+        iconType2: icons[1],
+        radioPreset: 'harris_hh',
+        maxDistance: 12,
+        area: null
+    });
 });
 
 test('unknown task form returns the existing user-facing message', async () => {
