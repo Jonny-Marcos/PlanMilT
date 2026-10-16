@@ -273,112 +273,6 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         }
 
         /**
-         * Mapeia células estimadas sem cobertura no limite de uma área selecionada.
-         * @param {Object} params - Camada, ícone das estações, preset, resolução e alcance.
-         * @returns {Promise<Object>} Quantidade de células analisadas e descobertas.
-         */
-        async function identifyCoverageGaps(params) {
-            const area = params.area || map.getBounds();
-            const stations = collectMarkers(params.iconLayer).filter(marker => marker.iconUrl === params.stationIcon);
-            if (stations.length === 0) {
-                throw new Error('Nenhuma estação do tipo selecionado foi encontrada na camada de origem. Adicione esse marcador ou escolha outra camada e tipo de ícone.');
-            }
-            if (stations.length > maxAnalyzedLinks) {
-                throw new Error(`Há ${stations.length} estações na camada; limite da análise: ${maxAnalyzedLinks}.`);
-            }
-
-            const bounds = area instanceof leaflet.Polygon ? area.getBounds() : area;
-            const centerLatitude = (bounds.getNorth() + bounds.getSouth()) / 2;
-            const latStep = params.cellSizeKm / 111.32;
-            const lonStep = params.cellSizeKm / (111.32 * Math.max(0.1, Math.cos(centerLatitude * Math.PI / 180)));
-            const rows = Math.max(1, Math.ceil((bounds.getNorth() - bounds.getSouth()) / latStep));
-            const columns = Math.max(1, Math.ceil((bounds.getEast() - bounds.getWest()) / lonStep));
-            const pointsPerLinkAtMaxRange = Math.ceil(params.maxDistance * 1000 / 30) + 1;
-            const maxCells = Math.min(
-                Math.floor(maxAnalyzedLinks / stations.length),
-                Math.floor(maxAnalyzedPoints / (stations.length * pointsPerLinkAtMaxRange))
-            );
-            if (maxCells < 1) {
-                throw new Error('O alcance máximo é grande demais para a grade selecionada. Reduza o alcance para continuar.');
-            }
-            let stepMultiplier = 1;
-            while (Math.ceil(rows / stepMultiplier) * Math.ceil(columns / stepMultiplier) > maxCells) {
-                stepMultiplier *= 1.25;
-            }
-
-            const gridRows = Math.max(1, Math.ceil(rows / stepMultiplier));
-            const gridColumns = Math.max(1, Math.ceil(columns / stepMultiplier));
-            const cells = [];
-            const actualLatStep = (bounds.getNorth() - bounds.getSouth()) / gridRows;
-            const actualLonStep = (bounds.getEast() - bounds.getWest()) / gridColumns;
-            for (let row = 0; row < gridRows; row++) {
-                for (let column = 0; column < gridColumns; column++) {
-                    const position = {
-                        lat: bounds.getSouth() + (row + 0.5) * actualLatStep,
-                        lng: bounds.getWest() + (column + 0.5) * actualLonStep
-                    };
-                    if (isWithinArea(position, area)) cells.push(position);
-                }
-            }
-            if (cells.length === 0) {
-                throw new Error('A área visível do mapa não contém células para analisar. Ajuste o zoom ou enquadre a região desejada.');
-            }
-            const links = [];
-            const linkCellIndices = [];
-            const directlyCoveredCells = new Set();
-            for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
-                for (const station of stations) {
-                    const distanceMeters = map.distance(station.position, cells[cellIndex]);
-                    const distanceKm = distanceMeters / 1000;
-                    if (distanceMeters <= 1) {
-                        directlyCoveredCells.add(cellIndex);
-                    } else if (distanceKm <= params.maxDistance) {
-                        links.push({ from: station.position, to: cells[cellIndex] });
-                        linkCellIndices.push(cellIndex);
-                    }
-                }
-            }
-            const results = links.length > 0
-                ? (ensureLinkLimit(links), await radioPlanning.analyzeLinks(links, params.radioPreset, params.antennaHeight))
-                : [];
-            const coverageByCell = new Array(cells.length).fill(false);
-            directlyCoveredCells.forEach(cellIndex => { coverageByCell[cellIndex] = true; });
-            results.forEach((result, index) => {
-                if (result.isViable) coverageByCell[linkCellIndices[index]] = true;
-            });
-            const halfLat = actualLatStep / 2;
-            const halfLng = actualLonStep / 2;
-            let gapCount = 0;
-            for (let i = 0; i < cells.length; i++) {
-                const position = cells[i];
-                const covered = coverageByCell[i];
-                if (!covered) gapCount++;
-                const polygon = leaflet.polygon([
-                    [position.lat - halfLat, position.lng - halfLng],
-                    [position.lat - halfLat, position.lng + halfLng],
-                    [position.lat + halfLat, position.lng + halfLng],
-                    [position.lat + halfLat, position.lng - halfLng]
-                ], {
-                    color: covered ? '#16803c' : '#d00000',
-                    weight: 0.5,
-                    fillColor: covered ? '#28a745' : '#dc3545',
-                    fillOpacity: 0.25
-                }).addTo(planningLayer);
-                polygon.bindPopup(covered ? 'Cobertura estimada' : 'Lacuna estimada de cobertura');
-                polygon.feature = {
-                    type: 'Feature',
-                    properties: {
-                        folderName: 'Sugestão de Planejamento',
-                        name: covered ? 'Área coberta estimada' : 'Lacuna de cobertura estimada',
-                        color: covered ? '#16803c' : '#d00000'
-                    }
-                };
-            }
-            log(`Cobertura estimada em ${cells.length} células: ${gapCount} lacunas identificadas; resolução aproximada de ${(params.cellSizeKm * stepMultiplier).toFixed(2)} km.`);
-            return { cellCount: cells.length, gapCount };
-        }
-
-        /**
          * Verifica pontos de comunicação amostrados ao longo de linhas desenhadas.
          * @param {Object} params - Camada, ícone das estações, preset e intervalo amostral.
          * @returns {Promise<Object>} Quantidade de pontos amostrados sem enlace viável.
@@ -717,7 +611,6 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         }
 
         return Object.freeze({
-            identifyCoverageGaps,
             checkRouteCommunication,
             suggestRepeaterPositions,
             compareRadioPresets

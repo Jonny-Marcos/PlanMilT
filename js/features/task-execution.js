@@ -218,10 +218,6 @@
                                     await taskRadioLinks.verify(task.parameters);
                                     break;
 
-                                case 'identifyCoverageGaps':
-                                    await taskRadioOperations.identifyCoverageGaps(task.parameters);
-                                    break;
-
                                 case 'checkRouteCommunication':
                                     await taskRadioOperations.checkRouteCommunication(task.parameters);
                                     break;

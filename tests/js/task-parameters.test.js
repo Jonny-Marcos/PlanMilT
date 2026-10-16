@@ -178,9 +178,10 @@ test('task icon selectors show only markers in the chosen layer and refresh when
         getLayerIconCounts: layerName => layerCounts[layerName]
     });
     const listeners = {};
-    const makeSelect = value => ({
+    const makeSelect = (value, html) => ({
         value,
-        html: '',
+        html,
+        selectedOptions: [],
         addEventListener(event, callback) {
             listeners[event] = callback;
         },
@@ -195,8 +196,9 @@ test('task icon selectors show only markers in the chosen layer and refresh when
         }
     });
     const layerSelect = makeSelect('drawnItems');
-    const group1 = makeSelect(enemy);
-    const group2 = makeSelect(friend);
+    const catalogOptions = `<option value="${friend}">friend/alpha</option><option value="${enemy}" selected>enemy/bravo</option>`;
+    const group1 = makeSelect(enemy, catalogOptions);
+    const group2 = makeSelect(friend, catalogOptions);
     const status = { textContent: '' };
     const elements = {
         '#iconLayerSelect': layerSelect,
@@ -221,16 +223,58 @@ test('task icon selectors show only markers in the chosen layer and refresh when
 
     layerSelect.value = 'planningSuggestions';
     listeners.change();
-    assert.equal(group1.value, friend);
+    assert.equal(group1.value, enemy);
     assert.equal(group2.value, friend);
-    assert.equal(elements['#iconType1Image'].src, friend);
-    assert.match(status.textContent, /1 tipo de ícone encontrado/);
+    assert.match(group1.innerHTML, /value="symbols\/friend\/alpha\.svg"/);
+    assert.match(group1.innerHTML, /value="symbols\/enemy\/bravo\.svg"/);
+    assert.equal(elements['#iconType1Image'].src, enemy);
+    assert.match(status.textContent, /Todos os ícones do catálogo podem ser selecionados/);
 
     layerSelect.value = 'empty';
     listeners.change();
     assert.equal(group1.value, '');
     assert.match(group1.innerHTML, /Nenhum ícone encontrado/);
     assert.match(status.textContent, /Escolha outra camada ou adicione os ícones/);
+});
+
+test('radio task allows catalog icons as inputs from the planning suggestion layer', () => {
+    const existingIcon = 'symbols/friend/alpha.svg';
+    const plannedIcon = 'symbols/enemy/future-unit.svg';
+    const catalogHtml = `<option value="${existingIcon}">friend/alpha</option><option value="${plannedIcon}" selected>enemy/future-unit</option>`;
+    const makeSelect = (value, html = '') => ({
+        value,
+        html,
+        addEventListener() {},
+        set innerHTML(content) {
+            this.html = content;
+            const selected = content.match(/<option value="([^"]*)" selected>/);
+            const first = content.match(/<option value="([^"]*)"/);
+            this.value = selected?.[1] || first?.[1] || '';
+        },
+        get innerHTML() {
+            return this.html;
+        }
+    });
+    const layer = makeSelect('planningSuggestions');
+    const station = makeSelect(plannedIcon, catalogHtml);
+    const status = { textContent: '' };
+    const elements = {
+        '#routeRadioLayer': layer,
+        '#routeStationIcon': station,
+        '#radioTaskLayerStatus, #taskLayerStatus': status
+    };
+    const { module } = createParametersModule({
+        getLayerIconCounts: () => ({ [existingIcon]: 1 })
+    });
+    module.bind('checkRouteCommunication', {
+        querySelector(selector) {
+            return elements[selector] || null;
+        }
+    });
+
+    assert.equal(station.value, plannedIcon);
+    assert.match(station.innerHTML, /future-unit/);
+    assert.match(status.textContent, /Todos os ícones do catálogo podem ser selecionados/);
 });
 
 test('coverage task filters its multi-select by the selected source layer', () => {
@@ -305,7 +349,7 @@ test('repeater target selector aggregates both map layers without filtering the 
     assert.match(status.textContent, /camadas de desenho e de sugestões/);
 });
 
-test('additional radio task forms collect coverage, route, repeater and preset settings', async () => {
+test('radio task forms collect route, repeater and preset settings', async () => {
     const icons = ['symbols/friend/alpha.svg', 'symbols/enemy/bravo.svg'];
     const { module } = createParametersModule({
         icons,
@@ -314,12 +358,6 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             { id: 'radio', label: 'Rádio' }
         ],
         values: {
-            '#coverageGapLayer': 'drawnItems',
-            '#coverageGapStationIcon': icons[0],
-            '#coverageGapPreset': 'optical',
-            '#coverageGapCellSize': '1500',
-            '#coverageGapMaxDistance': '18',
-            '#coverageGapAntennaHeight': '12',
             '#routeRadioLayer': 'planningSuggestions',
             '#routeStationIcon': icons[0],
             '#routeRadioPreset': 'radio',
@@ -341,15 +379,11 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         selectedOptions: [icons[0], icons[1]]
     });
 
-    const coverageHtml = await module.getHtml('identifyCoverageGaps');
     const routeHtml = await module.getHtml('checkRouteCommunication');
     const repeaterHtml = await module.getHtml('suggestRepeaterPositions');
     const compareHtml = await module.getHtml('compareRadioPresets');
-    assert.match(coverageHtml, /Resolução desejada da grade \(m, mínimo 10\)/);
-    assert.match(coverageHtml, /min="10" step="10"/);
-    assert.match(coverageHtml, /fas fa-border-all/);
     assert.match(routeHtml, /Intervalo entre amostras/);
-    for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
+    for (const html of [routeHtml, repeaterHtml, compareHtml]) {
         assert.match(html, /Altura comum das antenas \(m\)/);
     }
     assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
@@ -363,21 +397,12 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(repeaterHtml, /fas fa-map-marker-alt/);
     assert.match(repeaterHtml, /multiple size="5"/);
     assert.match(compareHtml, /todos os presets RF e óticos/);
-    for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
+    for (const html of [routeHtml, repeaterHtml, compareHtml]) {
         assert.match(html, /class="task-parameter-form"/);
         assert.match(html, /class="task-parameter-field">\s*<label/);
         assert.match(html, /class="task-parameter-description"/);
     }
 
-    assert.deepEqual(await module.getValues('identifyCoverageGaps', {}), {
-        iconLayer: 'drawnItems',
-        stationIcon: icons[0],
-        radioPreset: 'optical',
-        cellSizeKm: 1.5,
-        maxDistance: 18,
-        antennaHeight: 12,
-        area: null
-    });
     assert.deepEqual(await module.getValues('checkRouteCommunication', {}), {
         iconLayer: 'planningSuggestions',
         stationIcon: icons[0],
@@ -405,49 +430,6 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         antennaHeight: 25,
         area: null
     });
-});
-
-test('coverage-gap resolution accepts 10 meters and rejects smaller values', async () => {
-    const { module, alerts } = createParametersModule({
-        radioPresets: [{ id: 'optical', label: 'Ótico' }],
-        values: {
-            '#coverageGapLayer': 'drawnItems',
-            '#coverageGapStationIcon': 'symbols/friend/station.svg',
-            '#coverageGapPreset': 'optical',
-            '#coverageGapCellSize': '10',
-            '#coverageGapMaxDistance': '20',
-            '#coverageGapAntennaHeight': '1.5'
-        }
-    });
-
-    const validValues = await module.getValues('identifyCoverageGaps', {});
-    assert.equal(validValues.cellSizeKm, 0.01);
-
-    const popup = global.window.PlanMilT.taskParameters.attach({
-        apiClient: { async getJson() { return []; } },
-        radioPresets: [{ id: 'optical', label: 'Ótico' }],
-        sweetAlert: {
-            getPopup: () => ({
-                querySelector(selector) {
-                    const values = {
-                        '#coverageGapLayer': 'drawnItems',
-                        '#coverageGapStationIcon': 'symbols/friend/station.svg',
-                        '#coverageGapPreset': 'optical',
-                        '#coverageGapCellSize': '9',
-                        '#coverageGapMaxDistance': '20',
-                        '#coverageGapAntennaHeight': '1.5'
-                    };
-                    return { value: values[selector] };
-                }
-            }),
-            async fire(...args) {
-                alerts.push(args);
-            }
-        }
-    });
-
-    assert.equal(await popup.getValues('identifyCoverageGaps', {}), null);
-    assert.equal(alerts.at(-1)[0], 'Aviso');
 });
 
 test('repeater task requires at least one target icon type', async () => {

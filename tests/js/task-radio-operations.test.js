@@ -183,34 +183,6 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
     return { task, generated, logs, analyzedCalls, comparedCalls, coverageCalls };
 }
 
-test('coverage-gap task estimates and draws covered and uncovered grid cells', async () => {
-    const layers = [new Marker('station', { lat: 0, lng: 0 })];
-    const { task, generated, logs, analyzedCalls } = setup({
-        layers,
-        analyzeLinks: links => links.map((link, index) => ({
-            isViable: index % 2 === 0,
-            rxPower: -80,
-            distTotalKm: 1
-        }))
-    });
-    const result = await task.identifyCoverageGaps({
-        iconLayer: 'drawnItems',
-        stationIcon: 'station',
-        radioPreset: 'radio',
-        cellSizeKm: 2,
-        maxDistance: 20,
-        antennaHeight: 12,
-        area: null
-    });
-
-    assert.equal(result.cellCount, 4);
-    assert.equal(result.gapCount, 2);
-    assert.equal(generated.length, 4);
-    assert.ok(generated.some(layer => layer.feature.properties.name === 'Lacuna de cobertura estimada'));
-    assert.match(logs[0], /2 lacunas identificadas/);
-    assert.equal(analyzedCalls[0].antennaHeight, 12);
-});
-
 test('route task marks samples with and without viable station links', async () => {
     const route = new Polyline([{ lat: 0, lng: 0 }, { lat: 0, lng: 0.02 }]);
     const layers = [

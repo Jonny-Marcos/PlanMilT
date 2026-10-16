@@ -59,7 +59,6 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         'connectDifferentIcons': 'Conectar ícones diferentes com linhas',
                         'drawCoverageArea': 'Desenhar área de cobertura com ícone central',
                         'verifyRadioLinks': 'Verificar enlaces de rádio e visada entre ícones',
-                        'identifyCoverageGaps': 'Identificar lacunas de cobertura RF/visada',
                         'checkRouteCommunication': 'Verificar comunicação ao longo de uma rota',
                         'suggestRepeaterPositions': 'Sugerir posições para repetidores',
                         'compareRadioPresets': 'Comparar presets de rádio e visada'
@@ -95,11 +94,6 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                             setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar dentro da área visível do mapa. Escolha um preset, a distância máxima e a altura comum das antenas nas duas pontas.',
                             result: 'Desenha enlaces viáveis em verde e falhos em vermelho, com distância, sinal e obstrução no popup.'
                         },
-                        identifyCoverageGaps: {
-                            purpose: 'Estima a cobertura RF ou de visada em uma grade e aponta células que nenhuma estação selecionada consegue alcançar.',
-                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. Defina a altura comum das antenas e o alcance. A resolução desejada pode ser definida a partir de 10 m; limites de cálculo podem aumentá-la automaticamente.',
-                            result: 'Desenha células cobertas em verde e lacunas estimadas em vermelho na sugestão de planejamento.'
-                        },
                         checkRouteCommunication: {
                             purpose: 'Verifica se os pontos de uma ou mais linhas de rota mantêm enlace com pelo menos uma estação próxima.',
                             setup: 'Na mesma camada, desenhe a rota como linha e coloque os marcadores das estações. Deixe visível no mapa o trecho que deseja avaliar e informe a altura comum das antenas.',
@@ -116,6 +110,15 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                             result: 'Desenha cada par e mostra no popup a viabilidade e o sinal estimado de cada preset.'
                         }
                     };
+                    const tasksUsingSourceLayer = new Set([
+                        'findHighestPoint',
+                        'drawLinesBetweenIcons',
+                        'connectDifferentIcons',
+                        'drawCoverageArea',
+                        'verifyRadioLinks',
+                        'checkRouteCommunication',
+                        'compareRadioPresets'
+                    ]);
 
                     // Variáveis para rastrear o modo de edição
                     let isEditing = false;
@@ -250,7 +253,8 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                 taskDescriptionDiv.innerHTML = `
 <strong>Para que serve:</strong> ${description.purpose}<br>
 <strong>Antes de executar:</strong> ${description.setup}<br>
-<strong>Resultado:</strong> ${description.result}`;
+<strong>Resultado:</strong> ${description.result}
+${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:</strong> você pode escolher qualquer ícone do catálogo; os marcadores correspondentes precisam ser gerados por tarefas anteriores antes da execução.' : ''}`;
                             }
 
                             async function renderTaskParameters(taskName, parameters) {
@@ -424,9 +428,6 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     antennaHeight: 'Altura comum das antenas (m)',
                                     radioPreset: 'Preset de rádio/visada',
                                     maxDistance: 'Distância máxima (km)',
-                                    cellSizeKm: task.task === 'identifyCoverageGaps'
-                                        ? 'Resolução desejada da grade (m)'
-                                        : 'Resolução da grade (km)',
                                     sampleInterval: 'Intervalo entre amostras (km)',
                                     numberOfNewIcons: 'Quantidade de novos ícones',
                                     maxDistanceBetweenNewIcons: 'Distância entre novos ícones (km)',
@@ -464,9 +465,6 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     }
                                     if (key === 'connectionCriterion') {
                                         return value === 'closest' ? 'Ícones mais próximos' : 'Ícones mais distantes';
-                                    }
-                                    if (key === 'cellSizeKm' && task.task === 'identifyCoverageGaps') {
-                                        return `${escapeHtml(Number(value) * 1000)} m`;
                                     }
                                     if (key === 'criteria') return `${escapeHtml(value)} m`;
                                     if (key.toLowerCase().includes('icon') && typeof value === 'string') {

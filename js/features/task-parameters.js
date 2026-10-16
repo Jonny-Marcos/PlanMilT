@@ -106,7 +106,7 @@ ${preset.label}
                 }
 
                 /**
-                 * Atualiza seletores de ícones para exibir apenas tipos presentes na camada escolhida.
+                 * Atualiza seletores de ícones segundo a camada escolhida.
                  * @param {string} selectedTask - Identificador da tarefa exibida no formulário.
                  * @param {HTMLElement} root - Elemento DOM que contém os parâmetros da tarefa.
                  * @returns {void}
@@ -122,7 +122,6 @@ ${preset.label}
                         },
                         drawCoverageArea: { layer: '#coverageLayerSelect', icons: ['#iconTypesToCover'], multiple: ['#iconTypesToCover'] },
                         verifyRadioLinks: { layer: '#linkLayerSelect', icons: ['#linkIconType1', '#linkIconType2'] },
-                        identifyCoverageGaps: { layer: '#coverageGapLayer', icons: ['#coverageGapStationIcon'] },
                         checkRouteCommunication: { layer: '#routeRadioLayer', icons: ['#routeStationIcon'] },
                         suggestRepeaterPositions: {
                             layerName: 'all',
@@ -136,6 +135,17 @@ ${preset.label}
                     const layerSelect = formConfig.layer ? root.querySelector(formConfig.layer) : null;
                     const status = root.querySelector('#radioTaskLayerStatus, #taskLayerStatus');
                     if (formConfig.layer && !layerSelect) return;
+                    const catalogOptionsBySelector = new Map(formConfig.icons.map(selector => {
+                        const select = root.querySelector(selector);
+                        const options = Array.from(select?.options || []).map(option => ({
+                            value: option.value,
+                            label: option.textContent
+                        }));
+                        const parsedOptions = options.length > 0 ? options : [
+                            ...String(select?.innerHTML || '').matchAll(/<option value="([^"]*)"[^>]*>(.*?)<\/option>/gs)
+                        ].map(match => ({ value: match[1], label: match[2].replace(/<[^>]*>/g, '') }));
+                        return [selector, parsedOptions];
+                    }));
 
                     const refreshIconOptions = () => {
                         const counts = getLayerIconCounts(layerSelect ? layerSelect.value : formConfig.layerName) || {};
@@ -146,6 +156,19 @@ ${preset.label}
                             const previousValues = formConfig.multiple?.includes(selector)
                                 ? Array.from(select.selectedOptions || []).map(option => option.value)
                                 : [select.value];
+                            if (layerSelect?.value === 'planningSuggestions') {
+                                const catalogOptions = catalogOptionsBySelector.get(selector) || [];
+                                const selectedValues = previousValues.filter(value =>
+                                    catalogOptions.some(option => option.value === value)
+                                );
+                                if (selectedValues.length === 0 && catalogOptions.length > 0) {
+                                    selectedValues.push(catalogOptions[0].value);
+                                }
+                                select.innerHTML = catalogOptions.map(option =>
+                                    `<option value="${escapeHtml(option.value)}" ${selectedValues.includes(option.value) ? 'selected' : ''}>${option.label}</option>`
+                                ).join('');
+                                continue;
+                            }
                             const availableValues = icons.map(([icon]) => icon);
                             const selectedValues = previousValues.filter(value => availableValues.includes(value));
                             if (selectedValues.length === 0 && icons.length > 0) selectedValues.push(icons[0][0]);
@@ -164,7 +187,9 @@ ${preset.label}
                         }
 
                         if (status) {
-                            status.textContent = icons.length > 0
+                            status.textContent = layerSelect?.value === 'planningSuggestions'
+                                ? 'Todos os ícones do catálogo podem ser selecionados. A tarefa usará os marcadores criados nessa camada durante a execução.'
+                                : icons.length > 0
                                 ? selectedTask === 'suggestRepeaterPositions'
                                     ? `${icons.length} tipos de ícone encontrados nas camadas de desenho e de sugestões. Selecione um ou mais tipos para cobrir.`
                                     : `${icons.length} tipo${icons.length === 1 ? '' : 's'} de ícone encontrado${icons.length === 1 ? '' : 's'}. Os seletores mostram apenas marcadores desta camada e informam a quantidade disponível.`
@@ -733,7 +758,6 @@ ${getAntennaHeightField('linkAntennaHeight', existingParameters)}
 `;
                         }
 
-                        case 'identifyCoverageGaps':
                         case 'checkRouteCommunication':
                         case 'suggestRepeaterPositions':
                         case 'compareRadioPresets': {
@@ -758,36 +782,6 @@ ${getAntennaHeightField('linkAntennaHeight', existingParameters)}
                                 return `<option value="${escapeHtml(icon)}" ${targetIconSelection.includes(icon) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
                             }).join('');
                             const presetOptions = getRadioTaskPresetOptions(existingParameters.radioPreset);
-
-                            if (selectedTask === 'identifyCoverageGaps') {
-                                return `
-<div class="task-parameter-form">
-<p class="task-parameter-description">Estima a cobertura da região visível. Células verdes indicam cobertura por ao menos uma estação; células vermelhas indicam lacunas. A resolução mínima é 10 m, mas a aplicação pode aumentá-la automaticamente para respeitar os limites de cálculo.</p>
-<div class="task-parameter-field">
-<label for="coverageGapLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada com as estações:</label>
-<select id="coverageGapLayer" class="swal2-input">${layerOptions}</select>
-</div>
-<div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
-<div class="task-parameter-field">
-<label for="coverageGapStationIcon"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Ícone das estações:</label>
-<select id="coverageGapStationIcon" class="swal2-input">${stationOptions}</select>
-</div>
-<div class="task-parameter-field">
-<label for="coverageGapPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
-<select id="coverageGapPreset" class="swal2-input">${presetOptions}</select>
-</div>
-${getAntennaHeightField('coverageGapAntennaHeight', existingParameters)}
-<div class="task-parameter-field">
-<label for="coverageGapCellSize"><i class="fas fa-border-all" aria-hidden="true"></i> Resolução desejada da grade (m, mínimo 10):</label>
-<input id="coverageGapCellSize" class="swal2-input" type="number" min="10" step="10" value="${existingParameters.cellSizeKm ? existingParameters.cellSizeKm * 1000 : 2000}">
-</div>
-<div class="task-parameter-field">
-<label for="coverageGapMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo para avaliar cada estação (km):</label>
-<input id="coverageGapMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
-</div>
-</div>
-`;
-                            }
 
                             if (selectedTask === 'checkRouteCommunication') {
                                 return `
@@ -1034,24 +1028,6 @@ ${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
                                 antennaHeight,
                                 area: existingParameters.area || null
                             };
-                        }
-
-                        case 'identifyCoverageGaps': {
-                            const iconLayer = popup.querySelector('#coverageGapLayer').value;
-                            const stationIcon = popup.querySelector('#coverageGapStationIcon').value;
-                            const radioPreset = popup.querySelector('#coverageGapPreset').value;
-                            const cellSizeMeters = parseFloat(popup.querySelector('#coverageGapCellSize').value);
-                            const maxDistance = parseFloat(popup.querySelector('#coverageGapMaxDistance').value);
-                            const antennaHeight = parseFloat(popup.querySelector('#coverageGapAntennaHeight').value);
-                            if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
-                                !Number.isFinite(cellSizeMeters) || cellSizeMeters < 10 ||
-                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
-                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
-                                await Swal.fire('Aviso', 'Informe estações, preset, resolução, alcance e altura de antena válidos.', 'warning');
-                                return null;
-                            }
-                            const cellSizeKm = cellSizeMeters / 1000;
-                            return { iconLayer, stationIcon, radioPreset, cellSizeKm, maxDistance, antennaHeight, area: existingParameters.area || null };
                         }
 
                         case 'checkRouteCommunication': {
