@@ -413,7 +413,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + '<label class="tactical-graphic-field" for="tacticalGraphicSearch"><span>Buscar gráficos</span>'
                     + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
                     + '</div>'
-                    + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="listbox" aria-label="Gráficos táticos"></div>'
+                    + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="radiogroup" aria-label="Gráficos táticos"></div>'
                     + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
                     + '</div>'
                     + '</div>',
@@ -442,10 +442,12 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     const normalizeSearch = value => value.normalize('NFD')
                         .replace(/[\u0300-\u036f]/g, '')
                         .toLocaleLowerCase('pt-BR');
+                    const commonGraphicNames = new Set(commonSection.graphics.map(graphic => graphic.name));
                     const renderResults = () => {
                         const query = normalizeSearch(searchInput.value.trim());
-                        const visibleSections = categorySelect.value === 'all'
-                            ? categorizedSections
+                        const showAllCategories = categorySelect.value === 'all';
+                        const visibleSections = showAllCategories
+                            ? sections
                             : sections.filter(section => section.name === categorySelect.value);
                         resultsContainer.replaceChildren();
                         let resultCount = 0;
@@ -453,6 +455,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         visibleSections.forEach(section => {
                             const graphics = section.graphics.filter(graphic =>
                                 normalizeSearch(graphic.label).includes(query)
+                                && (!showAllCategories || section === commonSection || !commonGraphicNames.has(graphic.name))
                             );
                             if (!graphics.length) return;
 
@@ -462,12 +465,14 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                             resultsContainer.appendChild(heading);
 
                             graphics.forEach(graphic => {
-                                const option = document.createElement('button');
-                                option.type = 'button';
+                                const option = document.createElement('label');
                                 option.className = 'tactical-graphic-option';
-                                option.setAttribute('role', 'option');
-                                option.setAttribute('data-graphic-name', graphic.name);
-                                option.setAttribute('aria-selected', String(graphic.name === selectedName));
+                                const radio = document.createElement('input');
+                                radio.type = 'radio';
+                                radio.name = 'tacticalGraphicSelection';
+                                radio.value = graphic.name;
+                                radio.checked = graphic.name === selectedName;
+                                radio.setAttribute('aria-label', graphic.label);
                                 if (graphic.name === selectedName) option.classList.add('is-selected');
                                 const thumbnail = document.createElement('span');
                                 thumbnail.className = 'tactical-graphic-option-preview';
@@ -476,16 +481,19 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                                 const label = document.createElement('span');
                                 label.className = 'tactical-graphic-option-label';
                                 label.textContent = graphic.label;
+                                option.appendChild(radio);
                                 option.appendChild(thumbnail);
                                 option.appendChild(label);
-                                option.addEventListener('click', () => {
+                                radio.addEventListener('change', () => {
+                                    if (!radio.checked) return;
                                     selectedName = graphic.name;
                                     selectionStatus.textContent = `Selecionado: ${graphic.label}`;
                                     Array.from(resultsContainer.children)
                                         .filter(result => result.classList.contains('tactical-graphic-option'))
                                         .forEach(result => {
-                                            const isSelected = result.getAttribute('data-graphic-name') === selectedName;
-                                            result.setAttribute('aria-selected', String(isSelected));
+                                            const resultRadio = result.children[0];
+                                            const isSelected = resultRadio.value === selectedName;
+                                            resultRadio.checked = isSelected;
                                             result.className = isSelected
                                                 ? 'tactical-graphic-option is-selected'
                                                 : 'tactical-graphic-option';

@@ -18,7 +18,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(source, /serviceSelect\.addEventListener\('change', \(\) => \{\s*loadSelectedService\(\)/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result\s*\{[\s\S]*?border-bottom: 1px solid/);
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
-    assert.match(documentSource, /app\.css\?v=20261015-catalog-advanced-search/);
+    assert.match(documentSource, /app\.css\?v=20261016-tactical-graphic-picker/);
     assert.match(documentSource, /layer-management\.js\?v=20261015-catalog-title-25/);
     assert.match(source, /Carregando dados/);
     assert.match(source, /<summary>Busca avançada<\/summary>/);

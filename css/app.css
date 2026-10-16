@@ -794,14 +794,15 @@
                 }
 
                 .swal2-popup.tactical-graphic-modal {
-                    width: min(1040px, calc(100vw - 28px)) !important;
+                    width: min(820px, calc(100vw - 28px)) !important;
                     max-width: calc(100vw - 28px) !important;
                     padding: 20px !important;
                     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
                 }
 
                 .swal2-popup.tactical-graphic-modal .swal2-title {
-                    padding: 0 0 14px;
+                    margin: 0;
+                    padding: 0 0 10px;
                     color: #243b5a;
                     font-family: inherit;
                     font-size: 22px;
@@ -818,22 +819,25 @@
                 }
 
                 .tactical-graphic-picker {
+                    display: grid;
+                    gap: 12px;
                     width: 100%;
                     min-width: 0;
+                    font-size: 14px;
                     text-align: left;
                 }
 
                 .tactical-graphic-browser {
                     display: grid;
-                    grid-template-rows: auto minmax(240px, 1fr) auto;
+                    grid-template-rows: auto minmax(150px, 1fr) auto;
                     gap: 12px;
                     min-width: 0;
                 }
 
                 .tactical-graphic-filters {
                     display: grid;
-                    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-                    gap: 10px;
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 12px;
                 }
 
                 .tactical-graphic-field {
@@ -841,24 +845,35 @@
                     gap: 5px;
                     min-width: 0;
                     color: #36404f;
+                    font-size: 14px;
+                    font-weight: 600 !important;
+                    text-align: left;
+                }
+
+                .tactical-graphic-field > span {
+                    display: block;
+                    margin: 0;
+                    padding: 0;
                     font-size: 13px;
-                    font-weight: 600;
+                    line-height: 1.3;
                 }
 
                 .tactical-graphic-field > input,
                 .tactical-graphic-field > select {
-                    width: 100%;
+                    display: block;
+                    width: 100% !important;
                     min-width: 0;
-                    height: 40px;
-                    margin: 0;
-                    padding: 7px 10px;
+                    height: 40px !important;
+                    margin: 0 !important;
+                    padding: 6px 10px !important;
                     border: 1px solid #c5cad2;
-                    border-radius: 6px;
+                    border-radius: 6px !important;
                     background: #fff;
                     color: #242a33;
                     box-sizing: border-box;
                     font: inherit;
                     font-weight: 400;
+                    text-align: left;
                 }
 
                 .tactical-graphic-field > input:focus,
@@ -869,13 +884,18 @@
                 }
 
                 .tactical-graphic-results {
+                    display: block;
+                    width: 100%;
+                    height: min(42vh, 340px);
+                    min-height: 150px;
                     min-width: 0;
-                    max-height: min(58vh, 520px);
-                    min-height: 240px;
-                    overflow: auto;
-                    border: 1px solid #d3d8e0;
-                    border-radius: 6px;
+                    padding: 0 10px;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    border: 1px solid #d9dde4;
+                    border-radius: 5px;
                     background: #fff;
+                    box-sizing: border-box;
                 }
 
                 .tactical-graphic-section-title {
@@ -883,7 +903,7 @@
                     top: 0;
                     z-index: 1;
                     margin: 0;
-                    padding: 7px 10px;
+                    padding: 7px 4px;
                     border-bottom: 1px solid #e1e5eb;
                     background: #f4f6f9;
                     color: #596273;
@@ -895,28 +915,33 @@
 
                 .tactical-graphic-option {
                     display: grid;
-                    grid-template-columns: 58px minmax(0, 1fr);
-                    align-items: center;
-                    gap: 12px;
+                    grid-template-columns: 18px 52px minmax(0, 1fr);
+                    align-items: start;
+                    gap: 10px;
                     width: 100%;
+                    min-width: 0;
                     margin: 0;
-                    padding: 8px 11px;
+                    padding: 10px 4px;
                     border: 0;
-                    border-bottom: 1px solid #e8ebef;
+                    border-bottom: 1px solid #dfe3e9;
+                    border-radius: 0;
                     background: #fff;
                     color: #242a33;
                     cursor: pointer;
                     font: inherit;
-                    font-size: 14px;
-                    line-height: 1.4;
                     text-align: left;
                     white-space: normal;
+                    box-sizing: border-box;
+                }
+
+                .tactical-graphic-option:last-child {
+                    border-bottom: 0;
                 }
 
                 .tactical-graphic-option-preview {
                     display: grid;
-                    width: 58px;
-                    height: 48px;
+                    width: 52px;
+                    height: 44px;
                     place-items: center;
                     overflow: hidden;
                     border: 1px solid #e1e5eb;
@@ -932,41 +957,48 @@
                     width: 100%;
                     height: 100%;
                     min-height: 0;
-                    overflow: visible;
+                    overflow: hidden;
                 }
 
                 .tactical-graphic-option-label {
                     min-width: 0;
+                    padding-top: 1px;
+                    color: #242a33;
+                    font-size: 14px;
+                    font-weight: 600;
+                    line-height: 1.35;
                     overflow-wrap: anywhere;
                 }
 
-                .tactical-graphic-option:last-child {
-                    border-bottom: 0;
+                .tactical-graphic-option > input[type="radio"] {
+                    width: 17px;
+                    height: 17px;
+                    margin: 2px 0 0;
+                    accent-color: #435f88;
                 }
 
                 .tactical-graphic-option:hover,
                 .tactical-graphic-option.is-selected {
-                    background: #e9eef6;
-                    box-shadow: inset 3px 0 0 #435f88;
+                    background: #edf3f8;
+                    box-shadow: inset 3px 0 #496987;
                 }
 
-                .tactical-graphic-option:focus-visible {
-                    position: relative;
+                .tactical-graphic-option:focus-within {
                     outline: 2px solid #526a91;
-                    outline-offset: -2px;
+                    outline-offset: 1px;
                 }
 
                 .tactical-graphic-empty {
-                    padding: 20px 12px;
+                    padding: 24px 12px;
                     color: #596273;
                     font-size: 13px;
                     text-align: center;
                 }
 
                 .tactical-graphic-selection {
-                    min-height: 36px;
+                    min-height: 34px;
                     padding: 8px 10px;
-                    border-radius: 5px;
+                    border-radius: 4px;
                     background: #eef1f5;
                     color: #36404f;
                     font-size: 13px;
@@ -975,12 +1007,11 @@
 
                 @media (max-width: 700px) {
                     .swal2-popup.tactical-graphic-modal {
-                        padding: 15px !important;
+                        padding: 16px !important;
                     }
 
                     .tactical-graphic-results {
-                        max-height: 42vh;
-                        min-height: 180px;
+                        height: min(42vh, 340px);
                     }
                 }
 
@@ -1120,8 +1151,6 @@
                 font-size: 29px;
                 margin: 0;
             }
-
-
 
 
 
