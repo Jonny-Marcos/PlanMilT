@@ -93,8 +93,8 @@ test('radio-link task analyzes icon pairs and stores colored results in the plan
         planningLayer,
         radioPlanning: {
             getPresets: () => [{ id: 'optical', label: 'Ótico' }],
-            async analyzeLink(source, target, presetId) {
-                analyzedLinks.push({ source, target, presetId });
+            async analyzeLink(source, target, presetId, antennaHeight) {
+                analyzedLinks.push({ source, target, presetId, antennaHeight });
                 return {
                     isViable: true,
                     hasObstruction: false,
@@ -117,12 +117,14 @@ test('radio-link task analyzes icon pairs and stores colored results in the plan
         iconType2: 'symbols/friend/unit.svg',
         radioPreset: 'optical',
         maxDistance: 20,
+        antennaHeight: 17,
         area: null
     });
 
     assert.deepEqual(result, { analyzedCount: 1, viableCount: 1, failedCount: 0 });
     assert.equal(analyzedLinks.length, 1);
     assert.equal(analyzedLinks[0].presetId, 'optical');
+    assert.equal(analyzedLinks[0].antennaHeight, 17);
     assert.equal(generatedLayers.length, 1);
     assert.equal(generatedLayers[0].feature.properties.color, '#00a000');
     assert.match(generatedLayers[0].popup, /VIÁVEL/);

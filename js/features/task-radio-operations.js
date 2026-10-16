@@ -210,7 +210,7 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 }
             }
             const results = links.length > 0
-                ? (ensureLinkLimit(links), await radioPlanning.analyzeLinks(links, params.radioPreset))
+                ? (ensureLinkLimit(links), await radioPlanning.analyzeLinks(links, params.radioPreset, params.antennaHeight))
                 : [];
             const coverageByCell = new Array(cells.length).fill(false);
             directlyCoveredCells.forEach(cellIndex => { coverageByCell[cellIndex] = true; });
@@ -306,7 +306,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 throw new Error(`A rota teria ${samples.length} pontos de amostragem. Aumente o intervalo entre amostras (limite: ${maxAnalyzedLinks}).`);
             }
             if (lines.length > 0) ensureLinkLimit(lines);
-            const results = lines.length > 0 ? await radioPlanning.analyzeLinks(lines, params.radioPreset) : [];
+            const results = lines.length > 0
+                ? await radioPlanning.analyzeLinks(lines, params.radioPreset, params.antennaHeight)
+                : [];
             const bestBySample = new Array(samples.length).fill(null);
             results.forEach((result, index) => {
                 const sampleIndex = linkSampleIndexes[index];
@@ -429,7 +431,9 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 record.coverageByIcon[connection.targetIconIndex]++;
             });
             if (links.length > 0) ensureLinkLimit(links);
-            const results = links.length > 0 ? await radioPlanning.analyzeLinks(links, params.radioPreset) : [];
+            const results = links.length > 0
+                ? await radioPlanning.analyzeLinks(links, params.radioPreset, params.antennaHeight)
+                : [];
             results.forEach((result, index) => {
                 if (!result.isViable) return;
                 const record = ranked[metadata[index].candidateIndex];
@@ -506,7 +510,7 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                 to: pair.target.position
             }));
             ensureLinkLimit(links, maxComparedPairs);
-            const results = await radioPlanning.compareLinks(links);
+            const results = await radioPlanning.compareLinks(links, params.antennaHeight);
             const presets = radioPlanning.getPresets();
             const summary = {};
             for (const preset of presets) {

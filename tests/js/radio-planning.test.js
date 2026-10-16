@@ -91,6 +91,16 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         chartConstructor: class {}
     });
 
+    await assert.rejects(
+        radioPlanning.analyzeLink(
+            { lat: 0, lng: 0 },
+            { lat: 0, lng: 0.06 },
+            'optical',
+            -1
+        ),
+        /altura da antena.*igual ou maior que zero/
+    );
+
     assert.deepEqual(radioPlanning.getPresets().map(preset => preset.id), [
         'optical',
         'harris_hh',
@@ -123,17 +133,27 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
     assert.ok(Number.isFinite(radioResult.rxPower));
     assert.equal(requests.length, 2);
 
+    const elevatedAntennaResult = await radioPlanning.analyzeLink(
+        { lat: 0, lng: 0 },
+        { lat: 0, lng: 0.06 },
+        'optical',
+        30
+    );
+    assert.equal(elevatedAntennaResult.hasObstruction, false);
+    assert.equal(elevatedAntennaResult.isViable, true);
+    assert.equal(requests.length, 3);
+
     const batchResults = await radioPlanning.analyzeLinks([
         { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } },
         { from: { lat: 0, lng: 0.01 }, to: { lat: 0, lng: 0.07 } }
-    ], 'optical');
+    ], 'optical', 8);
     assert.equal(batchResults.length, 2);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 4);
 
     const comparison = await radioPlanning.compareLinks([
         { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } }
-    ]);
+    ], 8);
     assert.equal(Object.keys(comparison).length, 6);
     assert.equal(comparison.optical.length, 1);
-    assert.equal(requests.length, 4);
+    assert.equal(requests.length, 5);
 });

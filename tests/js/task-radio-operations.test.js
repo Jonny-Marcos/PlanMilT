@@ -50,6 +50,8 @@ class LargeLatLngBounds extends LatLngBounds {
 function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBounds(), distance = () => 1000, analyzeLinks, compareLinks } = {}) {
     const generated = [];
     const logs = [];
+    const analyzedCalls = [];
+    const comparedCalls = [];
     const sourceLayer = {
         eachLayer(callback) {
             layers.forEach(callback);
@@ -68,11 +70,13 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
             { id: 'optical', label: 'Ótico' },
             { id: 'radio', label: 'Rádio' }
         ],
-        async analyzeLinks(links, presetId) {
-            return analyzeLinks ? analyzeLinks(links, presetId) : links.map(() => ({ isViable: true, rxPower: -70, distTotalKm: 1 }));
+        async analyzeLinks(links, presetId, antennaHeight) {
+            analyzedCalls.push({ links, presetId, antennaHeight });
+            return analyzeLinks ? analyzeLinks(links, presetId, antennaHeight) : links.map(() => ({ isViable: true, rxPower: -70, distTotalKm: 1 }));
         },
-        async compareLinks(links) {
-            return compareLinks ? compareLinks(links) : {
+        async compareLinks(links, antennaHeight) {
+            comparedCalls.push({ links, antennaHeight });
+            return compareLinks ? compareLinks(links, antennaHeight) : {
                 optical: links.map(() => ({ isViable: true, rxPower: 0, distTotalKm: 1 })),
                 radio: links.map(() => ({ isViable: false, rxPower: -120, distTotalKm: 1 }))
             };
@@ -159,12 +163,12 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
         log: message => logs.push(message)
     });
 
-    return { task, generated, logs };
+    return { task, generated, logs, analyzedCalls, comparedCalls };
 }
 
 test('coverage-gap task estimates and draws covered and uncovered grid cells', async () => {
     const layers = [new Marker('station', { lat: 0, lng: 0 })];
-    const { task, generated, logs } = setup({
+    const { task, generated, logs, analyzedCalls } = setup({
         layers,
         analyzeLinks: links => links.map((link, index) => ({
             isViable: index % 2 === 0,
@@ -178,6 +182,7 @@ test('coverage-gap task estimates and draws covered and uncovered grid cells', a
         radioPreset: 'radio',
         cellSizeKm: 2,
         maxDistance: 20,
+        antennaHeight: 12,
         area: null
     });
 
@@ -186,6 +191,7 @@ test('coverage-gap task estimates and draws covered and uncovered grid cells', a
     assert.equal(generated.length, 4);
     assert.ok(generated.some(layer => layer.feature.properties.name === 'Lacuna de cobertura estimada'));
     assert.match(logs[0], /2 lacunas identificadas/);
+    assert.equal(analyzedCalls[0].antennaHeight, 12);
 });
 
 test('route task marks samples with and without viable station links', async () => {
@@ -194,7 +200,7 @@ test('route task marks samples with and without viable station links', async () 
         new Marker('station', { lat: 0, lng: 0 }),
         route
     ];
-    const { task, generated } = setup({
+    const { task, generated, analyzedCalls } = setup({
         layers,
         analyzeLinks: links => links.map((link, index) => ({
             isViable: index === 0,
@@ -208,23 +214,26 @@ test('route task marks samples with and without viable station links', async () 
         radioPreset: 'radio',
         maxDistance: 20,
         sampleInterval: 1,
+        antennaHeight: 8,
         area: null
     });
 
     assert.deepEqual(result, { sampleCount: 3, uncoveredCount: 2 });
     assert.equal(generated.length, 3);
     assert.ok(generated.some(layer => layer.feature.properties.name === 'Falha de comunicação estimada'));
+    assert.equal(analyzedCalls[0].antennaHeight, 8);
 });
 
 test('repeater task searches both map layers and recommends positions covering every selected icon type', async () => {
     const drawingMarkers = [new Marker('group-a', { lat: 0, lng: 0.005 })];
     const planningMarkers = [new Marker('group-b', { lat: 0, lng: 0.015 })];
-    const { task, generated } = setup({ layers: drawingMarkers, suggestionLayers: planningMarkers });
+    const { task, generated, analyzedCalls } = setup({ layers: drawingMarkers, suggestionLayers: planningMarkers });
     const result = await task.suggestRepeaterPositions({
         iconTypesToCover: ['group-a', 'group-b'],
         repeaterIcon: 'symbols/friend/repeater.svg',
         radioPreset: 'radio',
         maxDistance: 20,
+        antennaHeight: 15,
         area: null
     });
 
@@ -235,6 +244,7 @@ test('repeater task searches both map layers and recommends positions covering e
     assert.equal(generated[0].feature.properties.name, 'Posição recomendada para repetidor');
     assert.equal(generated[0].feature.properties.iconUrl, 'symbols/friend/repeater.svg');
     assert.deepEqual(generated[0].feature.properties.coverageByIcon, { 'group-a': 1, 'group-b': 1 });
+    assert.equal(analyzedCalls[0].antennaHeight, 15);
 });
 
 test('repeater task supports saved sequences with the former candidate icon parameter', async () => {
@@ -280,12 +290,13 @@ test('preset comparison reports per-radio viability and draws the tested pair', 
         new Marker('unit-a', { lat: 0, lng: 0 }),
         new Marker('unit-b', { lat: 0, lng: 0.01 })
     ];
-    const { task, generated } = setup({ layers });
+    const { task, generated, comparedCalls } = setup({ layers });
     const result = await task.compareRadioPresets({
         iconLayer: 'drawnItems',
         iconType1: 'unit-a',
         iconType2: 'unit-b',
         maxDistance: 20,
+        antennaHeight: 10,
         area: null
     });
 
@@ -294,6 +305,7 @@ test('preset comparison reports per-radio viability and draws the tested pair', 
     assert.equal(result.summary.radio.viableCount, 0);
     assert.equal(generated.length, 1);
     assert.match(generated[0].popup, /Rádio: falho/);
+    assert.equal(comparedCalls[0].antennaHeight, 10);
 });
 
 test('radio task failures explain which map input is missing', async () => {

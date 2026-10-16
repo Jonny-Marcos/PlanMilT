@@ -80,6 +80,21 @@ ${preset.label}
                 }
 
                 /**
+                 * Cria o campo de altura comum das antenas para análises de enlace.
+                 * @param {string} inputId - Identificador do campo HTML.
+                 * @param {Object} parameters - Parâmetros previamente salvos.
+                 * @returns {string} Campo numérico de altura em metros.
+                 */
+                function getAntennaHeightField(inputId, parameters) {
+                    return `
+<div class="task-parameter-field">
+<label for="${inputId}"><i class="fas fa-arrows-alt-v" aria-hidden="true"></i> Altura comum das antenas (m):</label>
+<input id="${inputId}" class="swal2-input" type="number" min="0" step="0.1" value="${parameters.antennaHeight ?? 1.5}">
+<small>A mesma altura será usada nas duas pontas do enlace e substituirá a altura definida pelo preset.</small>
+</div>`;
+                }
+
+                /**
                  * Gera opções para as camadas disponíveis nas tarefas de rádio.
                  * @param {string} selectedLayer - Identificador da camada previamente selecionada.
                  * @returns {string} Opções do seletor.
@@ -709,6 +724,7 @@ ${preset.label}
 <label for="linkRadioPreset"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="linkRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
+${getAntennaHeightField('linkAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="linkMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima entre unidades (km):</label>
 <input id="linkMaxDistance" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.maxDistance || 20}">
@@ -760,6 +776,7 @@ ${preset.label}
 <label for="coverageGapPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="coverageGapPreset" class="swal2-input">${presetOptions}</select>
 </div>
+${getAntennaHeightField('coverageGapAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="coverageGapCellSize"><i class="fas fa-border-all" aria-hidden="true"></i> Resolução desejada da grade (m, mínimo 10):</label>
 <input id="coverageGapCellSize" class="swal2-input" type="number" min="10" step="10" value="${existingParameters.cellSizeKm ? existingParameters.cellSizeKm * 1000 : 2000}">
@@ -789,6 +806,7 @@ ${preset.label}
 <label for="routeRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="routeRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
+${getAntennaHeightField('routeAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="routeRadioMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima estação-rota (km):</label>
 <input id="routeRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
@@ -818,6 +836,7 @@ ${preset.label}
 <label for="repeaterRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="repeaterRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
+${getAntennaHeightField('repeaterAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="repeaterMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo de cada enlace (km):</label>
 <input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
@@ -842,6 +861,7 @@ ${preset.label}
 <label for="compareRadioIcon2"><i class="fas fa-crosshairs" aria-hidden="true"></i> Ícone de destino:</label>
 <select id="compareRadioIcon2" class="swal2-input">${targetOptions}</select>
 </div>
+${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="compareRadioMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima entre unidades (km):</label>
 <input id="compareRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
@@ -988,10 +1008,12 @@ ${preset.label}
                             const iconType2 = popup.querySelector('#linkIconType2').value;
                             const radioPreset = popup.querySelector('#linkRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#linkMaxDistance').value);
+                            const antennaHeight = parseFloat(popup.querySelector('#linkAntennaHeight').value);
                             const availablePreset = radioPresets.some(preset => preset.id === radioPreset);
 
-                            if (!iconLayer || !iconType1 || !iconType2 || !availablePreset || !Number.isFinite(maxDistance) || maxDistance <= 0) {
-                                await Swal.fire('Aviso', 'Selecione os ícones e o perfil de rádio e informe uma distância máxima válida.', 'warning');
+                            if (!iconLayer || !iconType1 || !iconType2 || !availablePreset || !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones e o perfil de rádio e informe uma distância máxima e altura de antena válidas.', 'warning');
                                 return null;
                             }
 
@@ -1001,6 +1023,7 @@ ${preset.label}
                                 iconType2,
                                 radioPreset,
                                 maxDistance,
+                                antennaHeight,
                                 area: existingParameters.area || null
                             };
                         }
@@ -1011,14 +1034,16 @@ ${preset.label}
                             const radioPreset = popup.querySelector('#coverageGapPreset').value;
                             const cellSizeMeters = parseFloat(popup.querySelector('#coverageGapCellSize').value);
                             const maxDistance = parseFloat(popup.querySelector('#coverageGapMaxDistance').value);
+                            const antennaHeight = parseFloat(popup.querySelector('#coverageGapAntennaHeight').value);
                             if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
                                 !Number.isFinite(cellSizeMeters) || cellSizeMeters < 10 ||
-                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
-                                await Swal.fire('Aviso', 'Informe estações, preset, resolução e alcance válidos.', 'warning');
+                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
+                                await Swal.fire('Aviso', 'Informe estações, preset, resolução, alcance e altura de antena válidos.', 'warning');
                                 return null;
                             }
                             const cellSizeKm = cellSizeMeters / 1000;
-                            return { iconLayer, stationIcon, radioPreset, cellSizeKm, maxDistance, area: existingParameters.area || null };
+                            return { iconLayer, stationIcon, radioPreset, cellSizeKm, maxDistance, antennaHeight, area: existingParameters.area || null };
                         }
 
                         case 'checkRouteCommunication': {
@@ -1027,13 +1052,15 @@ ${preset.label}
                             const radioPreset = popup.querySelector('#routeRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#routeRadioMaxDistance').value);
                             const sampleInterval = parseFloat(popup.querySelector('#routeRadioInterval').value);
+                            const antennaHeight = parseFloat(popup.querySelector('#routeAntennaHeight').value);
                             if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
                                 !Number.isFinite(maxDistance) || maxDistance <= 0 ||
-                                !Number.isFinite(sampleInterval) || sampleInterval < 0.1) {
-                                await Swal.fire('Aviso', 'Informe estações, preset, alcance e intervalo válidos.', 'warning');
+                                !Number.isFinite(sampleInterval) || sampleInterval < 0.1 ||
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
+                                await Swal.fire('Aviso', 'Informe estações, preset, alcance, intervalo e altura de antena válidos.', 'warning');
                                 return null;
                             }
-                            return { iconLayer, stationIcon, radioPreset, maxDistance, sampleInterval, area: existingParameters.area || null };
+                            return { iconLayer, stationIcon, radioPreset, maxDistance, sampleInterval, antennaHeight, area: existingParameters.area || null };
                         }
 
                         case 'suggestRepeaterPositions': {
@@ -1043,10 +1070,12 @@ ${preset.label}
                                 .filter(Boolean);
                             const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
+                            const antennaHeight = parseFloat(popup.querySelector('#repeaterAntennaHeight').value);
                             if (!repeaterIcon || targetIcons.length === 0 ||
                                 !radioPresets.some(preset => preset.id === radioPreset) ||
-                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
-                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar, um preset e um alcance válido.', 'warning');
+                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar e um preset; informe alcance e altura de antena válidos.', 'warning');
                                 return null;
                             }
                             return {
@@ -1054,6 +1083,7 @@ ${preset.label}
                                 repeaterIcon,
                                 radioPreset,
                                 maxDistance,
+                                antennaHeight,
                                 area: existingParameters.area || null
                             };
                         }
@@ -1063,11 +1093,13 @@ ${preset.label}
                             const iconType1 = popup.querySelector('#compareRadioIcon1').value;
                             const iconType2 = popup.querySelector('#compareRadioIcon2').value;
                             const maxDistance = parseFloat(popup.querySelector('#compareRadioMaxDistance').value);
-                            if (!iconLayer || !iconType1 || !iconType2 || !Number.isFinite(maxDistance) || maxDistance <= 0) {
-                                await Swal.fire('Aviso', 'Selecione os ícones e informe uma distância máxima válida.', 'warning');
+                            const antennaHeight = parseFloat(popup.querySelector('#compareRadioAntennaHeight').value);
+                            if (!iconLayer || !iconType1 || !iconType2 || !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones e informe distância máxima e altura de antena válidas.', 'warning');
                                 return null;
                             }
-                            return { iconLayer, iconType1, iconType2, maxDistance, area: existingParameters.area || null };
+                            return { iconLayer, iconType1, iconType2, maxDistance, antennaHeight, area: existingParameters.area || null };
                         }
 
 

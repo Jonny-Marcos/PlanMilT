@@ -18,7 +18,7 @@ window.PlanMilT.taskRadioLinks = Object.freeze({
     attach({ map, leaflet, drawnItems, planningLayer, radioPlanning, log }) {
         /**
          * Filtra ícones na área e desenha o resultado da análise de enlace entre eles.
-         * @param {Object} params - Ícones, preset, distância máxima e área selecionados.
+         * @param {Object} params - Ícones, preset, alcance, altura comum das antenas e área selecionados.
          * @returns {Promise<Object>} Quantidade de enlaces viáveis, falhos e analisados.
          */
         async function verify(params) {
@@ -82,7 +82,12 @@ window.PlanMilT.taskRadioLinks = Object.freeze({
             for (const [source, target] of candidates) {
                 const sourcePosition = source.getLatLng();
                 const targetPosition = target.getLatLng();
-                const result = await radioPlanning.analyzeLink(sourcePosition, targetPosition, params.radioPreset);
+                const result = await radioPlanning.analyzeLink(
+                    sourcePosition,
+                    targetPosition,
+                    params.radioPreset,
+                    params.antennaHeight
+                );
                 const color = result.isViable ? '#00a000' : '#d00000';
                 const status = result.isViable ? 'VIÁVEL' : 'FALHO';
                 const signalDetails = params.radioPreset === 'optical'

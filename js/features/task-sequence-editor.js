@@ -92,27 +92,27 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         },
                         verifyRadioLinks: {
                             purpose: 'Analisa cada par de unidades do tipo selecionado e classifica os enlaces segundo um preset RF ou ótico.',
-                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar dentro da área visível do mapa. Escolha um preset e a distância máxima.',
+                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar dentro da área visível do mapa. Escolha um preset, a distância máxima e a altura comum das antenas nas duas pontas.',
                             result: 'Desenha enlaces viáveis em verde e falhos em vermelho, com distância, sinal e obstrução no popup.'
                         },
                         identifyCoverageGaps: {
                             purpose: 'Estima a cobertura RF ou de visada em uma grade e aponta células que nenhuma estação selecionada consegue alcançar.',
-                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. A resolução desejada pode ser definida a partir de 10 m; limites de cálculo podem aumentá-la automaticamente.',
+                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. Defina a altura comum das antenas e o alcance. A resolução desejada pode ser definida a partir de 10 m; limites de cálculo podem aumentá-la automaticamente.',
                             result: 'Desenha células cobertas em verde e lacunas estimadas em vermelho na sugestão de planejamento.'
                         },
                         checkRouteCommunication: {
                             purpose: 'Verifica se os pontos de uma ou mais linhas de rota mantêm enlace com pelo menos uma estação próxima.',
-                            setup: 'Na mesma camada, desenhe a rota como linha e coloque os marcadores das estações. Deixe visível no mapa o trecho que deseja avaliar.',
+                            setup: 'Na mesma camada, desenhe a rota como linha e coloque os marcadores das estações. Deixe visível no mapa o trecho que deseja avaliar e informe a altura comum das antenas.',
                             result: 'Marca amostras com comunicação estimada em verde e falhas em vermelho; a distância entre amostras é configurável.'
                         },
                         suggestRepeaterPositions: {
                             purpose: 'Busca automaticamente posições para uma repetidora que alcance todos os tipos de unidade selecionados.',
-                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo de cada enlace e enquadre a região de interesse. A busca considera marcadores nas camadas de desenho e de sugestões.',
+                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo, a altura comum das antenas e enquadre a região de interesse. A busca considera marcadores nas camadas de desenho e de sugestões.',
                             result: 'Adiciona até dez posições recomendadas com o ícone de repetidora escolhido; a melhor posição aparece primeiro.'
                         },
                         compareRadioPresets: {
                             purpose: 'Avalia os mesmos pares de unidades com todos os presets RF e óticos e facilita comparar quais configurações atendem.',
-                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar na área visível do mapa. Defina a distância máxima; são comparados até 30 pares.',
+                            setup: 'Os dois tipos de ícone devem existir na camada escolhida e estar na área visível do mapa. Defina a altura comum das antenas e a distância máxima; são comparados até 30 pares.',
                             result: 'Desenha cada par e mostra no popup a viabilidade e o sinal estimado de cada preset.'
                         }
                     };
@@ -421,6 +421,7 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     repeaterIcon: 'Ícone da repetidora sugerida',
                                     repeaterIconUrl: 'Ícone da repetidora sugerida',
                                     iconTypesToCover: 'Tipos de ícones a cobrir',
+                                    antennaHeight: 'Altura comum das antenas (m)',
                                     radioPreset: 'Preset de rádio/visada',
                                     maxDistance: 'Distância máxima (km)',
                                     cellSizeKm: task.task === 'identifyCoverageGaps'

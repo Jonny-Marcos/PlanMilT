@@ -319,14 +319,25 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * Analisa vários enlaces e presets usando uma única consulta de elevação.
                  * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
                  * @param {Array<string>} presetIds - Identificadores dos presets.
+                 * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx; sem valor mantém o preset.
                  * @returns {Promise<Object>} Resultados indexados pelo identificador do preset.
                  */
-                async function analisarEnlacesComPresets(links, presetIds) {
+                async function analisarEnlacesComPresets(links, presetIds, antennaHeight) {
                     if (!Array.isArray(links) || links.length === 0) throw new Error('Informe pelo menos um enlace para analisar.');
+                    if (antennaHeight !== undefined && (!Number.isFinite(antennaHeight) || antennaHeight < 0)) {
+                        throw new Error('A altura da antena deve ser um número igual ou maior que zero.');
+                    }
                     const presets = presetIds.map(presetId => {
                         const preset = radioPresets[presetId];
                         if (!preset || presetId === 'custom') throw new Error('Preset de enlace inválido.');
-                        return { id: presetId, parameters: { ...preset, isOptical: presetId === 'optical' } };
+                        return {
+                            id: presetId,
+                            parameters: {
+                                ...preset,
+                                ...(antennaHeight === undefined ? {} : { txHeight: antennaHeight, rxHeight: antennaHeight }),
+                                isOptical: presetId === 'optical'
+                            }
+                        };
                     });
                     const profiles = links.map(link => criarPerfilEnlace(link.from, link.to));
                     const points = profiles.flatMap(profile => profile.points);
@@ -349,10 +360,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} pt1 - Primeiro ponto geográfico do enlace.
                  * @param {Object} pt2 - Segundo ponto geográfico do enlace.
                  * @param {string} presetId - Identificador do preset de rádio ou visada.
+                 * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx.
                  * @returns {Promise<Object>} Métricas de viabilidade e perfil do enlace.
                  */
-                async function analisarEnlaceComPreset(pt1, pt2, presetId) {
-                    const results = await analisarEnlacesComPresets([{ from: pt1, to: pt2 }], [presetId]);
+                async function analisarEnlaceComPreset(pt1, pt2, presetId, antennaHeight) {
+                    const results = await analisarEnlacesComPresets([{ from: pt1, to: pt2 }], [presetId], antennaHeight);
                     return results[presetId][0];
                 }
 
@@ -360,10 +372,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * Analisa vários enlaces com o mesmo preset.
                  * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
                  * @param {string} presetId - Identificador do preset de rádio ou visada.
+                 * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx.
                  * @returns {Promise<Array<Object>>} Resultados na mesma ordem dos enlaces.
                  */
-                async function analisarEnlacesComPreset(links, presetId) {
-                    const results = await analisarEnlacesComPresets(links, [presetId]);
+                async function analisarEnlacesComPreset(links, presetId, antennaHeight) {
+                    const results = await analisarEnlacesComPresets(links, [presetId], antennaHeight);
                     return results[presetId];
                 }
 
@@ -747,11 +760,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
             /**
              * Compara todos os presets disponíveis sobre os mesmos perfis de elevação.
              * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
+             * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx.
              * @returns {Promise<Object>} Resultados indexados pelo identificador do preset.
              */
-            compareLinks(links) {
+            compareLinks(links, antennaHeight) {
                 const presetIds = Object.keys(radioPresets).filter(id => id !== 'custom');
-                return analisarEnlacesComPresets(links, presetIds);
+                return analisarEnlacesComPresets(links, presetIds, antennaHeight);
             }
         });
     }

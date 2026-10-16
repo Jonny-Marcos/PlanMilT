@@ -136,7 +136,8 @@ test('radio-link task renders reusable presets and preserves its selected values
             '#linkIconType1': icons[0],
             '#linkIconType2': icons[1],
             '#linkRadioPreset': 'harris_hh',
-            '#linkMaxDistance': '12'
+            '#linkMaxDistance': '12',
+            '#linkAntennaHeight': '8'
         }
     });
 
@@ -149,6 +150,8 @@ test('radio-link task renders reusable presets and preserves its selected values
     assert.match(html, /class="task-parameter-form"/);
     assert.match(html, /class="task-parameter-field">\s*<label for="linkLayerSelect"/);
     assert.match(html, /Harris portátil/);
+    assert.match(html, /Altura comum das antenas \(m\)/);
+    assert.match(html, /substituirá a altura definida pelo preset/);
     assert.match(html, /value="symbols\/friend\/alpha\.svg" selected/);
     assert.match(html, /value="symbols\/enemy\/bravo\.svg" selected/);
     assert.deepEqual(await module.getValues('verifyRadioLinks', {}), {
@@ -157,6 +160,7 @@ test('radio-link task renders reusable presets and preserves its selected values
         iconType2: icons[1],
         radioPreset: 'harris_hh',
         maxDistance: 12,
+        antennaHeight: 8,
         area: null
     });
     assert.equal(module.getPresetLabel('harris_hh'), 'Harris portátil');
@@ -315,18 +319,22 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             '#coverageGapPreset': 'optical',
             '#coverageGapCellSize': '1500',
             '#coverageGapMaxDistance': '18',
+            '#coverageGapAntennaHeight': '12',
             '#routeRadioLayer': 'planningSuggestions',
             '#routeStationIcon': icons[0],
             '#routeRadioPreset': 'radio',
             '#routeRadioMaxDistance': '12',
             '#routeRadioInterval': '0.5',
+            '#routeAntennaHeight': '8',
             '#repeaterIconUrl': icons[0],
             '#repeaterRadioPreset': 'radio',
             '#repeaterMaxDistance': '10',
+            '#repeaterAntennaHeight': '4',
             '#compareRadioLayer': 'planningSuggestions',
             '#compareRadioIcon1': icons[0],
             '#compareRadioIcon2': icons[1],
-            '#compareRadioMaxDistance': '20'
+            '#compareRadioMaxDistance': '20',
+            '#compareRadioAntennaHeight': '25'
         },
         selectedOptions: [icons[0], icons[1]]
     });
@@ -339,6 +347,9 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(coverageHtml, /min="10" step="10"/);
     assert.match(coverageHtml, /fas fa-border-all/);
     assert.match(routeHtml, /Intervalo entre amostras/);
+    for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
+        assert.match(html, /Altura comum das antenas \(m\)/);
+    }
     assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
     assert.match(repeaterHtml, /Ícone a colocar/);
     assert.match(repeaterHtml, /Alcance máximo de cada enlace/);
@@ -359,6 +370,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         radioPreset: 'optical',
         cellSizeKm: 1.5,
         maxDistance: 18,
+        antennaHeight: 12,
         area: null
     });
     assert.deepEqual(await module.getValues('checkRouteCommunication', {}), {
@@ -367,6 +379,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         radioPreset: 'radio',
         maxDistance: 12,
         sampleInterval: 0.5,
+        antennaHeight: 8,
         area: null
     });
     assert.deepEqual(await module.getValues('suggestRepeaterPositions', {}), {
@@ -374,6 +387,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         repeaterIcon: icons[0],
         radioPreset: 'radio',
         maxDistance: 10,
+        antennaHeight: 4,
         area: null
     });
     assert.deepEqual(await module.getValues('compareRadioPresets', {}), {
@@ -381,6 +395,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         iconType1: icons[0],
         iconType2: icons[1],
         maxDistance: 20,
+        antennaHeight: 25,
         area: null
     });
 });
@@ -393,7 +408,8 @@ test('coverage-gap resolution accepts 10 meters and rejects smaller values', asy
             '#coverageGapStationIcon': 'symbols/friend/station.svg',
             '#coverageGapPreset': 'optical',
             '#coverageGapCellSize': '10',
-            '#coverageGapMaxDistance': '20'
+            '#coverageGapMaxDistance': '20',
+            '#coverageGapAntennaHeight': '1.5'
         }
     });
 
@@ -411,7 +427,8 @@ test('coverage-gap resolution accepts 10 meters and rejects smaller values', asy
                         '#coverageGapStationIcon': 'symbols/friend/station.svg',
                         '#coverageGapPreset': 'optical',
                         '#coverageGapCellSize': '9',
-                        '#coverageGapMaxDistance': '20'
+                        '#coverageGapMaxDistance': '20',
+                        '#coverageGapAntennaHeight': '1.5'
                     };
                     return { value: values[selector] };
                 }
