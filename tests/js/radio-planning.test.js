@@ -66,7 +66,10 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             return {
                 ok: true,
                 async json() {
-                    return elevations.map(elevation => ({ elevation }));
+                    const pointCount = JSON.parse(options.body).points.length;
+                    return Array.from({ length: pointCount }, (_, index) => ({
+                        elevation: elevations[index % elevations.length]
+                    }));
                 }
             };
         }
@@ -119,4 +122,18 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
     assert.equal(radioResult.isViable, true);
     assert.ok(Number.isFinite(radioResult.rxPower));
     assert.equal(requests.length, 2);
+
+    const batchResults = await radioPlanning.analyzeLinks([
+        { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } },
+        { from: { lat: 0, lng: 0.01 }, to: { lat: 0, lng: 0.07 } }
+    ], 'optical');
+    assert.equal(batchResults.length, 2);
+    assert.equal(requests.length, 3);
+
+    const comparison = await radioPlanning.compareLinks([
+        { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } }
+    ]);
+    assert.equal(Object.keys(comparison).length, 6);
+    assert.equal(comparison.optical.length, 1);
+    assert.equal(requests.length, 4);
 });

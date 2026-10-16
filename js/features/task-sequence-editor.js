@@ -58,7 +58,11 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         'drawLinesBetweenIcons': 'Desenhar linhas entre ícones do mesmo tipo',
                         'connectDifferentIcons': 'Conectar ícones diferentes com linhas',
                         'drawCoverageArea': 'Desenhar área de cobertura com ícone central',
-                        'verifyRadioLinks': 'Verificar enlaces de rádio e visada entre ícones'
+                        'verifyRadioLinks': 'Verificar enlaces de rádio e visada entre ícones',
+                        'identifyCoverageGaps': 'Identificar lacunas de cobertura RF/visada',
+                        'checkRouteCommunication': 'Verificar comunicação ao longo de uma rota',
+                        'suggestRepeaterPositions': 'Sugerir posições para repetidores',
+                        'compareRadioPresets': 'Comparar presets de rádio e visada'
                     };
 
                     // Variáveis para rastrear o modo de edição

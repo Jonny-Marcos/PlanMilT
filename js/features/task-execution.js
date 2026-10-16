@@ -91,6 +91,15 @@
                     radioPlanning: radioPlanningService,
                     log: addToLog
                 });
+                var taskRadioOperations = window.PlanMilT.taskRadioOperations.attach({
+                    map,
+                    leaflet: L,
+                    turf,
+                    drawnItems,
+                    planningLayer: planejamentoLayer,
+                    radioPlanning: radioPlanningService,
+                    log: addToLog
+                });
 
                 // Função para iniciar o processo de criação de tarefas
                 var taskParameters = window.PlanMilT.taskParameters.attach({
@@ -188,6 +197,22 @@
 
                                 case 'verifyRadioLinks':
                                     await taskRadioLinks.verify(task.parameters);
+                                    break;
+
+                                case 'identifyCoverageGaps':
+                                    await taskRadioOperations.identifyCoverageGaps(task.parameters);
+                                    break;
+
+                                case 'checkRouteCommunication':
+                                    await taskRadioOperations.checkRouteCommunication(task.parameters);
+                                    break;
+
+                                case 'suggestRepeaterPositions':
+                                    await taskRadioOperations.suggestRepeaterPositions(task.parameters);
+                                    break;
+
+                                case 'compareRadioPresets':
+                                    await taskRadioOperations.compareRadioPresets(task.parameters);
                                     break;
 
                                 default:

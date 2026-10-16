@@ -16,6 +16,56 @@ window.PlanMilT.taskParameters = Object.freeze({
         const Swal = sweetAlert;
 
                 /**
+                 * Obtém o catálogo de ícones usado nos novos formulários de rádio.
+                 * @returns {Promise<Array<string>>} Caminhos dos ícones disponíveis.
+                 */
+                async function getRadioTaskIcons() {
+                    const icons = await apiClient.getJson('symbols/icons.php').catch(error => {
+                        console.error('Erro ao obter ícones para a tarefa de rádio:', error);
+                        Swal.fire('Erro', 'Não foi possível obter a lista de ícones.', 'error');
+                        return [];
+                    });
+                    return Array.isArray(icons) ? icons : [];
+                }
+
+                /**
+                 * Gera opções HTML para os ícones e mantém a escolha atual.
+                 * @param {Array<string>} icons - Caminhos dos ícones.
+                 * @param {string} selectedIcon - Caminho atualmente selecionado.
+                 * @returns {string} Opções do seletor.
+                 */
+                function getRadioTaskIconOptions(icons, selectedIcon) {
+                    return icons.map(icon => {
+                        const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
+                        const label = `${icon.split('/')[2]}/${fileName}`;
+                        return `<option value="${icon}" ${selectedIcon === icon ? 'selected' : ''}>${label}</option>`;
+                    }).join('');
+                }
+
+                /**
+                 * Gera opções HTML para os presets RF e óticos.
+                 * @param {string} selectedPreset - Identificador previamente selecionado.
+                 * @returns {string} Opções do seletor.
+                 */
+                function getRadioTaskPresetOptions(selectedPreset) {
+                    return radioPresets.map(preset => `
+<option value="${preset.id}" ${selectedPreset === preset.id || (!selectedPreset && preset.id === 'optical') ? 'selected' : ''}>
+${preset.label}
+</option>`).join('');
+                }
+
+                /**
+                 * Gera opções para as camadas disponíveis nas tarefas de rádio.
+                 * @param {string} selectedLayer - Identificador da camada previamente selecionada.
+                 * @returns {string} Opções do seletor.
+                 */
+                function getRadioTaskLayerOptions(selectedLayer) {
+                    return `
+<option value="drawnItems" ${selectedLayer !== 'planningSuggestions' ? 'selected' : ''}>Camada de Desenho Atual</option>
+<option value="planningSuggestions" ${selectedLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>`;
+                }
+
+                /**
                  * Monta o formulário HTML apropriado para o tipo de tarefa selecionado.
                  * @param {string} selectedTask - Identificador do tipo de tarefa selecionado.
                  * @param {*} existingParameters - Parâmetros já salvos para preencher ou editar.
@@ -561,6 +611,85 @@ ${preset.label}
 `;
                         }
 
+                        case 'identifyCoverageGaps':
+                        case 'checkRouteCommunication':
+                        case 'suggestRepeaterPositions':
+                        case 'compareRadioPresets': {
+                            const icons = await getRadioTaskIcons();
+                            if (icons.length === 0) {
+                                return '<p style="text-align: center;"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Nenhum ícone disponível.</p>';
+                            }
+                            const defaultIcon = icons[0];
+                            const layerOptions = getRadioTaskLayerOptions(existingParameters.iconLayer);
+                            const stationOptions = getRadioTaskIconOptions(icons, existingParameters.stationIcon || existingParameters.iconType1 || defaultIcon);
+                            const sourceOptions = getRadioTaskIconOptions(icons, existingParameters.iconType1 || defaultIcon);
+                            const targetOptions = getRadioTaskIconOptions(icons, existingParameters.iconType2 || icons[Math.min(1, icons.length - 1)]);
+                            const candidateOptions = getRadioTaskIconOptions(icons, existingParameters.candidateIcon || defaultIcon);
+                            const presetOptions = getRadioTaskPresetOptions(existingParameters.radioPreset);
+
+                            if (selectedTask === 'identifyCoverageGaps') {
+                                return `
+<p>Estima a cobertura em uma grade sobre a área selecionada; células verdes indicam cobertura por ao menos uma estação e vermelhas indicam lacunas. A grade pode ser ampliada automaticamente para limitar o número de cálculos.</p>
+<label for="coverageGapLayer">Camada com as estações:</label>
+<select id="coverageGapLayer" class="swal2-input">${layerOptions}</select>
+<label for="coverageGapStationIcon">Ícone das estações:</label>
+<select id="coverageGapStationIcon" class="swal2-input">${stationOptions}</select>
+<label for="coverageGapPreset">Rádio ou visada:</label>
+<select id="coverageGapPreset" class="swal2-input">${presetOptions}</select>
+<label for="coverageGapCellSize">Resolução aproximada da grade (km):</label>
+<input id="coverageGapCellSize" class="swal2-input" type="number" min="0.2" step="0.2" value="${existingParameters.cellSizeKm || 2}">
+<label for="coverageGapMaxDistance">Alcance máximo para avaliar cada estação (km):</label>
+<input id="coverageGapMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+`;
+                            }
+
+                            if (selectedTask === 'checkRouteCommunication') {
+                                return `
+<p>A tarefa amostra as linhas da camada selecionada e verifica se há enlace viável com ao menos uma estação próxima.</p>
+<label for="routeRadioLayer">Camada com as estações e rotas:</label>
+<select id="routeRadioLayer" class="swal2-input">${layerOptions}</select>
+<label for="routeStationIcon">Ícone das estações:</label>
+<select id="routeStationIcon" class="swal2-input">${stationOptions}</select>
+<label for="routeRadioPreset">Rádio ou visada:</label>
+<select id="routeRadioPreset" class="swal2-input">${presetOptions}</select>
+<label for="routeRadioMaxDistance">Distância máxima estação-rota (km):</label>
+<input id="routeRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+<label for="routeRadioInterval">Intervalo entre amostras (km):</label>
+<input id="routeRadioInterval" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.sampleInterval || 2}">
+`;
+                            }
+
+                            if (selectedTask === 'suggestRepeaterPositions') {
+                                return `
+<p>Marque previamente no mapa as posições candidatas usando o ícone escolhido. A tarefa classifica as posições que alcançam os dois grupos.</p>
+<label for="repeaterLayer">Camada dos grupos e candidatos:</label>
+<select id="repeaterLayer" class="swal2-input">${layerOptions}</select>
+<label for="repeaterCandidateIcon">Ícone usado nas posições candidatas:</label>
+<select id="repeaterCandidateIcon" class="swal2-input">${candidateOptions}</select>
+<label for="repeaterGroup1">Ícone do primeiro grupo:</label>
+<select id="repeaterGroup1" class="swal2-input">${sourceOptions}</select>
+<label for="repeaterGroup2">Ícone do segundo grupo:</label>
+<select id="repeaterGroup2" class="swal2-input">${targetOptions}</select>
+<label for="repeaterRadioPreset">Rádio ou visada:</label>
+<select id="repeaterRadioPreset" class="swal2-input">${presetOptions}</select>
+<label for="repeaterMaxDistance">Alcance máximo de cada enlace (km):</label>
+<input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+`;
+                            }
+
+                            return `
+<label for="compareRadioLayer">Camada de origem dos ícones:</label>
+<select id="compareRadioLayer" class="swal2-input">${layerOptions}</select>
+<label for="compareRadioIcon1">Ícone de origem:</label>
+<select id="compareRadioIcon1" class="swal2-input">${sourceOptions}</select>
+<label for="compareRadioIcon2">Ícone de destino:</label>
+<select id="compareRadioIcon2" class="swal2-input">${targetOptions}</select>
+<label for="compareRadioMaxDistance">Distância máxima entre unidades (km):</label>
+<input id="compareRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+<p>A comparação avalia todos os presets RF e óticos cadastrados para cada par, até 30 pares por execução.</p>
+`;
+                        }
+
 
                         default:
                             return '<p style="text-align: center;"><i class="fas fa-question-circle" style="color: #6c757d;"></i> Tarefa desconhecida.</p>';
@@ -714,6 +843,64 @@ ${preset.label}
                                 maxDistance,
                                 area: existingParameters.area || null
                             };
+                        }
+
+                        case 'identifyCoverageGaps': {
+                            const iconLayer = popup.querySelector('#coverageGapLayer').value;
+                            const stationIcon = popup.querySelector('#coverageGapStationIcon').value;
+                            const radioPreset = popup.querySelector('#coverageGapPreset').value;
+                            const cellSizeKm = parseFloat(popup.querySelector('#coverageGapCellSize').value);
+                            const maxDistance = parseFloat(popup.querySelector('#coverageGapMaxDistance').value);
+                            if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
+                                !Number.isFinite(cellSizeKm) || cellSizeKm < 0.2 ||
+                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
+                                await Swal.fire('Aviso', 'Informe estações, preset, resolução e alcance válidos.', 'warning');
+                                return null;
+                            }
+                            return { iconLayer, stationIcon, radioPreset, cellSizeKm, maxDistance, area: existingParameters.area || null };
+                        }
+
+                        case 'checkRouteCommunication': {
+                            const iconLayer = popup.querySelector('#routeRadioLayer').value;
+                            const stationIcon = popup.querySelector('#routeStationIcon').value;
+                            const radioPreset = popup.querySelector('#routeRadioPreset').value;
+                            const maxDistance = parseFloat(popup.querySelector('#routeRadioMaxDistance').value);
+                            const sampleInterval = parseFloat(popup.querySelector('#routeRadioInterval').value);
+                            if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
+                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(sampleInterval) || sampleInterval < 0.1) {
+                                await Swal.fire('Aviso', 'Informe estações, preset, alcance e intervalo válidos.', 'warning');
+                                return null;
+                            }
+                            return { iconLayer, stationIcon, radioPreset, maxDistance, sampleInterval, area: existingParameters.area || null };
+                        }
+
+                        case 'suggestRepeaterPositions': {
+                            const iconLayer = popup.querySelector('#repeaterLayer').value;
+                            const candidateIcon = popup.querySelector('#repeaterCandidateIcon').value;
+                            const iconType1 = popup.querySelector('#repeaterGroup1').value;
+                            const iconType2 = popup.querySelector('#repeaterGroup2').value;
+                            const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
+                            const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
+                            if (!iconLayer || !candidateIcon || !iconType1 || !iconType2 ||
+                                !radioPresets.some(preset => preset.id === radioPreset) ||
+                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
+                                await Swal.fire('Aviso', 'Informe candidatos, os dois grupos, preset e alcance válidos.', 'warning');
+                                return null;
+                            }
+                            return { iconLayer, candidateIcon, iconType1, iconType2, radioPreset, maxDistance, area: existingParameters.area || null };
+                        }
+
+                        case 'compareRadioPresets': {
+                            const iconLayer = popup.querySelector('#compareRadioLayer').value;
+                            const iconType1 = popup.querySelector('#compareRadioIcon1').value;
+                            const iconType2 = popup.querySelector('#compareRadioIcon2').value;
+                            const maxDistance = parseFloat(popup.querySelector('#compareRadioMaxDistance').value);
+                            if (!iconLayer || !iconType1 || !iconType2 || !Number.isFinite(maxDistance) || maxDistance <= 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones e informe uma distância máxima válida.', 'warning');
+                                return null;
+                            }
+                            return { iconLayer, iconType1, iconType2, maxDistance, area: existingParameters.area || null };
                         }
 
 

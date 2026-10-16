@@ -236,18 +236,35 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} pt2 - Segundo ponto do enlace.
                  * @param {Object} p - Parâmetros de configuração da simulação.
                  */
-                async function analisarEnlace(pt1, pt2, p) {
-                    let line = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]]);
-                    let distTotalKm = turf.length(line, { units: 'kilometers' });
-                    let segments = Math.max(1, Math.ceil(distTotalKm / 0.03));
-                    let pointsArray = [];
+                /**
+                 * Amostra o traçado geográfico de um enlace em intervalos de até 30 m.
+                 * @param {Object} pt1 - Coordenada geográfica inicial.
+                 * @param {Object} pt2 - Coordenada geográfica final.
+                 * @returns {Object} Distância total e pontos para consulta de elevação.
+                 */
+                function criarPerfilEnlace(pt1, pt2) {
+                    const line = turf.lineString([[pt1.lng, pt1.lat], [pt2.lng, pt2.lat]]);
+                    const distTotalKm = turf.length(line, { units: 'kilometers' });
+                    if (!Number.isFinite(distTotalKm) || distTotalKm <= 0) throw new Error('Os pontos do enlace devem ser distintos.');
+                    const segments = Math.max(1, Math.ceil(distTotalKm / 0.03));
+                    const points = [];
                     for (let i = 0; i <= segments; i++) {
-                        let dist = (i / segments) * distTotalKm;
-                        let point = turf.along(line, dist, { units: 'kilometers' });
-                        pointsArray.push({ latitude: point.geometry.coordinates[1], longitude: point.geometry.coordinates[0], distKm: dist });
+                        const distKm = (i / segments) * distTotalKm;
+                        const point = turf.along(line, distKm, { units: 'kilometers' });
+                        points.push({ latitude: point.geometry.coordinates[1], longitude: point.geometry.coordinates[0], distKm });
                     }
+                    return { points, distTotalKm };
+                }
 
-                    const data = await requestElevation(pointsArray);
+                /**
+                 * Calcula obstrução, potência recebida e viabilidade com o perfil de terreno.
+                 * @param {Object} profile - Distância e pontos amostrados do enlace.
+                 * @param {Array<Object>} data - Elevações correspondentes aos pontos.
+                 * @param {Object} p - Parâmetros do preset de rádio ou visada.
+                 * @returns {Object} Métricas e dados do perfil.
+                 */
+                function calcularMetricasEnlace(profile, data, p) {
+                    const { points, distTotalKm } = profile;
                     let hasObstruction = false;
                     let hTx = data[0].elevation + p.txHeight;
                     let hRx = data[data.length - 1].elevation + p.rxHeight;
@@ -255,7 +272,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     let freqGHz = p.isOptical ? 1 : (p.freq / 1000);
 
                     for (let i = 0; i < data.length; i++) {
-                        let d1 = pointsArray[i].distKm;
+                        let d1 = points[i].distKm;
                         let d2 = distTotalKm - d1;
                         let curvatura = (d1 * d2) / (12.74 * 1.333);
                         let hAdjusted = data[i].elevation + curvatura;
@@ -286,6 +303,48 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 }
 
                 /**
+                 * Analisa um enlace para os parâmetros manuais usados pela ferramenta interativa.
+                 * @param {Object} pt1 - Coordenada geográfica inicial.
+                 * @param {Object} pt2 - Coordenada geográfica final.
+                 * @param {Object} p - Parâmetros de rádio ou visada.
+                 * @returns {Promise<Object>} Resultado da análise do enlace.
+                 */
+                async function analisarEnlace(pt1, pt2, p) {
+                    const profile = criarPerfilEnlace(pt1, pt2);
+                    const data = await requestElevation(profile.points);
+                    return calcularMetricasEnlace(profile, data, p);
+                }
+
+                /**
+                 * Analisa vários enlaces e presets usando uma única consulta de elevação.
+                 * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
+                 * @param {Array<string>} presetIds - Identificadores dos presets.
+                 * @returns {Promise<Object>} Resultados indexados pelo identificador do preset.
+                 */
+                async function analisarEnlacesComPresets(links, presetIds) {
+                    if (!Array.isArray(links) || links.length === 0) throw new Error('Informe pelo menos um enlace para analisar.');
+                    const presets = presetIds.map(presetId => {
+                        const preset = radioPresets[presetId];
+                        if (!preset || presetId === 'custom') throw new Error('Preset de enlace inválido.');
+                        return { id: presetId, parameters: { ...preset, isOptical: presetId === 'optical' } };
+                    });
+                    const profiles = links.map(link => criarPerfilEnlace(link.from, link.to));
+                    const points = profiles.flatMap(profile => profile.points);
+                    const elevation = await requestElevation(points);
+                    let offset = 0;
+                    const profileElevations = profiles.map(profile => {
+                        const profileData = elevation.slice(offset, offset + profile.points.length);
+                        offset += profile.points.length;
+                        return profileData;
+                    });
+
+                    return Object.fromEntries(presets.map(preset => [
+                        preset.id,
+                        profiles.map((profile, index) => calcularMetricasEnlace(profile, profileElevations[index], preset.parameters))
+                    ]));
+                }
+
+                /**
                  * Avalia um enlace com os parâmetros já usados pela ferramenta de predição.
                  * @param {Object} pt1 - Primeiro ponto geográfico do enlace.
                  * @param {Object} pt2 - Segundo ponto geográfico do enlace.
@@ -293,9 +352,19 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @returns {Promise<Object>} Métricas de viabilidade e perfil do enlace.
                  */
                 async function analisarEnlaceComPreset(pt1, pt2, presetId) {
-                    const preset = radioPresets[presetId];
-                    if (!preset || presetId === 'custom') throw new Error('Preset de enlace inválido.');
-                    return analisarEnlace(pt1, pt2, { ...preset, isOptical: presetId === 'optical' });
+                    const results = await analisarEnlacesComPresets([{ from: pt1, to: pt2 }], [presetId]);
+                    return results[presetId][0];
+                }
+
+                /**
+                 * Analisa vários enlaces com o mesmo preset.
+                 * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
+                 * @param {string} presetId - Identificador do preset de rádio ou visada.
+                 * @returns {Promise<Array<Object>>} Resultados na mesma ordem dos enlaces.
+                 */
+                async function analisarEnlacesComPreset(links, presetId) {
+                    const results = await analisarEnlacesComPresets(links, [presetId]);
+                    return results[presetId];
                 }
 
                 async function calcularPTP(pt1, pt2, p) {
@@ -664,12 +733,26 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     });
                 }
         return Object.freeze({
+            /**
+             * Lista os presets de rádio e visada que podem ser usados pelas tarefas.
+             * @returns {Array<Object>} Identificador e rótulo de cada preset.
+             */
             getPresets() {
                 return Object.entries(radioPresets)
                     .filter(([id]) => id !== 'custom')
                     .map(([id, preset]) => Object.freeze({ id, label: preset.label }));
             },
-            analyzeLink: analisarEnlaceComPreset
+            analyzeLink: analisarEnlaceComPreset,
+            analyzeLinks: analisarEnlacesComPreset,
+            /**
+             * Compara todos os presets disponíveis sobre os mesmos perfis de elevação.
+             * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.
+             * @returns {Promise<Object>} Resultados indexados pelo identificador do preset.
+             */
+            compareLinks(links) {
+                const presetIds = Object.keys(radioPresets).filter(id => id !== 'custom');
+                return analisarEnlacesComPresets(links, presetIds);
+            }
         });
     }
 });

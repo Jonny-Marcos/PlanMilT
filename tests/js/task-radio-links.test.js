@@ -14,15 +14,24 @@ test('radio-link task is added without removing existing sequence task options',
         'placeIcons',
         'drawLinesBetweenIcons',
         'connectDifferentIcons',
-        'drawCoverageArea'
+        'drawCoverageArea',
+        'verifyRadioLinks'
+    ];
+    const newTasks = [
+        'identifyCoverageGaps',
+        'checkRouteCommunication',
+        'suggestRepeaterPositions',
+        'compareRadioPresets'
     ];
 
     for (const taskName of existingTasks) {
         assert.match(editorSource, new RegExp(`'${taskName}':`));
         assert.match(executionSource, new RegExp(`case '${taskName}':`));
     }
-    assert.match(editorSource, /'verifyRadioLinks':/);
-    assert.match(executionSource, /case 'verifyRadioLinks':/);
+    for (const taskName of newTasks) {
+        assert.match(editorSource, new RegExp(`'${taskName}':`));
+        assert.match(executionSource, new RegExp(`case '${taskName}':`));
+    }
 });
 
 test('radio-link task analyzes icon pairs and stores colored results in the planning layer', async () => {
