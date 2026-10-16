@@ -96,6 +96,22 @@ function setup({ layers = [], distance = () => 1000, analyzeLinks, compareLinks 
                     }
                 };
             },
+            icon(options) {
+                return { options };
+            },
+            marker(position, options) {
+                return {
+                    position,
+                    options,
+                    addTo(layer) {
+                        layer.addLayer(this);
+                        return this;
+                    },
+                    bindPopup(html) {
+                        this.popup = html;
+                    }
+                };
+            },
             polygon(positions, options) {
                 return {
                     positions,
@@ -195,16 +211,41 @@ test('route task marks samples with and without viable station links', async () 
     assert.ok(generated.some(layer => layer.feature.properties.name === 'Falha de comunicação estimada'));
 });
 
-test('repeater task recommends candidate sites that connect both groups', async () => {
+test('repeater task generates and recommends sites that connect both groups', async () => {
     const layers = [
-        new Marker('candidate', { lat: 0, lng: 0 }),
-        new Marker('group-a', { lat: 0, lng: 0.01 }),
-        new Marker('group-b', { lat: 0, lng: 0.02 })
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
     ];
     const { task, generated } = setup({ layers });
     const result = await task.suggestRepeaterPositions({
         iconLayer: 'drawnItems',
-        candidateIcon: 'candidate',
+        repeaterIcon: 'symbols/friend/repeater.svg',
+        iconType1: 'group-a',
+        iconType2: 'group-b',
+        radioPreset: 'radio',
+        maxDistance: 20,
+        cellSizeKm: 2,
+        area: null
+    });
+
+    assert.equal(result.length, 4);
+    assert.equal(result[0].firstCount, 1);
+    assert.equal(result[0].secondCount, 1);
+    assert.equal(generated.length, 4);
+    assert.equal(generated[0].options.icon.options.iconUrl, 'symbols/friend/repeater.svg');
+    assert.equal(generated[0].feature.properties.name, 'Posição recomendada para repetidor');
+    assert.equal(generated[0].feature.properties.iconUrl, 'symbols/friend/repeater.svg');
+});
+
+test('repeater task supports saved sequences with the former candidate icon parameter', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
+    ];
+    const { task, generated } = setup({ layers });
+    await task.suggestRepeaterPositions({
+        iconLayer: 'drawnItems',
+        candidateIcon: 'symbols/friend/legacy-repeater.svg',
         iconType1: 'group-a',
         iconType2: 'group-b',
         radioPreset: 'radio',
@@ -212,10 +253,29 @@ test('repeater task recommends candidate sites that connect both groups', async 
         area: null
     });
 
-    assert.equal(result.length, 1);
-    assert.equal(result[0].firstCount, 1);
-    assert.equal(result[0].secondCount, 1);
-    assert.equal(generated[0].feature.properties.name, 'Posição recomendada para repetidor');
+    assert.equal(generated[0].options.icon.options.iconUrl, 'symbols/friend/legacy-repeater.svg');
+});
+
+test('repeater task adapts grid density to analysis limits and draws at most ten recommendations', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
+    ];
+    const { task, generated, logs } = setup({ layers });
+    const recommendations = await task.suggestRepeaterPositions({
+        iconLayer: 'drawnItems',
+        repeaterIcon: 'symbols/friend/repeater.svg',
+        iconType1: 'group-a',
+        iconType2: 'group-b',
+        radioPreset: 'radio',
+        maxDistance: 20,
+        cellSizeKm: 0.1,
+        area: null
+    });
+
+    assert.equal(recommendations.length, 10);
+    assert.equal(generated.length, 10);
+    assert.match(logs[0], /foram marcadas as 10 melhores/);
 });
 
 test('preset comparison reports per-radio viability and draws the tested pair', async () => {
@@ -257,14 +317,15 @@ test('radio task failures explain which map input is missing', async () => {
     await assert.rejects(
         task.suggestRepeaterPositions({
             iconLayer: 'drawnItems',
-            candidateIcon: 'candidate',
+            repeaterIcon: 'symbols/friend/repeater.svg',
             iconType1: 'group-a',
             iconType2: 'group-b',
             radioPreset: 'radio',
             maxDistance: 20,
+            cellSizeKm: 1,
             area: null
         }),
-        /Nenhuma posição candidata.*área visível/
+        /Nenhuma unidade do primeiro e segundo grupo.*área visível/
     );
 
     await assert.rejects(

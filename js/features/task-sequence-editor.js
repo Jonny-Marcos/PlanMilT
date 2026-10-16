@@ -97,7 +97,7 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         },
                         identifyCoverageGaps: {
                             purpose: 'Estima a cobertura RF ou de visada em uma grade e aponta células que nenhuma estação selecionada consegue alcançar.',
-                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. Uma resolução menor mostra mais detalhes e pode exigir mais cálculos.',
+                            setup: 'Coloque as estações na camada escolhida e enquadre no mapa a área a avaliar. A resolução desejada pode ser definida a partir de 10 m; limites de cálculo podem aumentá-la automaticamente.',
                             result: 'Desenha células cobertas em verde e lacunas estimadas em vermelho na sugestão de planejamento.'
                         },
                         checkRouteCommunication: {
@@ -106,9 +106,9 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                             result: 'Marca amostras com comunicação estimada em verde e falhas em vermelho; a distância entre amostras é configurável.'
                         },
                         suggestRepeaterPositions: {
-                            purpose: 'Compara locais candidatos e encontra os que conseguem alcançar unidades dos dois grupos definidos.',
-                            setup: 'Na camada escolhida, coloque ícones nos locais candidatos e nos dois grupos de unidades; deixe a região de interesse visível no mapa.',
-                            result: 'Destaca a melhor posição em verde e as alternativas em azul, com a quantidade de unidades alcançadas.'
+                            purpose: 'Busca automaticamente locais para uma repetidora que consiga alcançar unidades de dois grupos.',
+                            setup: 'Coloque os ícones dos dois grupos na camada escolhida e enquadre a região de interesse no mapa. Defina o espaçamento dos locais avaliados, o alcance de cada enlace e o preset de rádio ou visada.',
+                            result: 'Adiciona até dez posições recomendadas com o ícone de repetidora escolhido; a melhor posição aparece primeiro.'
                         },
                         compareRadioPresets: {
                             purpose: 'Avalia os mesmos pares de unidades com todos os presets RF e óticos e facilita comparar quais configurações atendem.',
@@ -153,6 +153,12 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
+}
+#taskParameters .task-parameter-field label i {
+    width: 16px;
+    margin-right: 5px;
+    color: #435f88;
+    text-align: center;
 }
 #taskParameters .task-parameter-form .swal2-input {
     box-sizing: border-box;
@@ -404,10 +410,15 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     iconType1: 'Ícone de origem / grupo 1',
                                     iconType2: 'Ícone de destino / grupo 2',
                                     stationIcon: 'Ícone das estações',
-                                    candidateIcon: 'Ícone das posições candidatas',
+                                    repeaterIcon: 'Ícone da repetidora sugerida',
+                                    repeaterIconUrl: 'Ícone da repetidora sugerida',
                                     radioPreset: 'Preset de rádio/visada',
                                     maxDistance: 'Distância máxima (km)',
-                                    cellSizeKm: 'Resolução da grade (km)',
+                                    cellSizeKm: task.task === 'suggestRepeaterPositions'
+                                        ? 'Espaçamento da grade (km)'
+                                        : task.task === 'identifyCoverageGaps'
+                                            ? 'Resolução desejada da grade (m)'
+                                            : 'Resolução da grade (km)',
                                     sampleInterval: 'Intervalo entre amostras (km)',
                                     numberOfNewIcons: 'Quantidade de novos ícones',
                                     maxDistanceBetweenNewIcons: 'Distância entre novos ícones (km)',
@@ -445,6 +456,9 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     }
                                     if (key === 'connectionCriterion') {
                                         return value === 'closest' ? 'Ícones mais próximos' : 'Ícones mais distantes';
+                                    }
+                                    if (key === 'cellSizeKm' && task.task === 'identifyCoverageGaps') {
+                                        return `${escapeHtml(Number(value) * 1000)} m`;
                                     }
                                     if (key === 'criteria') return `${escapeHtml(value)} m`;
                                     if (key.toLowerCase().includes('icon') && typeof value === 'string') {

@@ -111,7 +111,7 @@ ${preset.label}
                         checkRouteCommunication: { layer: '#routeRadioLayer', icons: ['#routeStationIcon'] },
                         suggestRepeaterPositions: {
                             layer: '#repeaterLayer',
-                            icons: ['#repeaterCandidateIcon', '#repeaterGroup1', '#repeaterGroup2']
+                            icons: ['#repeaterIconUrl', '#repeaterGroup1', '#repeaterGroup2']
                         },
                         compareRadioPresets: { layer: '#compareRadioLayer', icons: ['#compareRadioIcon1', '#compareRadioIcon2'] }
                     }[selectedTask];
@@ -685,7 +685,7 @@ ${preset.label}
                             return `
 <div class="task-parameter-form">
 <div class="task-parameter-field">
-<label for="linkLayerSelect">Camada de origem dos ícones:</label>
+<label for="linkLayerSelect"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada de origem dos ícones:</label>
 <select id="linkLayerSelect" class="swal2-input">
 <option value="drawnItems" ${existingParameters.iconLayer !== 'planningSuggestions' ? 'selected' : ''}>Camada de Desenho Atual</option>
 <option value="planningSuggestions" ${existingParameters.iconLayer === 'planningSuggestions' ? 'selected' : ''}>Sugestão de Planejamento</option>
@@ -693,19 +693,19 @@ ${preset.label}
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="linkIconType1">Ícone de origem:</label>
+<label for="linkIconType1"><i class="fas fa-bullseye" aria-hidden="true"></i> Ícone de origem:</label>
 <select id="linkIconType1" class="swal2-input">${makeIconOptions(existingParameters.iconType1 || iconList[0])}</select>
 </div>
 <div class="task-parameter-field">
-<label for="linkIconType2">Ícone de destino:</label>
+<label for="linkIconType2"><i class="fas fa-crosshairs" aria-hidden="true"></i> Ícone de destino:</label>
 <select id="linkIconType2" class="swal2-input">${makeIconOptions(existingParameters.iconType2 || iconList[0])}</select>
 </div>
 <div class="task-parameter-field">
-<label for="linkRadioPreset">Rádio ou visada:</label>
+<label for="linkRadioPreset"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="linkRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="linkMaxDistance">Distância máxima entre unidades (km):</label>
+<label for="linkMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima entre unidades (km):</label>
 <input id="linkMaxDistance" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.maxDistance || 20}">
 </div>
 </div>
@@ -725,32 +725,35 @@ ${preset.label}
                             const stationOptions = getRadioTaskIconOptions(icons, existingParameters.stationIcon || existingParameters.iconType1 || defaultIcon);
                             const sourceOptions = getRadioTaskIconOptions(icons, existingParameters.iconType1 || defaultIcon);
                             const targetOptions = getRadioTaskIconOptions(icons, existingParameters.iconType2 || icons[Math.min(1, icons.length - 1)]);
-                            const candidateOptions = getRadioTaskIconOptions(icons, existingParameters.candidateIcon || defaultIcon);
+                            const repeaterIconOptions = getRadioTaskIconOptions(
+                                icons,
+                                existingParameters.repeaterIcon || existingParameters.candidateIcon || defaultIcon
+                            );
                             const presetOptions = getRadioTaskPresetOptions(existingParameters.radioPreset);
 
                             if (selectedTask === 'identifyCoverageGaps') {
                                 return `
 <div class="task-parameter-form">
-<p class="task-parameter-description">Estima a cobertura da região visível. Células verdes indicam cobertura por ao menos uma estação; células vermelhas indicam lacunas. A grade pode ser simplificada automaticamente para limitar os cálculos.</p>
+<p class="task-parameter-description">Estima a cobertura da região visível. Células verdes indicam cobertura por ao menos uma estação; células vermelhas indicam lacunas. A resolução mínima é 10 m, mas a aplicação pode aumentá-la automaticamente para respeitar os limites de cálculo.</p>
 <div class="task-parameter-field">
-<label for="coverageGapLayer">Camada com as estações:</label>
+<label for="coverageGapLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada com as estações:</label>
 <select id="coverageGapLayer" class="swal2-input">${layerOptions}</select>
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="coverageGapStationIcon">Ícone das estações:</label>
+<label for="coverageGapStationIcon"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Ícone das estações:</label>
 <select id="coverageGapStationIcon" class="swal2-input">${stationOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="coverageGapPreset">Rádio ou visada:</label>
+<label for="coverageGapPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="coverageGapPreset" class="swal2-input">${presetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="coverageGapCellSize">Resolução aproximada da grade (km):</label>
-<input id="coverageGapCellSize" class="swal2-input" type="number" min="0.2" step="0.2" value="${existingParameters.cellSizeKm || 2}">
+<label for="coverageGapCellSize"><i class="fas fa-border-all" aria-hidden="true"></i> Resolução desejada da grade (m, mínimo 10):</label>
+<input id="coverageGapCellSize" class="swal2-input" type="number" min="10" step="10" value="${existingParameters.cellSizeKm ? existingParameters.cellSizeKm * 1000 : 2000}">
 </div>
 <div class="task-parameter-field">
-<label for="coverageGapMaxDistance">Alcance máximo para avaliar cada estação (km):</label>
+<label for="coverageGapMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo para avaliar cada estação (km):</label>
 <input id="coverageGapMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
 </div>
 </div>
@@ -762,24 +765,24 @@ ${preset.label}
 <div class="task-parameter-form">
 <p class="task-parameter-description">Amostra as rotas da camada escolhida e verifica se cada ponto tem enlace viável com ao menos uma estação próxima.</p>
 <div class="task-parameter-field">
-<label for="routeRadioLayer">Camada com as estações e rotas:</label>
+<label for="routeRadioLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada com as estações e rotas:</label>
 <select id="routeRadioLayer" class="swal2-input">${layerOptions}</select>
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="routeStationIcon">Ícone das estações:</label>
+<label for="routeStationIcon"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Ícone das estações:</label>
 <select id="routeStationIcon" class="swal2-input">${stationOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="routeRadioPreset">Rádio ou visada:</label>
+<label for="routeRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="routeRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="routeRadioMaxDistance">Distância máxima estação-rota (km):</label>
+<label for="routeRadioMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima estação-rota (km):</label>
 <input id="routeRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
 </div>
 <div class="task-parameter-field">
-<label for="routeRadioInterval">Intervalo entre amostras (km):</label>
+<label for="routeRadioInterval"><i class="fas fa-grip-lines" aria-hidden="true"></i> Intervalo entre amostras (km):</label>
 <input id="routeRadioInterval" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.sampleInterval || 2}">
 </div>
 </div>
@@ -789,31 +792,35 @@ ${preset.label}
                             if (selectedTask === 'suggestRepeaterPositions') {
                                 return `
 <div class="task-parameter-form">
-<p class="task-parameter-description">Marque no mapa as posições candidatas e os dois grupos de unidades. A tarefa classifica quais posições alcançam ambos os grupos.</p>
+<p class="task-parameter-description">Gera locais candidatos automaticamente na área visível e indica até dez pontos que podem ligar os dois grupos. Não é necessário colocar ícones de candidatos antes da análise; escolha tipos de ícone diferentes para cada grupo. O espaçamento pode ser aumentado automaticamente para respeitar os limites de cálculo.</p>
 <div class="task-parameter-field">
-<label for="repeaterLayer">Camada dos grupos e candidatos:</label>
+<label for="repeaterLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada dos grupos de unidades:</label>
 <select id="repeaterLayer" class="swal2-input">${layerOptions}</select>
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="repeaterCandidateIcon">Ícone usado nas posições candidatas:</label>
-<select id="repeaterCandidateIcon" class="swal2-input">${candidateOptions}</select>
+<label for="repeaterIconUrl"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ícone da repetidora sugerida:</label>
+<select id="repeaterIconUrl" class="swal2-input">${repeaterIconOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="repeaterGroup1">Ícone do primeiro grupo:</label>
+<label for="repeaterGroup1"><i class="fas fa-users" aria-hidden="true"></i> Ícone do primeiro grupo:</label>
 <select id="repeaterGroup1" class="swal2-input">${sourceOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="repeaterGroup2">Ícone do segundo grupo:</label>
+<label for="repeaterGroup2"><i class="fas fa-users" aria-hidden="true"></i> Ícone do segundo grupo:</label>
 <select id="repeaterGroup2" class="swal2-input">${targetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="repeaterRadioPreset">Rádio ou visada:</label>
+<label for="repeaterRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="repeaterRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="repeaterMaxDistance">Alcance máximo de cada enlace (km):</label>
+<label for="repeaterMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo de cada enlace (km):</label>
 <input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+</div>
+<div class="task-parameter-field">
+<label for="repeaterCellSize"><i class="fas fa-border-all" aria-hidden="true"></i> Espaçamento entre posições (km):</label>
+<input id="repeaterCellSize" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.cellSizeKm || 1}">
 </div>
 </div>
 `;
@@ -823,20 +830,20 @@ ${preset.label}
 <div class="task-parameter-form">
 <p class="task-parameter-description">Compara todos os presets RF e óticos para os pares encontrados na região visível (até 30 pares por execução).</p>
 <div class="task-parameter-field">
-<label for="compareRadioLayer">Camada de origem dos ícones:</label>
+<label for="compareRadioLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada de origem dos ícones:</label>
 <select id="compareRadioLayer" class="swal2-input">${layerOptions}</select>
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="compareRadioIcon1">Ícone de origem:</label>
+<label for="compareRadioIcon1"><i class="fas fa-bullseye" aria-hidden="true"></i> Ícone de origem:</label>
 <select id="compareRadioIcon1" class="swal2-input">${sourceOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="compareRadioIcon2">Ícone de destino:</label>
+<label for="compareRadioIcon2"><i class="fas fa-crosshairs" aria-hidden="true"></i> Ícone de destino:</label>
 <select id="compareRadioIcon2" class="swal2-input">${targetOptions}</select>
 </div>
 <div class="task-parameter-field">
-<label for="compareRadioMaxDistance">Distância máxima entre unidades (km):</label>
+<label for="compareRadioMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Distância máxima entre unidades (km):</label>
 <input id="compareRadioMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
 </div>
 </div>
@@ -1002,14 +1009,15 @@ ${preset.label}
                             const iconLayer = popup.querySelector('#coverageGapLayer').value;
                             const stationIcon = popup.querySelector('#coverageGapStationIcon').value;
                             const radioPreset = popup.querySelector('#coverageGapPreset').value;
-                            const cellSizeKm = parseFloat(popup.querySelector('#coverageGapCellSize').value);
+                            const cellSizeMeters = parseFloat(popup.querySelector('#coverageGapCellSize').value);
                             const maxDistance = parseFloat(popup.querySelector('#coverageGapMaxDistance').value);
                             if (!iconLayer || !stationIcon || !radioPresets.some(preset => preset.id === radioPreset) ||
-                                !Number.isFinite(cellSizeKm) || cellSizeKm < 0.2 ||
+                                !Number.isFinite(cellSizeMeters) || cellSizeMeters < 10 ||
                                 !Number.isFinite(maxDistance) || maxDistance <= 0) {
                                 await Swal.fire('Aviso', 'Informe estações, preset, resolução e alcance válidos.', 'warning');
                                 return null;
                             }
+                            const cellSizeKm = cellSizeMeters / 1000;
                             return { iconLayer, stationIcon, radioPreset, cellSizeKm, maxDistance, area: existingParameters.area || null };
                         }
 
@@ -1030,18 +1038,20 @@ ${preset.label}
 
                         case 'suggestRepeaterPositions': {
                             const iconLayer = popup.querySelector('#repeaterLayer').value;
-                            const candidateIcon = popup.querySelector('#repeaterCandidateIcon').value;
+                            const repeaterIcon = popup.querySelector('#repeaterIconUrl').value;
                             const iconType1 = popup.querySelector('#repeaterGroup1').value;
                             const iconType2 = popup.querySelector('#repeaterGroup2').value;
                             const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
-                            if (!iconLayer || !candidateIcon || !iconType1 || !iconType2 ||
+                            const cellSizeKm = parseFloat(popup.querySelector('#repeaterCellSize').value);
+                            if (!iconLayer || !repeaterIcon || !iconType1 || !iconType2 || iconType1 === iconType2 ||
                                 !radioPresets.some(preset => preset.id === radioPreset) ||
-                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
-                                await Swal.fire('Aviso', 'Informe candidatos, os dois grupos, preset e alcance válidos.', 'warning');
+                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
+                                !Number.isFinite(cellSizeKm) || cellSizeKm < 0.1) {
+                                await Swal.fire('Aviso', 'Selecione dois tipos de ícone diferentes e informe o ícone de repetidora, preset, alcance e espaçamento válidos.', 'warning');
                                 return null;
                             }
-                            return { iconLayer, candidateIcon, iconType1, iconType2, radioPreset, maxDistance, area: existingParameters.area || null };
+                            return { iconLayer, repeaterIcon, iconType1, iconType2, radioPreset, maxDistance, cellSizeKm, area: existingParameters.area || null };
                         }
 
                         case 'compareRadioPresets': {

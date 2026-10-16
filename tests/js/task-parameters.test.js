@@ -274,7 +274,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             '#coverageGapLayer': 'drawnItems',
             '#coverageGapStationIcon': icons[0],
             '#coverageGapPreset': 'optical',
-            '#coverageGapCellSize': '1.5',
+            '#coverageGapCellSize': '1500',
             '#coverageGapMaxDistance': '18',
             '#routeRadioLayer': 'planningSuggestions',
             '#routeStationIcon': icons[0],
@@ -282,11 +282,12 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             '#routeRadioMaxDistance': '12',
             '#routeRadioInterval': '0.5',
             '#repeaterLayer': 'drawnItems',
-            '#repeaterCandidateIcon': icons[0],
+            '#repeaterIconUrl': icons[0],
             '#repeaterGroup1': icons[0],
             '#repeaterGroup2': icons[1],
             '#repeaterRadioPreset': 'radio',
             '#repeaterMaxDistance': '10',
+            '#repeaterCellSize': '1',
             '#compareRadioLayer': 'planningSuggestions',
             '#compareRadioIcon1': icons[0],
             '#compareRadioIcon2': icons[1],
@@ -298,9 +299,15 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     const routeHtml = await module.getHtml('checkRouteCommunication');
     const repeaterHtml = await module.getHtml('suggestRepeaterPositions');
     const compareHtml = await module.getHtml('compareRadioPresets');
-    assert.match(coverageHtml, /Resolução aproximada da grade/);
+    assert.match(coverageHtml, /Resolução desejada da grade \(m, mínimo 10\)/);
+    assert.match(coverageHtml, /min="10" step="10"/);
+    assert.match(coverageHtml, /fas fa-border-all/);
     assert.match(routeHtml, /Intervalo entre amostras/);
-    assert.match(repeaterHtml, /posições candidatas/);
+    assert.match(repeaterHtml, /Não é necessário colocar ícones de candidatos/);
+    assert.match(repeaterHtml, /Ícone da repetidora sugerida/);
+    assert.match(repeaterHtml, /Espaçamento entre posições/);
+    assert.match(repeaterHtml, /fas fa-map-marker-alt/);
+    assert.match(repeaterHtml, /fas fa-users/);
     assert.match(compareHtml, /todos os presets RF e óticos/);
     for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
         assert.match(html, /class="task-parameter-form"/);
@@ -326,11 +333,12 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     });
     assert.deepEqual(await module.getValues('suggestRepeaterPositions', {}), {
         iconLayer: 'drawnItems',
-        candidateIcon: icons[0],
+        repeaterIcon: icons[0],
         iconType1: icons[0],
         iconType2: icons[1],
         radioPreset: 'radio',
         maxDistance: 10,
+        cellSizeKm: 1,
         area: null
     });
     assert.deepEqual(await module.getValues('compareRadioPresets', {}), {
@@ -340,6 +348,65 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         maxDistance: 20,
         area: null
     });
+});
+
+test('coverage-gap resolution accepts 10 meters and rejects smaller values', async () => {
+    const { module, alerts } = createParametersModule({
+        radioPresets: [{ id: 'optical', label: 'Ótico' }],
+        values: {
+            '#coverageGapLayer': 'drawnItems',
+            '#coverageGapStationIcon': 'symbols/friend/station.svg',
+            '#coverageGapPreset': 'optical',
+            '#coverageGapCellSize': '10',
+            '#coverageGapMaxDistance': '20'
+        }
+    });
+
+    const validValues = await module.getValues('identifyCoverageGaps', {});
+    assert.equal(validValues.cellSizeKm, 0.01);
+
+    const popup = global.window.PlanMilT.taskParameters.attach({
+        apiClient: { async getJson() { return []; } },
+        radioPresets: [{ id: 'optical', label: 'Ótico' }],
+        sweetAlert: {
+            getPopup: () => ({
+                querySelector(selector) {
+                    const values = {
+                        '#coverageGapLayer': 'drawnItems',
+                        '#coverageGapStationIcon': 'symbols/friend/station.svg',
+                        '#coverageGapPreset': 'optical',
+                        '#coverageGapCellSize': '9',
+                        '#coverageGapMaxDistance': '20'
+                    };
+                    return { value: values[selector] };
+                }
+            }),
+            async fire(...args) {
+                alerts.push(args);
+            }
+        }
+    });
+
+    assert.equal(await popup.getValues('identifyCoverageGaps', {}), null);
+    assert.equal(alerts.at(-1)[0], 'Aviso');
+});
+
+test('repeater task requires two different unit icon types', async () => {
+    const { module, alerts } = createParametersModule({
+        radioPresets: [{ id: 'radio', label: 'Rádio' }],
+        values: {
+            '#repeaterLayer': 'drawnItems',
+            '#repeaterIconUrl': 'symbols/friend/repeater.svg',
+            '#repeaterGroup1': 'symbols/friend/unit.svg',
+            '#repeaterGroup2': 'symbols/friend/unit.svg',
+            '#repeaterRadioPreset': 'radio',
+            '#repeaterMaxDistance': '10',
+            '#repeaterCellSize': '1'
+        }
+    });
+
+    assert.equal(await module.getValues('suggestRepeaterPositions', {}), null);
+    assert.match(alerts[0][1], /tipos de ícone diferentes/);
 });
 
 test('unknown task form returns the existing user-facing message', async () => {
