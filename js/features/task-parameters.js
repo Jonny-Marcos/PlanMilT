@@ -822,7 +822,7 @@ ${getAntennaHeightField('routeAntennaHeight', existingParameters)}
                             if (selectedTask === 'suggestRepeaterPositions') {
                                 return `
 <div class="task-parameter-form">
-<p class="task-parameter-description">Escolha um ou mais tipos de unidade que precisam de cobertura, o ícone da repetidora, o rádio ou visada e o alcance máximo de cada enlace. A busca usa os marcadores das camadas de desenho e de sugestões e avalia posições na área visível do mapa. Para escolher vários tipos, use Ctrl (Windows/Linux) ou Command (Mac) ao clicar.</p>
+<p class="task-parameter-description">Escolha um ou mais tipos de unidade que precisam de cobertura, o ícone da repetidora, o rádio ou visada e o alcance máximo. A tarefa calcula uma área de cobertura para cada unidade selecionada e procura os pontos de interseção para posicionar as repetidoras. São considerados marcadores nas camadas de desenho e de sugestões. Para escolher vários tipos, use Ctrl (Windows/Linux) ou Command (Mac) ao clicar.</p>
 <div class="task-parameter-field task-parameter-field-wide">
 <label for="repeaterTargetIcons"><i class="fas fa-bullseye" aria-hidden="true"></i> Ícones que precisam de cobertura:</label>
 <select id="repeaterTargetIcons" class="swal2-input" multiple size="5">${repeaterTargetOptions}</select>

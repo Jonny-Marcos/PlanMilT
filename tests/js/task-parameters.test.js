@@ -353,6 +353,7 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
     assert.match(repeaterHtml, /Ícone a colocar/);
     assert.match(repeaterHtml, /Alcance máximo de cada enlace/);
+    assert.match(repeaterHtml, /pontos de interseção/);
     assert.match(repeaterHtml, /camadas de desenho e de sugestões/);
     assert.doesNotMatch(repeaterHtml, /Espaçamento entre posições|Camada com os ícones|Grupo 1|Grupo 2/);
     assert.match(repeaterHtml, /fas fa-map-marker-alt/);

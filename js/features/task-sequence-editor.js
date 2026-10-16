@@ -106,9 +106,9 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                             result: 'Marca amostras com comunicação estimada em verde e falhas em vermelho; a distância entre amostras é configurável.'
                         },
                         suggestRepeaterPositions: {
-                            purpose: 'Busca automaticamente posições para uma repetidora que alcance todos os tipos de unidade selecionados.',
-                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo, a altura comum das antenas e enquadre a região de interesse. A busca considera marcadores nas camadas de desenho e de sugestões.',
-                            result: 'Adiciona até dez posições recomendadas com o ícone de repetidora escolhido; a melhor posição aparece primeiro.'
+                            purpose: 'Calcula a área de cobertura de cada unidade selecionada e busca as interseções onde uma repetidora pode alcançar unidades próximas.',
+                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo e a altura comum das antenas. A tarefa considera marcadores nas camadas de desenho e de sugestões dentro da região visível.',
+                            result: 'Adiciona até dez posições recomendadas nas interseções calculadas, priorizando as que alcançam mais unidades.'
                         },
                         compareRadioPresets: {
                             purpose: 'Avalia os mesmos pares de unidades com todos os presets RF e óticos e facilita comparar quais configurações atendem.',

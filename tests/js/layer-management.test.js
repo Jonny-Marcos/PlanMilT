@@ -21,12 +21,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
     assert.match(documentSource, /app\.css\?v=20261016-toolbar-icons-restored/);
-    assert.match(documentSource, /radio-planning\.js\?v=20261016-antenna-height/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261016-antenna-height/);
-    assert.match(documentSource, /task-sequence-editor\.js\?v=20261016-antenna-height/);
+    assert.match(documentSource, /radio-planning\.js\?v=20261016-repeater-coverage-intersections/);
+    assert.match(documentSource, /task-parameters\.js\?v=20261016-repeater-coverage-intersections/);
+    assert.match(documentSource, /task-sequence-editor\.js\?v=20261016-repeater-coverage-intersections/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
-    assert.match(documentSource, /task-radio-operations\.js\?v=20261016-antenna-height/);
-    assert.match(documentSource, /task-execution\.js\?v=20261016-repeater-simplified/);
+    assert.match(documentSource, /task-radio-operations\.js\?v=20261016-repeater-coverage-intersections/);
+    assert.match(documentSource, /task-execution\.js\?v=20261016-repeater-coverage-intersections/);
     assert.match(documentSource, /tactical-graphics\.js\?v=20261016-tactical-control/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);

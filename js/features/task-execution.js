@@ -227,7 +227,22 @@
                                     break;
 
                                 case 'suggestRepeaterPositions':
-                                    await taskRadioOperations.suggestRepeaterPositions(task.parameters);
+                                    Swal.fire({
+                                        title: 'Calculando áreas de cobertura…',
+                                        text: 'Preparando a análise das unidades selecionadas.',
+                                        allowOutsideClick: false,
+                                        allowEscapeKey: false,
+                                        showConfirmButton: false,
+                                        didOpen: () => Swal.showLoading()
+                                    });
+                                    try {
+                                        await taskRadioOperations.suggestRepeaterPositions(task.parameters, message => {
+                                            addToLog(message);
+                                            Swal.update({ text: message });
+                                        });
+                                    } finally {
+                                        Swal.close();
+                                    }
                                     break;
 
                                 case 'compareRadioPresets':

@@ -119,6 +119,135 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         }
 
         /**
+         * Testa se uma coordenada está dentro de um polígono de cobertura.
+         * @param {Object} position - Coordenada geográfica.
+         * @param {Array<Object>} ring - Contorno do polígono.
+         * @returns {boolean} Indica se a coordenada está dentro do contorno.
+         */
+        function isWithinRing(position, ring) {
+            let inside = false;
+            for (let current = 0, previous = ring.length - 1; current < ring.length; previous = current++) {
+                const first = ring[current];
+                const second = ring[previous];
+                const crosses = (first.lat > position.lat) !== (second.lat > position.lat) &&
+                    position.lng < ((second.lng - first.lng) * (position.lat - first.lat)) /
+                        (second.lat - first.lat) + first.lng;
+                if (crosses) inside = !inside;
+            }
+            return inside;
+        }
+
+        /**
+         * Retorna a interseção de dois segmentos em coordenadas geográficas planas.
+         * @param {Object} a - Primeiro ponto do segmento inicial.
+         * @param {Object} b - Segundo ponto do segmento inicial.
+         * @param {Object} c - Primeiro ponto do segmento final.
+         * @param {Object} d - Segundo ponto do segmento final.
+         * @returns {Object|null} Ponto de interseção, se os segmentos se cruzarem.
+         */
+        function getSegmentIntersection(a, b, c, d) {
+            const denominator = (a.lng - b.lng) * (c.lat - d.lat) -
+                (a.lat - b.lat) * (c.lng - d.lng);
+            if (Math.abs(denominator) < 1e-12) return null;
+
+            const firstDeterminant = a.lng * b.lat - a.lat * b.lng;
+            const secondDeterminant = c.lng * d.lat - c.lat * d.lng;
+            const longitude = (firstDeterminant * (c.lng - d.lng) -
+                (a.lng - b.lng) * secondDeterminant) / denominator;
+            const latitude = (firstDeterminant * (c.lat - d.lat) -
+                (a.lat - b.lat) * secondDeterminant) / denominator;
+            const withinSegment = (point, start, end) =>
+                point.lng >= Math.min(start.lng, end.lng) - 1e-10 &&
+                point.lng <= Math.max(start.lng, end.lng) + 1e-10 &&
+                point.lat >= Math.min(start.lat, end.lat) - 1e-10 &&
+                point.lat <= Math.max(start.lat, end.lat) + 1e-10;
+            const intersection = { lat: latitude, lng: longitude };
+            return withinSegment(intersection, a, b) && withinSegment(intersection, c, d)
+                ? intersection
+                : null;
+        }
+
+        /**
+         * Obtém posições candidatas nos cruzamentos ou dentro de áreas de cobertura sobrepostas.
+         * @param {Array<Object>} coverages - Contornos calculados para os ícones selecionados.
+         * @param {Array<string>} targetIcons - Tipos de ícone que precisam de cobertura.
+         * @param {Object} area - Limites ou polígono de análise.
+         * @returns {Array<Object>} Posições distintas dentro das interseções relevantes.
+         */
+        function getCoverageIntersectionCandidates(coverages, targetIcons, area) {
+            const candidates = [];
+            const addCandidate = position => {
+                if (!isWithinArea(position, area)) return;
+                const coveredAreas = coverages.filter(coverage => isWithinRing(position, coverage.ring));
+                if (coveredAreas.length < Math.max(2, targetIcons.length) ||
+                    !targetIcons.every(icon => coveredAreas.some(coverage => coverage.iconUrl === icon))) return;
+                const matchingSourceCount = coveredAreas.length;
+                const centerDistance = coveredAreas.reduce((total, coverage) =>
+                    total + map.distance(position, coverage.position), 0) / matchingSourceCount;
+                if (candidates.some(candidate => map.distance(candidate.position, position) < 30)) return;
+                candidates.push({ position, coveredAreas, matchingSourceCount, centerDistance });
+            };
+
+            for (let firstIndex = 0; firstIndex < coverages.length; firstIndex++) {
+                const first = coverages[firstIndex];
+                for (let secondIndex = firstIndex + 1; secondIndex < coverages.length; secondIndex++) {
+                    const second = coverages[secondIndex];
+                    const intersections = [];
+                    first.ring.forEach(point => {
+                        if (isWithinRing(point, second.ring)) addCandidate(point);
+                    });
+                    second.ring.forEach(point => {
+                        if (isWithinRing(point, first.ring)) addCandidate(point);
+                    });
+                    for (let firstEdge = 0; firstEdge < first.ring.length; firstEdge++) {
+                        const firstStart = first.ring[firstEdge];
+                        const firstEnd = first.ring[(firstEdge + 1) % first.ring.length];
+                        for (let secondEdge = 0; secondEdge < second.ring.length; secondEdge++) {
+                            const intersection = getSegmentIntersection(
+                                firstStart,
+                                firstEnd,
+                                second.ring[secondEdge],
+                                second.ring[(secondEdge + 1) % second.ring.length]
+                            );
+                            if (intersection) {
+                                intersections.push(intersection);
+                                addCandidate(intersection);
+                            }
+                        }
+                    }
+                    if (intersections.length > 1) {
+                        const center = intersections.reduce((total, point) => ({
+                            lat: total.lat + point.lat / intersections.length,
+                            lng: total.lng + point.lng / intersections.length
+                        }), { lat: 0, lng: 0 });
+                        addCandidate(center);
+                    }
+                    addCandidate({
+                        lat: (first.position.lat + second.position.lat) / 2,
+                        lng: (first.position.lng + second.position.lng) / 2
+                    });
+                }
+            }
+
+            const coverageGroups = [
+                coverages,
+                ...targetIcons.map(icon => coverages.filter(coverage => coverage.iconUrl === icon))
+            ];
+            for (const group of coverageGroups) {
+                if (group.length < 2) continue;
+                addCandidate(group.reduce((center, coverage) => ({
+                    lat: center.lat + coverage.position.lat / group.length,
+                    lng: center.lng + coverage.position.lng / group.length
+                }), { lat: 0, lng: 0 }));
+            }
+
+            return candidates.sort((a, b) =>
+                b.matchingSourceCount - a.matchingSourceCount ||
+                a.centerDistance - b.centerDistance
+            );
+        }
+
+        /**
          * Desenha um marcador de resultado e associa metadados exportáveis.
          * @param {Object} position - Coordenada Leaflet do resultado.
          * @param {string} color - Cor de apresentação.
@@ -339,11 +468,12 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         }
 
         /**
-         * Gera locais candidatos na área visível e recomenda os que cobrem os tipos de ícone selecionados.
-         * @param {Object} params - Tipos de ícone a cobrir, ícone da repetidora, preset e alcance.
-         * @returns {Promise<Array<Object>>} Posições recomendadas ordenadas pela cobertura alcançada.
+         * Calcula a cobertura de cada unidade e recomenda locais nas interseções dessas áreas.
+         * @param {Object} params - Tipos de ícone, repetidora, preset, alcance e altura das antenas.
+         * @param {Function} [onProgress] - Atualiza a interface durante o cálculo das áreas.
+         * @returns {Promise<Array<Object>>} Posições recomendadas ordenadas pelas unidades alcançadas.
          */
-        async function suggestRepeaterPositions(params) {
+        async function suggestRepeaterPositions(params, onProgress = () => {}) {
             const area = params.area || map.getBounds();
             const repeaterIcon = params.repeaterIcon || params.candidateIcon;
             const targetIcons = [...new Set(params.iconTypesToCover || [params.iconType1, params.iconType2].filter(Boolean))];
@@ -367,92 +497,120 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             if (missingIcons.length > 0) {
                 throw new Error(`Não foram encontrados marcadores dos tipos selecionados na área visível: ${missingIcons.join(', ')}. Confira os ícones e ajuste o mapa.`);
             }
-
-            const bounds = area instanceof leaflet.Polygon ? area.getBounds() : area;
-            const centerLatitude = (bounds.getNorth() + bounds.getSouth()) / 2;
-            const desiredCellSizeKm = 1;
-            const latStep = desiredCellSizeKm / 111.32;
-            const lonStep = desiredCellSizeKm / (111.32 * Math.max(0.1, Math.cos(centerLatitude * Math.PI / 180)));
-            const rows = Math.max(1, Math.ceil((bounds.getNorth() - bounds.getSouth()) / latStep));
-            const columns = Math.max(1, Math.ceil((bounds.getEast() - bounds.getWest()) / lonStep));
-            const unitsPerCandidate = [...unitsByIcon.values()].reduce((total, units) => total + units.length, 0);
-            const estimatedPointsPerLink = Math.max(2, Math.ceil(params.maxDistance * 1000 / 30) + 1);
-            const maxCandidateCount = Math.max(1, Math.min(
-                Math.floor(maxAnalyzedLinks / unitsPerCandidate),
-                Math.floor(maxAnalyzedPoints / (unitsPerCandidate * estimatedPointsPerLink))
-            ));
-            let stepMultiplier = 1;
-            while (Math.ceil(rows / stepMultiplier) * Math.ceil(columns / stepMultiplier) > maxCandidateCount) {
-                stepMultiplier *= 1.25;
-            }
-            const gridRows = Math.max(1, Math.ceil(rows / stepMultiplier));
-            const gridColumns = Math.max(1, Math.ceil(columns / stepMultiplier));
-            const actualLatStep = (bounds.getNorth() - bounds.getSouth()) / gridRows;
-            const actualLonStep = (bounds.getEast() - bounds.getWest()) / gridColumns;
-            const candidates = [];
-            for (let row = 0; row < gridRows; row++) {
-                for (let column = 0; column < gridColumns; column++) {
-                    const position = {
-                        lat: bounds.getSouth() + (row + 0.5) * actualLatStep,
-                        lng: bounds.getWest() + (column + 0.5) * actualLonStep
-                    };
-                    if (isWithinArea(position, area)) candidates.push(position);
+            const targetUnitMap = new Map();
+            for (const [iconUrl, units] of unitsByIcon) {
+                for (const unit of units) {
+                    const key = `${iconUrl}:${unit.position.lat.toFixed(6)}:${unit.position.lng.toFixed(6)}`;
+                    if (!targetUnitMap.has(key)) targetUnitMap.set(key, { ...unit, iconUrl });
                 }
             }
-            if (candidates.length === 0) {
-                throw new Error('A área visível do mapa não contém posições para avaliar. Ajuste o zoom ou enquadre a região desejada.');
+            const targetUnits = [...targetUnitMap.values()];
+            if (targetUnits.length > 40) {
+                throw new Error(`Há ${targetUnits.length} unidades dos tipos selecionados na área visível. Reduza a área ou escolha menos tipos (limite: 40 unidades).`);
             }
 
+            const coverages = [];
+            const radialCount = 72;
+            const maxCoverageSteps = Math.floor(maxAnalyzedPoints / radialCount) - 1;
+            const resolutionKm = Math.max(0.05, params.maxDistance / maxCoverageSteps);
+            for (let unitIndex = 0; unitIndex < targetUnits.length; unitIndex++) {
+                const unit = targetUnits[unitIndex];
+                const resolutionMeters = Math.round(resolutionKm * 1000);
+                const message = `Calculando área de cobertura ${unitIndex + 1} de ${targetUnits.length} (resolução aproximada: ${resolutionMeters} m)…`;
+                log(message);
+                onProgress(message);
+                await new Promise(resolve => setTimeout(resolve, 0));
+                const ring = await radioPlanning.analyzeCoverageBoundary(
+                    unit.position,
+                    params.radioPreset,
+                    params.maxDistance,
+                    params.antennaHeight,
+                    { radialCount, resolutionKm }
+                );
+                const distinctPoints = ring.filter((point, index) =>
+                    index === 0 || map.distance(point, ring[index - 1]) > 1
+                );
+                if (distinctPoints.length >= 3) {
+                    coverages.push({ position: unit.position, iconUrl: unit.iconUrl, ring });
+                }
+            }
+
+            if (coverages.length < 2) {
+                throw new Error('Não foi possível formar áreas de cobertura sobrepostas. Confira o alcance, o preset e as alturas das antenas.');
+            }
+
+            onProgress('Identificando interseções entre as áreas de cobertura…');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const candidates = getCoverageIntersectionCandidates(coverages, targetIcons, area).slice(0, 40);
+            if (candidates.length === 0) {
+                throw new Error('As áreas de cobertura calculadas não têm interseções que alcancem todos os tipos de unidade selecionados. Aumente o alcance ou ajuste a região visível do mapa.');
+            }
+
+            const indexedCandidates = candidates.map(candidate => ({
+                ...candidate,
+                coverageByIcon: new Array(targetIcons.length).fill(0),
+                connectedUnitCount: 0
+            }));
+            const targetIconIndexes = new Map(targetIcons.map((icon, index) => [icon, index]));
             const links = [];
             const metadata = [];
-            const directlyConnected = [];
-            const targetIconIndexes = new Map(targetIcons.map((icon, index) => [icon, index]));
-            for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
-                const candidate = candidates[candidateIndex];
-                for (const [icon, units] of unitsByIcon) {
-                    const targetIconIndex = targetIconIndexes.get(icon);
-                    for (const unit of units) {
-                        const distanceKm = map.distance(candidate, unit.position) / 1000;
-                        if (distanceKm <= 0.001) {
-                            directlyConnected.push({ candidateIndex, targetIconIndex });
-                        } else if (distanceKm <= params.maxDistance) {
-                            links.push({ from: candidate, to: unit.position });
-                            metadata.push({ candidateIndex, targetIconIndex });
-                        }
+            indexedCandidates.forEach((candidate, candidateIndex) => {
+                candidate.coveredAreas.forEach(coverage => {
+                    const distanceKm = map.distance(candidate.position, coverage.position) / 1000;
+                    if (distanceKm <= 0.001) {
+                        candidate.connectedUnitCount++;
+                        candidate.coverageByIcon[targetIconIndexes.get(coverage.iconUrl)]++;
+                    } else if (distanceKm <= params.maxDistance) {
+                        links.push({ from: candidate.position, to: coverage.position });
+                        metadata.push({ candidateIndex, iconUrl: coverage.iconUrl });
                     }
+                });
+            });
+
+            let linkOffset = 0;
+            while (linkOffset < links.length) {
+                const batch = [];
+                let estimatedPoints = 0;
+                while (linkOffset < links.length && batch.length < 30) {
+                    const nextLink = links[linkOffset];
+                    const linkPoints = Math.max(2, Math.ceil(map.distance(nextLink.from, nextLink.to) / 30) + 1);
+                    if (batch.length > 0 && estimatedPoints + linkPoints > maxAnalyzedPoints) break;
+                    batch.push(nextLink);
+                    estimatedPoints += linkPoints;
+                    linkOffset++;
                 }
-            }
-            const ranked = candidates.map((position, candidateIndex) => ({
-                position,
-                coverageByIcon: new Array(targetIcons.length).fill(0)
-            }));
-            directlyConnected.forEach(connection => {
-                const record = ranked[connection.candidateIndex];
-                record.coverageByIcon[connection.targetIconIndex]++;
-            });
-            if (links.length > 0) ensureLinkLimit(links);
-            const results = links.length > 0
-                ? await radioPlanning.analyzeLinks(links, params.radioPreset, params.antennaHeight)
-                : [];
-            results.forEach((result, index) => {
-                if (!result.isViable) return;
-                const record = ranked[metadata[index].candidateIndex];
-                record.coverageByIcon[metadata[index].targetIconIndex]++;
-            });
-            const bridges = ranked
-                .filter(candidate => candidate.coverageByIcon.every(count => count > 0))
-                .sort((a, b) => Math.min(...b.coverageByIcon) - Math.min(...a.coverageByIcon) ||
-                    b.coverageByIcon.reduce((total, count) => total + count, 0) -
-                    a.coverageByIcon.reduce((total, count) => total + count, 0));
-            if (bridges.length === 0) {
-                throw new Error('Nenhuma posição da área visível alcança todos os tipos de unidade selecionados com este preset e alcance. Aumente o alcance ou ajuste a região visível do mapa.');
+                ensureLinkLimit(batch);
+                const results = await radioPlanning.analyzeLinks(batch, params.radioPreset, params.antennaHeight);
+                results.forEach((result, batchIndex) => {
+                    if (!result.isViable) return;
+                    const linkIndex = linkOffset - batch.length + batchIndex;
+                    const { candidateIndex, iconUrl } = metadata[linkIndex];
+                    indexedCandidates[candidateIndex].connectedUnitCount++;
+                    indexedCandidates[candidateIndex].coverageByIcon[targetIconIndexes.get(iconUrl)]++;
+                });
+                onProgress(`Validando os locais de interseção (${Math.min(linkOffset, links.length)} de ${links.length} enlaces)…`);
             }
 
-            const recommendations = bridges.slice(0, 10);
+            const bridges = indexedCandidates
+                .filter(candidate => candidate.connectedUnitCount >= 2 &&
+                    candidate.coverageByIcon.every(count => count > 0))
+                .sort((a, b) => b.connectedUnitCount - a.connectedUnitCount ||
+                    Math.min(...b.coverageByIcon) - Math.min(...a.coverageByIcon) ||
+                    a.centerDistance - b.centerDistance);
+            if (bridges.length === 0) {
+                throw new Error('As interseções encontradas não mantêm enlaces viáveis com todos os tipos selecionados. Aumente o alcance ou ajuste o preset e a altura das antenas.');
+            }
+
+            const recommendations = [];
+            for (const candidate of bridges) {
+                if (recommendations.some(existing => map.distance(existing.position, candidate.position) < 500)) continue;
+                recommendations.push(candidate);
+                if (recommendations.length === 10) break;
+            }
             recommendations.forEach((candidate, index) => {
                 const isBest = index === 0;
                 const name = isBest ? 'Posição recomendada para repetidor' : `Posição alternativa ${index + 1}`;
-                const description = `Unidades com enlace viável: ${candidate.coverageByIcon.reduce((total, count) => total + count, 0)}.`;
+                const description = `Interseção de ${candidate.connectedUnitCount} áreas de cobertura; enlaces viáveis para ${candidate.coverageByIcon.reduce((total, count) => total + count, 0)} unidades.`;
                 const marker = leaflet.marker(candidate.position, {
                     icon: leaflet.icon({
                         iconUrl: repeaterIcon,
@@ -477,7 +635,7 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                     }
                 };
             });
-            log(`Posições de repetidor: ${bridges.length} locais da grade alcançam todos os tipos selecionados; foram marcadas as ${recommendations.length} melhores.`);
+            log(`Posições de repetidor: ${recommendations.length} locais nas interseções das áreas de cobertura foram marcados.`);
             return recommendations;
         }
 

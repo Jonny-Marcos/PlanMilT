@@ -8,7 +8,10 @@ test('radio operation module loads before the task executor', () => {
     const fs = require('node:fs');
     const path = require('node:path');
     const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
+    const executorSource = fs.readFileSync(path.join(__dirname, '../../js/features/task-execution.js'), 'utf8');
     assert.ok(html.indexOf('task-radio-operations.js?') < html.indexOf('task-execution.js?'));
+    assert.match(executorSource, /title: 'Calculando áreas de cobertura…'/);
+    assert.match(executorSource, /Swal\.update\(\{ text: message \}\)/);
 });
 
 class Marker {
@@ -47,11 +50,12 @@ class LargeLatLngBounds extends LatLngBounds {
     getEast() { return 0.1; }
 }
 
-function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBounds(), distance = () => 1000, analyzeLinks, compareLinks } = {}) {
+function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBounds(), distance = () => 1000, analyzeLinks, analyzeCoverageBoundary, compareLinks } = {}) {
     const generated = [];
     const logs = [];
     const analyzedCalls = [];
     const comparedCalls = [];
+    const coverageCalls = [];
     const sourceLayer = {
         eachLayer(callback) {
             layers.forEach(callback);
@@ -73,6 +77,19 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
         async analyzeLinks(links, presetId, antennaHeight) {
             analyzedCalls.push({ links, presetId, antennaHeight });
             return analyzeLinks ? analyzeLinks(links, presetId, antennaHeight) : links.map(() => ({ isViable: true, rxPower: -70, distTotalKm: 1 }));
+        },
+        async analyzeCoverageBoundary(center, presetId, maxDistance, antennaHeight, options) {
+            coverageCalls.push({ center, presetId, maxDistance, antennaHeight, options });
+            if (analyzeCoverageBoundary) {
+                return analyzeCoverageBoundary(center, presetId, maxDistance, antennaHeight, options);
+            }
+            return Array.from({ length: 36 }, (_, index) => {
+                const bearing = index * Math.PI / 18;
+                return {
+                    lat: center.lat + Math.sin(bearing) * 0.01,
+                    lng: center.lng + Math.cos(bearing) * 0.01
+                };
+            });
         },
         async compareLinks(links, antennaHeight) {
             comparedCalls.push({ links, antennaHeight });
@@ -163,7 +180,7 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
         log: message => logs.push(message)
     });
 
-    return { task, generated, logs, analyzedCalls, comparedCalls };
+    return { task, generated, logs, analyzedCalls, comparedCalls, coverageCalls };
 }
 
 test('coverage-gap task estimates and draws covered and uncovered grid cells', async () => {
@@ -224,10 +241,14 @@ test('route task marks samples with and without viable station links', async () 
     assert.equal(analyzedCalls[0].antennaHeight, 8);
 });
 
-test('repeater task searches both map layers and recommends positions covering every selected icon type', async () => {
+test('repeater task calculates each unit coverage and recommends sites inside their intersections', async () => {
     const drawingMarkers = [new Marker('group-a', { lat: 0, lng: 0.005 })];
     const planningMarkers = [new Marker('group-b', { lat: 0, lng: 0.015 })];
-    const { task, generated, analyzedCalls } = setup({ layers: drawingMarkers, suggestionLayers: planningMarkers });
+    const { task, generated, analyzedCalls, coverageCalls, logs } = setup({
+        layers: drawingMarkers,
+        suggestionLayers: planningMarkers
+    });
+    const progress = [];
     const result = await task.suggestRepeaterPositions({
         iconTypesToCover: ['group-a', 'group-b'],
         repeaterIcon: 'symbols/friend/repeater.svg',
@@ -235,16 +256,28 @@ test('repeater task searches both map layers and recommends positions covering e
         maxDistance: 20,
         antennaHeight: 15,
         area: null
-    });
+    }, message => progress.push(message));
 
     assert.ok(result.length > 0);
-    assert.deepEqual(result[0].coverageByIcon, [1, 1]);
+    assert.equal(result[0].coverageByIcon.every(count => count > 0), true);
+    assert.equal(result[0].connectedUnitCount, 2);
     assert.equal(generated.length, result.length);
     assert.equal(generated[0].options.icon.options.iconUrl, 'symbols/friend/repeater.svg');
     assert.equal(generated[0].feature.properties.name, 'Posição recomendada para repetidor');
     assert.equal(generated[0].feature.properties.iconUrl, 'symbols/friend/repeater.svg');
-    assert.deepEqual(generated[0].feature.properties.coverageByIcon, { 'group-a': 1, 'group-b': 1 });
-    assert.equal(analyzedCalls[0].antennaHeight, 15);
+    assert.match(generated[0].popup, /Interseção de 2 áreas de cobertura/);
+    assert.equal(coverageCalls.length, 2);
+    assert.equal(coverageCalls[0].antennaHeight, 15);
+    assert.equal(coverageCalls[0].options.radialCount, 72);
+    assert.ok(coverageCalls[0].options.resolutionKm >= 0.05);
+    assert.ok(
+        72 * (Math.ceil(20 / coverageCalls[0].options.resolutionKm) + 1) <= 25000
+    );
+    assert.match(progress[0], /resolução aproximada/);
+    assert.ok(analyzedCalls.length > 0);
+    assert.match(progress[0], /Calculando área de cobertura 1 de 2/);
+    assert.match(progress.at(-1), /Validando os locais de interseção/);
+    assert.match(logs.at(-1), /nas interseções das áreas de cobertura/);
 });
 
 test('repeater task supports saved sequences with the former candidate icon parameter', async () => {
@@ -252,7 +285,7 @@ test('repeater task supports saved sequences with the former candidate icon para
         new Marker('group-a', { lat: 0, lng: 0.005 }),
         new Marker('group-b', { lat: 0, lng: 0.015 })
     ];
-    const { task, generated } = setup({ layers });
+    const { task, generated, coverageCalls } = setup({ layers });
     await task.suggestRepeaterPositions({
         candidateIcon: 'symbols/friend/legacy-repeater.svg',
         iconType1: 'group-a',
@@ -263,15 +296,15 @@ test('repeater task supports saved sequences with the former candidate icon para
     });
 
     assert.equal(generated[0].options.icon.options.iconUrl, 'symbols/friend/legacy-repeater.svg');
+    assert.equal(coverageCalls.length, 2);
 });
 
-test('repeater task adapts grid density to analysis limits and draws at most ten recommendations', async () => {
+test('repeater task limits intersection recommendations to ten positions', async () => {
     const layers = [
         new Marker('group-a', { lat: 0, lng: 0.005 }),
         new Marker('group-b', { lat: 0, lng: 0.015 })
     ];
-    const largeBounds = new LargeLatLngBounds();
-    const { task, generated, logs } = setup({ layers, suggestionLayers: [], bounds: largeBounds });
+    const { task, generated, logs } = setup({ layers, suggestionLayers: [] });
     const recommendations = await task.suggestRepeaterPositions({
         repeaterIcon: 'symbols/friend/repeater.svg',
         iconTypesToCover: ['group-a', 'group-b'],
@@ -280,9 +313,39 @@ test('repeater task adapts grid density to analysis limits and draws at most ten
         area: null
     });
 
-    assert.equal(recommendations.length, 10);
-    assert.equal(generated.length, 10);
-    assert.match(logs[0], /foram marcadas as 10 melhores/);
+    assert.ok(recommendations.length > 0 && recommendations.length <= 10);
+    assert.equal(generated.length, recommendations.length);
+    assert.match(logs.at(-1), /nas interseções das áreas de cobertura/);
+});
+
+test('repeater task reports when selected unit coverage areas do not intersect', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0 }),
+        new Marker('group-a', { lat: 0, lng: 0.1 })
+    ];
+    const { task } = setup({
+        layers,
+        analyzeCoverageBoundary(center) {
+            return Array.from({ length: 36 }, (_, index) => {
+                const bearing = index * Math.PI / 18;
+                return {
+                    lat: center.lat + Math.sin(bearing) * 0.001,
+                    lng: center.lng + Math.cos(bearing) * 0.001
+                };
+            });
+        }
+    });
+
+    await assert.rejects(
+        task.suggestRepeaterPositions({
+            iconTypesToCover: ['group-a'],
+            repeaterIcon: 'symbols/friend/repeater.svg',
+            radioPreset: 'radio',
+            maxDistance: 20,
+            area: null
+        }),
+        /não têm interseções/
+    );
 });
 
 test('preset comparison reports per-radio viability and draws the tested pair', async () => {

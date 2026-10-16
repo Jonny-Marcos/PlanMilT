@@ -380,6 +380,114 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     return results[presetId];
                 }
 
+                /**
+                 * Calcula o limite aproximado da área de cobertura a partir de um ponto.
+                 * @param {Object} center - Coordenada geográfica do ícone de origem.
+                 * @param {string} presetId - Identificador do preset de rádio ou visada.
+                 * @param {number} radiusKm - Alcance máximo a avaliar em quilômetros.
+                 * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx.
+                 * @param {Object} [options] - Resolução e quantidade de radiais da aproximação.
+                 * @param {number} [options.radialCount=36] - Quantidade de direções do contorno.
+                 * @param {number} [options.resolutionKm=0.1] - Intervalo de amostragem em quilômetros.
+                 * @returns {Promise<Array<Object>>} Pontos do contorno com latitude e longitude.
+                 */
+                async function analisarAreaCobertura(center, presetId, radiusKm, antennaHeight, options = {}) {
+                    const preset = radioPresets[presetId];
+                    if (!preset || presetId === 'custom') throw new Error('Preset de enlace inválido.');
+                    if (!Number.isFinite(radiusKm) || radiusKm <= 0) throw new Error('Informe um alcance de cobertura válido.');
+                    if (antennaHeight !== undefined && (!Number.isFinite(antennaHeight) || antennaHeight < 0)) {
+                        throw new Error('A altura da antena deve ser um número igual ou maior que zero.');
+                    }
+
+                    const radialCount = options.radialCount ?? 36;
+                    const resolutionKm = options.resolutionKm ?? 0.1;
+                    if (!Number.isInteger(radialCount) || radialCount < 8 ||
+                        !Number.isFinite(resolutionKm) || resolutionKm <= 0) {
+                        throw new Error('Parâmetros inválidos para calcular a área de cobertura.');
+                    }
+
+                    const steps = Math.ceil(radiusKm / resolutionKm);
+                    const points = [];
+                    for (let radialIndex = 0; radialIndex < radialCount; radialIndex++) {
+                        const bearing = radialIndex * 360 / radialCount;
+                        for (let step = 0; step <= steps; step++) {
+                            const distanceKm = Math.min(step * resolutionKm, radiusKm);
+                            const destination = turf.destination(
+                                [center.lng, center.lat],
+                                distanceKm,
+                                bearing,
+                                { units: 'kilometers' }
+                            ).geometry.coordinates;
+                            points.push({
+                                latitude: destination[1],
+                                longitude: destination[0],
+                                distKm: distanceKm,
+                                radialIndex
+                            });
+                        }
+                    }
+
+                    const elevations = await requestElevation(points);
+                    const parameters = {
+                        ...preset,
+                        ...(antennaHeight === undefined ? {} : { txHeight: antennaHeight, rxHeight: antennaHeight }),
+                        isOptical: presetId === 'optical'
+                    };
+                    const freqGHz = parameters.isOptical ? 1 : parameters.freq / 1000;
+                    const boundary = [];
+                    for (let radialIndex = 0; radialIndex < radialCount; radialIndex++) {
+                        const radialOffset = radialIndex * (steps + 1);
+                        const txElevation = elevations[radialOffset].elevation + parameters.txHeight;
+                        let furthestViableDistance = 0;
+
+                        for (let step = 1; step <= steps; step++) {
+                            const pointIndex = radialOffset + step;
+                            const distanceKm = points[pointIndex].distKm;
+                            const rxElevation = elevations[pointIndex].elevation + parameters.rxHeight;
+                            let hasObstruction = false;
+
+                            for (let intermediateStep = 1; intermediateStep < step; intermediateStep++) {
+                                const intermediateIndex = radialOffset + intermediateStep;
+                                const distanceFromTx = points[intermediateIndex].distKm;
+                                const distanceToRx = distanceKm - distanceFromTx;
+                                const curvature = (distanceFromTx * distanceToRx) / (12.74 * 1.333);
+                                const terrainElevation = elevations[intermediateIndex].elevation + curvature;
+                                const losElevation = txElevation -
+                                    ((txElevation - rxElevation) * (distanceFromTx / distanceKm));
+                                const fresnelRadius = parameters.isOptical
+                                    ? 0
+                                    : 17.32 * Math.sqrt((distanceFromTx * distanceToRx) / (freqGHz * distanceKm));
+                                if (terrainElevation > losElevation - 0.6 * fresnelRadius) {
+                                    hasObstruction = true;
+                                    break;
+                                }
+                            }
+
+                            let isViable = !hasObstruction;
+                            if (!parameters.isOptical) {
+                                const freeSpaceLoss = 20 * Math.log10(distanceKm) +
+                                    20 * Math.log10(parameters.freq) + 32.44;
+                                const receivedPower = parameters.txPower + parameters.txGain -
+                                    freeSpaceLoss + parameters.rxGain;
+                                const isMicrowave = parameters.freq > 1000;
+                                isViable = isMicrowave
+                                    ? !hasObstruction && receivedPower >= parameters.rxSens
+                                    : receivedPower >= parameters.rxSens;
+                            }
+                            if (isViable) furthestViableDistance = distanceKm;
+                        }
+
+                        const destination = turf.destination(
+                            [center.lng, center.lat],
+                            furthestViableDistance,
+                            radialIndex * 360 / radialCount,
+                            { units: 'kilometers' }
+                        ).geometry.coordinates;
+                        boundary.push({ lat: destination[1], lng: destination[0] });
+                    }
+                    return boundary;
+                }
+
                 async function calcularPTP(pt1, pt2, p) {
                     Swal.fire({ title: 'Simulando Enlace...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     try {
@@ -757,6 +865,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
             },
             analyzeLink: analisarEnlaceComPreset,
             analyzeLinks: analisarEnlacesComPreset,
+            analyzeCoverageBoundary: analisarAreaCobertura,
             /**
              * Compara todos os presets disponíveis sobre os mesmos perfis de elevação.
              * @param {Array<Object>} links - Pares de coordenadas nas propriedades from/to.

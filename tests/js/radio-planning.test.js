@@ -79,6 +79,12 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         length: () => 0.06,
         along(line, distance) {
             return { geometry: { coordinates: [distance, 0] } };
+        },
+        destination(center, distance, bearing) {
+            const radians = bearing * Math.PI / 180;
+            const latitude = center[1] + distance * Math.cos(radians) / 111;
+            const longitude = center[0] + distance * Math.sin(radians) / 111;
+            return { geometry: { coordinates: [longitude, latitude] } };
         }
     };
 
@@ -156,4 +162,15 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
     assert.equal(Object.keys(comparison).length, 6);
     assert.equal(comparison.optical.length, 1);
     assert.equal(requests.length, 5);
+
+    const coverageBoundary = await radioPlanning.analyzeCoverageBoundary(
+        { lat: 0, lng: 0 },
+        'optical',
+        0.2,
+        1.5,
+        { radialCount: 8, resolutionKm: 0.1 }
+    );
+    assert.equal(coverageBoundary.length, 8);
+    assert.ok(coverageBoundary.every(point => Number.isFinite(point.lat) && Number.isFinite(point.lng)));
+    assert.equal(requests.length, 6);
 });
