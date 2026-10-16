@@ -123,10 +123,15 @@ function createHarness({
                 graphic: {
                     type: 'Feature',
                     properties: { tacticalGraphic: feature.properties.tacticalGraphic, role: 'graphic' },
-                    geometry: {
-                        type: 'MultiLineString',
-                        coordinates: [[[-50, -20], [-49.9, -20.1]]]
-                    }
+                    geometry: geometryType === 'Point'
+                        ? { type: 'MultiPoint', coordinates: [[-50, -20]] }
+                        : {
+                            type: 'MultiLineString',
+                            coordinates: [
+                                [[-50, -20], [-49.9, -20.1]],
+                                [[-49.9, -20.1], [-49.8, -20.2]]
+                            ]
+                        }
                 },
                 labels: {
                     type: 'Feature',
@@ -190,13 +195,44 @@ function createHarness({
             }
         },
         geoJSON(feature, options) {
-            return {
-                feature,
+            const layerGroup = (childLayers, sourceFeature) => ({
+                feature: sourceFeature,
                 options,
+                setStyle() {},
                 eachLayer(callback) {
-                    callback({ feature, options, setStyle() {} });
+                    childLayers.forEach(callback);
                 }
+            });
+            const primitiveLayer = sourceFeature => ({
+                feature: sourceFeature,
+                options,
+                setStyle() {},
+                editing: { enable() {}, disable() {} }
+            });
+            const featureLayer = sourceFeature => {
+                if (sourceFeature.type === 'FeatureCollection') {
+                    return layerGroup(sourceFeature.features.map(featureLayer), sourceFeature);
+                }
+                if (sourceFeature.geometry.type === 'MultiLineString') {
+                    const lineLayers = sourceFeature.geometry.coordinates.map(coordinates =>
+                        primitiveLayer({
+                            ...sourceFeature,
+                            geometry: { type: 'LineString', coordinates }
+                        })
+                    );
+                    return layerGroup([layerGroup(lineLayers)], sourceFeature);
+                }
+                if (sourceFeature.geometry.type === 'MultiPoint') {
+                    return layerGroup(sourceFeature.geometry.coordinates.map(coordinates =>
+                        primitiveLayer({
+                            ...sourceFeature,
+                            geometry: { type: 'Point', coordinates }
+                        })
+                    ), sourceFeature);
+                }
+                return primitiveLayer(sourceFeature);
             };
+            return featureLayer(feature);
         },
         circleMarker(latlng, options) {
             return { latlng, options, setStyle() {} };
@@ -291,9 +327,11 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     });
 
     assert.equal(handled, true);
-    assert.equal(harness.layers.length, 3);
-    assert.equal(harness.layers[0].feature.properties.color, '#123456');
-    assert.equal(harness.layers[1].options.icon.html, '1ª Cia');
+    assert.equal(harness.layers.length, 4);
+    assert.equal(harness.layers[0].feature.geometry.type, 'LineString');
+    assert.equal(harness.layers[1].feature.geometry.type, 'LineString');
+    assert.ok(harness.layers.slice(0, 2).every(layer => layer.editing));
+    assert.equal(harness.layers[2].options.icon.html, '1ª Cia');
     assert.equal(harness.integration.handleCreated({}), false);
 });
 

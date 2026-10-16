@@ -662,7 +662,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          * @param {Object} layer - Camada Leaflet criada por L.geoJSON.
          */
         function addLeafletLayers(layer) {
-            if (typeof layer.eachLayer === 'function' && typeof layer.setStyle !== 'function') {
+            if (typeof layer.eachLayer === 'function') {
                 layer.eachLayer(addLeafletLayers);
                 return;
             }
