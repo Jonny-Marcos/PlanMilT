@@ -477,8 +477,16 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             const area = params.area || map.getBounds();
             const repeaterIcon = params.repeaterIcon || params.candidateIcon;
             const targetIcons = [...new Set(params.iconTypesToCover || [params.iconType1, params.iconType2].filter(Boolean))];
+            const maxRepeaters = params.maxRepeaters ?? 10;
+            const minimumRepeaterDistanceKm = params.minimumRepeaterDistanceKm ?? 0.5;
             if (!Number.isFinite(params.maxDistance) || params.maxDistance <= 0) {
                 throw new Error('Informe uma distância máxima válida para cada enlace com a repetidora.');
+            }
+            if (!Number.isInteger(maxRepeaters) || maxRepeaters < 1 || maxRepeaters > 40) {
+                throw new Error('Informe de 1 a 40 posições máximas para as repetidoras.');
+            }
+            if (!Number.isFinite(minimumRepeaterDistanceKm) || minimumRepeaterDistanceKm < 0) {
+                throw new Error('Informe uma distância mínima válida entre as repetidoras (zero desativa o espaçamento).');
             }
             if (!repeaterIcon || targetIcons.length === 0) {
                 throw new Error('Selecione os tipos de ícone que precisam de cobertura e o ícone a colocar como repetidora.');
@@ -603,9 +611,11 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
 
             const recommendations = [];
             for (const candidate of bridges) {
-                if (recommendations.some(existing => map.distance(existing.position, candidate.position) < 500)) continue;
+                if (recommendations.some(existing =>
+                    map.distance(existing.position, candidate.position) < minimumRepeaterDistanceKm * 1000
+                )) continue;
                 recommendations.push(candidate);
-                if (recommendations.length === 10) break;
+                if (recommendations.length === maxRepeaters) break;
             }
             recommendations.forEach((candidate, index) => {
                 const isBest = index === 0;

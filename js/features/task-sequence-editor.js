@@ -107,8 +107,8 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                         },
                         suggestRepeaterPositions: {
                             purpose: 'Calcula a área de cobertura de cada unidade selecionada e busca as interseções onde uma repetidora pode alcançar unidades próximas.',
-                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo e a altura comum das antenas. A tarefa considera marcadores nas camadas de desenho e de sugestões dentro da região visível.',
-                            result: 'Adiciona até dez posições recomendadas nas interseções calculadas, priorizando as que alcançam mais unidades.'
+                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo, a altura comum das antenas, o máximo de repetidoras sugeridas e a distância mínima entre elas. A tarefa considera marcadores nas camadas de desenho e de sugestões dentro da região visível.',
+                            result: 'Adiciona até a quantidade configurada de posições recomendadas nas interseções, priorizando as que alcançam mais unidades e respeitando a distância mínima definida.'
                         },
                         compareRadioPresets: {
                             purpose: 'Avalia os mesmos pares de unidades com todos os presets RF e óticos e facilita comparar quais configurações atendem.',

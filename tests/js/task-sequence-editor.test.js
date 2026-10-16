@@ -36,5 +36,6 @@ test('task help covers all task types and details use injected preset labels', (
     assert.match(source, /#taskParameters \.task-parameter-form \.swal2-input\s*\{[\s\S]*?width: 100% !important/);
     assert.match(source, /@media \(max-width: 640px\)/);
     assert.match(source, /Calcula a área de cobertura de cada unidade selecionada/);
+    assert.match(source, /quantidade configurada de posições recomendadas/);
     assert.match(source, /a partir de 10 m/);
 });

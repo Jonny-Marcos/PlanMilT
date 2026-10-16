@@ -330,6 +330,8 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             '#repeaterRadioPreset': 'radio',
             '#repeaterMaxDistance': '10',
             '#repeaterAntennaHeight': '4',
+            '#repeaterMaxCount': '4',
+            '#repeaterMinDistance': '1.5',
             '#compareRadioLayer': 'planningSuggestions',
             '#compareRadioIcon1': icons[0],
             '#compareRadioIcon2': icons[1],
@@ -353,6 +355,8 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
     assert.match(repeaterHtml, /Ícone a colocar/);
     assert.match(repeaterHtml, /Alcance máximo de cada enlace/);
+    assert.match(repeaterHtml, /Máximo de repetidoras sugeridas \(1–40\)/);
+    assert.match(repeaterHtml, /Distância mínima entre repetidoras/);
     assert.match(repeaterHtml, /pontos de interseção/);
     assert.match(repeaterHtml, /camadas de desenho e de sugestões/);
     assert.doesNotMatch(repeaterHtml, /Espaçamento entre posições|Camada com os ícones|Grupo 1|Grupo 2/);
@@ -389,6 +393,8 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         radioPreset: 'radio',
         maxDistance: 10,
         antennaHeight: 4,
+        maxRepeaters: 4,
+        minimumRepeaterDistanceKm: 1.5,
         area: null
     });
     assert.deepEqual(await module.getValues('compareRadioPresets', {}), {
@@ -456,6 +462,24 @@ test('repeater task requires at least one target icon type', async () => {
 
     assert.equal(await module.getValues('suggestRepeaterPositions', {}), null);
     assert.match(alerts[0][1], /Selecione os ícones que precisam de cobertura/);
+});
+
+test('repeater task validates the configured count and non-negative spacing', async () => {
+    const { module, alerts } = createParametersModule({
+        radioPresets: [{ id: 'radio', label: 'Rádio' }],
+        values: {
+            '#repeaterIconUrl': 'symbols/friend/repeater.svg',
+            '#repeaterRadioPreset': 'radio',
+            '#repeaterMaxDistance': '10',
+            '#repeaterAntennaHeight': '1.5',
+            '#repeaterMaxCount': '41',
+            '#repeaterMinDistance': '0'
+        },
+        selectedOptions: ['symbols/enemy/target.svg']
+    });
+
+    assert.equal(await module.getValues('suggestRepeaterPositions', {}), null);
+    assert.match(alerts.at(-1)[1], /quantidade máxima e distância mínima válidos/);
 });
 
 test('unknown task form returns the existing user-facing message', async () => {

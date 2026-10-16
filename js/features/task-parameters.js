@@ -822,7 +822,7 @@ ${getAntennaHeightField('routeAntennaHeight', existingParameters)}
                             if (selectedTask === 'suggestRepeaterPositions') {
                                 return `
 <div class="task-parameter-form">
-<p class="task-parameter-description">Escolha um ou mais tipos de unidade que precisam de cobertura, o ícone da repetidora, o rádio ou visada e o alcance máximo. A tarefa calcula uma área de cobertura para cada unidade selecionada e procura os pontos de interseção para posicionar as repetidoras. São considerados marcadores nas camadas de desenho e de sugestões. Para escolher vários tipos, use Ctrl (Windows/Linux) ou Command (Mac) ao clicar.</p>
+<p class="task-parameter-description">Escolha um ou mais tipos de unidade que precisam de cobertura, o ícone da repetidora, o rádio ou visada e o alcance máximo. A tarefa calcula uma área de cobertura para cada unidade selecionada e procura os pontos de interseção para posicionar as repetidoras. São considerados marcadores nas camadas de desenho e de sugestões. Defina quantas posições quer sugerir e a distância mínima entre elas. Para escolher vários tipos, use Ctrl (Windows/Linux) ou Command (Mac) ao clicar.</p>
 <div class="task-parameter-field task-parameter-field-wide">
 <label for="repeaterTargetIcons"><i class="fas fa-bullseye" aria-hidden="true"></i> Ícones que precisam de cobertura:</label>
 <select id="repeaterTargetIcons" class="swal2-input" multiple size="5">${repeaterTargetOptions}</select>
@@ -840,6 +840,14 @@ ${getAntennaHeightField('repeaterAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="repeaterMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo de cada enlace (km):</label>
 <input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
+</div>
+<div class="task-parameter-field">
+<label for="repeaterMaxCount"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Máximo de repetidoras sugeridas (1–40):</label>
+<input id="repeaterMaxCount" class="swal2-input" type="number" min="1" max="40" step="1" value="${existingParameters.maxRepeaters ?? 10}">
+</div>
+<div class="task-parameter-field">
+<label for="repeaterMinDistance"><i class="fas fa-arrows-alt-h" aria-hidden="true"></i> Distância mínima entre repetidoras (km; 0 desativa):</label>
+<input id="repeaterMinDistance" class="swal2-input" type="number" min="0" step="0.1" value="${existingParameters.minimumRepeaterDistanceKm ?? 0.5}">
 </div>
 </div>
 `;
@@ -1071,11 +1079,15 @@ ${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
                             const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
                             const antennaHeight = parseFloat(popup.querySelector('#repeaterAntennaHeight').value);
+                            const maxRepeaters = Number(popup.querySelector('#repeaterMaxCount').value);
+                            const minimumRepeaterDistanceKm = parseFloat(popup.querySelector('#repeaterMinDistance').value);
                             if (!repeaterIcon || targetIcons.length === 0 ||
                                 !radioPresets.some(preset => preset.id === radioPreset) ||
                                 !Number.isFinite(maxDistance) || maxDistance <= 0 ||
-                                !Number.isFinite(antennaHeight) || antennaHeight < 0) {
-                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar e um preset; informe alcance e altura de antena válidos.', 'warning');
+                                !Number.isFinite(antennaHeight) || antennaHeight < 0 ||
+                                !Number.isInteger(maxRepeaters) || maxRepeaters < 1 || maxRepeaters > 40 ||
+                                !Number.isFinite(minimumRepeaterDistanceKm) || minimumRepeaterDistanceKm < 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar e um preset; informe alcance, altura, quantidade máxima e distância mínima válidos.', 'warning');
                                 return null;
                             }
                             return {
@@ -1084,6 +1096,8 @@ ${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
                                 radioPreset,
                                 maxDistance,
                                 antennaHeight,
+                                maxRepeaters,
+                                minimumRepeaterDistanceKm,
                                 area: existingParameters.area || null
                             };
                         }

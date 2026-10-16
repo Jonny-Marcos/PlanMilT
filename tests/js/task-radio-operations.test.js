@@ -299,7 +299,7 @@ test('repeater task supports saved sequences with the former candidate icon para
     assert.equal(coverageCalls.length, 2);
 });
 
-test('repeater task limits intersection recommendations to ten positions', async () => {
+test('repeater task respects the configured maximum number of recommendations', async () => {
     const layers = [
         new Marker('group-a', { lat: 0, lng: 0.005 }),
         new Marker('group-b', { lat: 0, lng: 0.015 })
@@ -310,12 +310,63 @@ test('repeater task limits intersection recommendations to ten positions', async
         iconTypesToCover: ['group-a', 'group-b'],
         radioPreset: 'radio',
         maxDistance: 20,
+        maxRepeaters: 1,
+        minimumRepeaterDistanceKm: 0,
+        area: null
+    });
+
+    assert.equal(recommendations.length, 1);
+    assert.equal(generated.length, recommendations.length);
+    assert.match(logs.at(-1), /nas interseções das áreas de cobertura/);
+});
+
+test('repeater task enforces the configured minimum distance between recommendations', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
+    ];
+    const distance = (first, second) =>
+        Math.hypot((first.lat - second.lat) * 111320, (first.lng - second.lng) * 111320);
+    const { task, generated } = setup({ layers, suggestionLayers: [], distance });
+    const recommendations = await task.suggestRepeaterPositions({
+        repeaterIcon: 'symbols/friend/repeater.svg',
+        iconTypesToCover: ['group-a', 'group-b'],
+        radioPreset: 'radio',
+        maxDistance: 20,
+        maxRepeaters: 10,
+        minimumRepeaterDistanceKm: 50,
+        area: null
+    });
+
+    assert.equal(recommendations.length, 1);
+    assert.equal(generated.length, 1);
+});
+
+test('repeater task preserves the former ten-position and 500-meter defaults', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
+    ];
+    const distance = (first, second) =>
+        Math.hypot((first.lat - second.lat) * 111320, (first.lng - second.lng) * 111320);
+    const { task, generated } = setup({ layers, suggestionLayers: [], distance });
+    const recommendations = await task.suggestRepeaterPositions({
+        repeaterIcon: 'symbols/friend/repeater.svg',
+        iconTypesToCover: ['group-a', 'group-b'],
+        radioPreset: 'radio',
+        maxDistance: 20,
         area: null
     });
 
     assert.ok(recommendations.length > 0 && recommendations.length <= 10);
     assert.equal(generated.length, recommendations.length);
-    assert.match(logs.at(-1), /nas interseções das áreas de cobertura/);
+    for (let index = 0; index < recommendations.length; index++) {
+        for (let otherIndex = index + 1; otherIndex < recommendations.length; otherIndex++) {
+            assert.ok(
+                distance(recommendations[index].position, recommendations[otherIndex].position) >= 500
+            );
+        }
+    }
 });
 
 test('repeater task reports when selected unit coverage areas do not intersect', async () => {
