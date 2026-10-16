@@ -179,13 +179,13 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                     return;
                                 }
                                 // Coletar parâmetros da tarefa
-                                const taskParameters = await taskParameters.getValues(selectedTask, existingParameters);
-                                if (taskParameters) {
+                                const parameterValues = await taskParameters.getValues(selectedTask, existingParameters);
+                                if (parameterValues) {
                                     if (isEditing && editingIndex !== null) {
                                         // Atualizar a tarefa existente
                                         getTasks()[editingIndex] = {
                                             task: selectedTask,
-                                            parameters: taskParameters
+                                            parameters: parameterValues
                                         };
                                         isEditing = false;
                                         editingIndex = null;
@@ -194,7 +194,7 @@ ${Object.entries(taskOptions).map(([value, text]) => `<option value="${value}" $
                                         // Adicionar nova tarefa à sequência
                                         getTasks().push({
                                             task: selectedTask,
-                                            parameters: taskParameters
+                                            parameters: parameterValues
                                         });
                                     }
                                     // Limpar seleção
