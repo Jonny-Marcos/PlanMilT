@@ -135,7 +135,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 Point: { type: 'Point', coordinates: [-50, -20] },
                 LineString: {
                     type: 'LineString',
-                    coordinates: [[-50, -20], [-49.995, -19.998], [-49.99, -20.002]]
+                    coordinates: [[-50, -20], [-49.99, -20.002]]
                 },
                 Polygon: {
                     type: 'Polygon',

@@ -20,8 +20,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261016-tactical-control/);
-    assert.match(documentSource, /tactical-graphics\.js\?v=20261016-tactical-control/);
+    assert.match(documentSource, /app\.css\?v=20261016-toolbar-icons-restored/);
+    assert.match(documentSource, /tactical-graphics\.js\?v=20261016-tactical-preview-line/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);
     assert.match(documentSource, /layer-management\.js\?v=20261015-catalog-title-25/);
