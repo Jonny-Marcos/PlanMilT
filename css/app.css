@@ -1133,7 +1133,7 @@
 
             /* Estilos para o ícone dentro do botão */
             .leaflet-control-freehand i {
-                font-size: 20px;
+                font-size: 29px;
                 margin: 0;
             }
 
@@ -1153,10 +1153,9 @@
             }
 
             .leaflet-control-tactical-graphic i {
-                font-size: 20px;
+                font-size: 29px;
                 margin: 0;
                 color: #495057;
-                transform: rotate(-8deg);
             }
 
             .leaflet-control-tactical-graphic.is-disabled {
