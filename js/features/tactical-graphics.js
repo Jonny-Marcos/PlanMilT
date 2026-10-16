@@ -390,6 +390,31 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             }
         }
 
+        // Estilos embutidos, como no catálogo de camadas, para não depender de CSS externo em cache.
+        const PICKER_STYLES = `
+            .swal2-popup.tactical-graphic-modal{width:min(820px,calc(100vw - 28px))!important;max-width:calc(100vw - 28px)!important;padding:20px!important;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+            .tactical-graphic-modal .swal2-title{font-family:inherit;font-size:22px;font-weight:600;color:#243b5a;padding:0 0 10px;margin:0;text-align:center}
+            .tactical-graphic-modal .swal2-html-container{margin:0;padding:0 2px;overflow-x:hidden}
+            #tacticalGraphicPicker{display:grid;gap:12px;text-align:left;width:100%;font-size:14px;font-family:inherit}
+            #tacticalGraphicPicker .tactical-graphic-browser{display:grid;gap:12px;min-width:0}
+            #tacticalGraphicPicker .tactical-graphic-field{display:grid;gap:5px;min-width:0;margin:0}
+            #tacticalGraphicPicker .tactical-graphic-field>span{display:block;margin:0;font-size:13px;font-weight:600;color:#36404f;text-align:left}
+            #tacticalGraphicPicker .tactical-graphic-field>input,#tacticalGraphicPicker .tactical-graphic-field>select{display:block;width:100%;height:40px;margin:0;padding:6px 10px;border:1px solid #c5cad2;border-radius:6px;box-sizing:border-box;font:inherit;background:#fff;color:#242a33}
+            #tacticalGraphicPicker .tactical-graphic-results{display:block;height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;border:1px solid #d3d8e0;border-radius:6px;background:#fff}
+            #tacticalGraphicPicker .tactical-graphic-section-title{margin:0;padding:8px 12px;border-bottom:1px solid #e1e5eb;background:#f4f6f9;color:#596273;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;text-align:left;position:sticky;top:0;z-index:1}
+            #tacticalGraphicPicker .tactical-graphic-result{display:flex;align-items:center;gap:12px;padding:10px 12px;margin:0;border-bottom:1px solid #e1e5eb;cursor:pointer;text-align:left;background:#fff}
+            #tacticalGraphicPicker .tactical-graphic-result:last-child{border-bottom:0}
+            #tacticalGraphicPicker .tactical-graphic-result:hover{background:#f3f6fa}
+            #tacticalGraphicPicker .tactical-graphic-result.is-selected{background:#e6edf7;box-shadow:inset 3px 0 0 #435f88}
+            #tacticalGraphicPicker .tactical-graphic-result>input{flex:none;width:17px;height:17px;margin:0;accent-color:#435f88}
+            #tacticalGraphicPicker .tactical-graphic-result-content{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;flex:1}
+            #tacticalGraphicPicker .tactical-graphic-result-title{font-size:14px;font-weight:600;line-height:1.35;color:#242a33;overflow-wrap:anywhere;min-width:0}
+            #tacticalGraphicPicker .tactical-graphic-result-preview{flex:none;display:flex;align-items:center;justify-content:center;width:64px;height:40px;border:1px solid #e1e5eb;border-radius:4px;background:#fff;overflow:hidden}
+            #tacticalGraphicPicker .tactical-graphic-result-preview svg{display:block;width:60px;height:36px;overflow:hidden}
+            #tacticalGraphicPicker .tactical-graphic-empty{padding:24px;text-align:center;color:#596273}
+            #tacticalGraphicPicker .tactical-graphic-selection{padding:8px 10px;border-radius:6px;background:#eef1f5;color:#36404f;font-size:13px;font-weight:600}
+        `;
+
         /**
          * Exibe os seletores e inicia a ferramenta Leaflet adequada ao gráfico.
          */
@@ -405,7 +430,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
 
             const selection = await sweetAlert.fire({
                 title: 'Adicionar gráfico tático',
-                html: '<div id="tacticalGraphicPicker" class="tactical-graphic-picker">'
+                html: '<style>' + PICKER_STYLES + '</style>'
+                    + '<div id="tacticalGraphicPicker" class="tactical-graphic-picker">'
                     + '<div class="tactical-graphic-browser">'
                     + '<div class="tactical-graphic-filters tactical-graphic-category-filter">'
                     + '<label class="tactical-graphic-field" for="tacticalGraphicCategory"><span>Categoria</span>'
@@ -420,6 +446,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 showCancelButton: true,
                 confirmButtonText: 'Continuar',
                 cancelButtonText: 'Cancelar',
+                customClass: { popup: 'tactical-graphic-modal' },
                 didOpen: () => {
                     const popup = sweetAlert.getPopup();
                     categorySelect = popup.querySelector('#tacticalGraphicCategory');
