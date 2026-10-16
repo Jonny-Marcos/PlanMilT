@@ -42,7 +42,12 @@ class LatLngBounds {
     contains() { return true; }
 }
 
-function setup({ layers = [], distance = () => 1000, analyzeLinks, compareLinks } = {}) {
+class LargeLatLngBounds extends LatLngBounds {
+    getNorth() { return 0.1; }
+    getEast() { return 0.1; }
+}
+
+function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBounds(), distance = () => 1000, analyzeLinks, compareLinks } = {}) {
     const generated = [];
     const logs = [];
     const sourceLayer = {
@@ -52,7 +57,7 @@ function setup({ layers = [], distance = () => 1000, analyzeLinks, compareLinks 
     };
     const planningLayer = {
         eachLayer(callback) {
-            layers.forEach(callback);
+            suggestionLayers.forEach(callback);
         },
         addLayer(layer) {
             generated.push(layer);
@@ -75,7 +80,7 @@ function setup({ layers = [], distance = () => 1000, analyzeLinks, compareLinks 
     };
     const task = window.PlanMilT.taskRadioOperations.attach({
         map: {
-            getBounds: () => new LatLngBounds(),
+            getBounds: () => bounds,
             distance
         },
         leaflet: {
@@ -211,30 +216,25 @@ test('route task marks samples with and without viable station links', async () 
     assert.ok(generated.some(layer => layer.feature.properties.name === 'Falha de comunicação estimada'));
 });
 
-test('repeater task generates and recommends sites that connect both groups', async () => {
-    const layers = [
-        new Marker('group-a', { lat: 0, lng: 0.005 }),
-        new Marker('group-b', { lat: 0, lng: 0.015 })
-    ];
-    const { task, generated } = setup({ layers });
+test('repeater task searches both map layers and recommends positions covering every selected icon type', async () => {
+    const drawingMarkers = [new Marker('group-a', { lat: 0, lng: 0.005 })];
+    const planningMarkers = [new Marker('group-b', { lat: 0, lng: 0.015 })];
+    const { task, generated } = setup({ layers: drawingMarkers, suggestionLayers: planningMarkers });
     const result = await task.suggestRepeaterPositions({
-        iconLayer: 'drawnItems',
+        iconTypesToCover: ['group-a', 'group-b'],
         repeaterIcon: 'symbols/friend/repeater.svg',
-        iconType1: 'group-a',
-        iconType2: 'group-b',
         radioPreset: 'radio',
         maxDistance: 20,
-        cellSizeKm: 2,
         area: null
     });
 
-    assert.equal(result.length, 4);
-    assert.equal(result[0].firstCount, 1);
-    assert.equal(result[0].secondCount, 1);
-    assert.equal(generated.length, 4);
+    assert.ok(result.length > 0);
+    assert.deepEqual(result[0].coverageByIcon, [1, 1]);
+    assert.equal(generated.length, result.length);
     assert.equal(generated[0].options.icon.options.iconUrl, 'symbols/friend/repeater.svg');
     assert.equal(generated[0].feature.properties.name, 'Posição recomendada para repetidor');
     assert.equal(generated[0].feature.properties.iconUrl, 'symbols/friend/repeater.svg');
+    assert.deepEqual(generated[0].feature.properties.coverageByIcon, { 'group-a': 1, 'group-b': 1 });
 });
 
 test('repeater task supports saved sequences with the former candidate icon parameter', async () => {
@@ -244,7 +244,6 @@ test('repeater task supports saved sequences with the former candidate icon para
     ];
     const { task, generated } = setup({ layers });
     await task.suggestRepeaterPositions({
-        iconLayer: 'drawnItems',
         candidateIcon: 'symbols/friend/legacy-repeater.svg',
         iconType1: 'group-a',
         iconType2: 'group-b',
@@ -261,15 +260,13 @@ test('repeater task adapts grid density to analysis limits and draws at most ten
         new Marker('group-a', { lat: 0, lng: 0.005 }),
         new Marker('group-b', { lat: 0, lng: 0.015 })
     ];
-    const { task, generated, logs } = setup({ layers });
+    const largeBounds = new LargeLatLngBounds();
+    const { task, generated, logs } = setup({ layers, suggestionLayers: [], bounds: largeBounds });
     const recommendations = await task.suggestRepeaterPositions({
-        iconLayer: 'drawnItems',
         repeaterIcon: 'symbols/friend/repeater.svg',
-        iconType1: 'group-a',
-        iconType2: 'group-b',
+        iconTypesToCover: ['group-a', 'group-b'],
         radioPreset: 'radio',
         maxDistance: 20,
-        cellSizeKm: 0.1,
         area: null
     });
 
@@ -316,16 +313,13 @@ test('radio task failures explain which map input is missing', async () => {
 
     await assert.rejects(
         task.suggestRepeaterPositions({
-            iconLayer: 'drawnItems',
             repeaterIcon: 'symbols/friend/repeater.svg',
-            iconType1: 'group-a',
-            iconType2: 'group-b',
+            iconTypesToCover: ['group-a', 'group-b'],
             radioPreset: 'radio',
             maxDistance: 20,
-            cellSizeKm: 1,
             area: null
         }),
-        /Nenhuma unidade do primeiro e segundo grupo.*área visível/
+        /Não foram encontrados marcadores dos tipos selecionados na área visível: group-a, group-b/
     );
 
     await assert.rejects(

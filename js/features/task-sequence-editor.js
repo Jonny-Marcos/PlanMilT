@@ -106,8 +106,8 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
                             result: 'Marca amostras com comunicação estimada em verde e falhas em vermelho; a distância entre amostras é configurável.'
                         },
                         suggestRepeaterPositions: {
-                            purpose: 'Busca automaticamente locais para uma repetidora que consiga alcançar unidades de dois grupos.',
-                            setup: 'Coloque os ícones dos dois grupos na camada escolhida e enquadre a região de interesse no mapa. Defina o espaçamento dos locais avaliados, o alcance de cada enlace e o preset de rádio ou visada.',
+                            purpose: 'Busca automaticamente posições para uma repetidora que alcance todos os tipos de unidade selecionados.',
+                            setup: 'Selecione um ou mais tipos de ícone, escolha o ícone da repetidora e o preset de rádio ou visada, informe o alcance máximo de cada enlace e enquadre a região de interesse. A busca considera marcadores nas camadas de desenho e de sugestões.',
                             result: 'Adiciona até dez posições recomendadas com o ícone de repetidora escolhido; a melhor posição aparece primeiro.'
                         },
                         compareRadioPresets: {
@@ -146,6 +146,9 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
     gap: 5px;
     min-width: 0;
 }
+#taskParameters .task-parameter-field-wide {
+    grid-column: 1 / -1;
+}
 #taskParameters .task-parameter-field label {
     display: block;
     margin: 0;
@@ -170,6 +173,11 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
     border: 1px solid #c5cad2;
     border-radius: 6px;
     font-size: 14px;
+}
+#taskParameters .task-parameter-form select[multiple].swal2-input {
+    height: auto;
+    min-height: 120px;
+    padding: 6px 10px;
 }
 #taskParameters .task-parameter-status {
     color: #4b5563;
@@ -412,13 +420,12 @@ Selecione uma tarefa para ver para que serve, o que preparar no mapa e qual resu
                                     stationIcon: 'Ícone das estações',
                                     repeaterIcon: 'Ícone da repetidora sugerida',
                                     repeaterIconUrl: 'Ícone da repetidora sugerida',
+                                    iconTypesToCover: 'Tipos de ícones a cobrir',
                                     radioPreset: 'Preset de rádio/visada',
                                     maxDistance: 'Distância máxima (km)',
-                                    cellSizeKm: task.task === 'suggestRepeaterPositions'
-                                        ? 'Espaçamento da grade (km)'
-                                        : task.task === 'identifyCoverageGaps'
-                                            ? 'Resolução desejada da grade (m)'
-                                            : 'Resolução da grade (km)',
+                                    cellSizeKm: task.task === 'identifyCoverageGaps'
+                                        ? 'Resolução desejada da grade (m)'
+                                        : 'Resolução da grade (km)',
                                     sampleInterval: 'Intervalo entre amostras (km)',
                                     numberOfNewIcons: 'Quantidade de novos ícones',
                                     maxDistanceBetweenNewIcons: 'Distância entre novos ícones (km)',

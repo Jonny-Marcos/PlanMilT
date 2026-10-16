@@ -22,11 +22,11 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
     assert.match(documentSource, /app\.css\?v=20261016-toolbar-icons-restored/);
     assert.match(documentSource, /radio-planning\.js\?v=20261016-radio-planning-tasks/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261016-repeater-grid-10m/);
-    assert.match(documentSource, /task-sequence-editor\.js\?v=20261016-repeater-grid-10m/);
+    assert.match(documentSource, /task-parameters\.js\?v=20261016-repeater-simplified/);
+    assert.match(documentSource, /task-sequence-editor\.js\?v=20261016-repeater-simplified/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-task-ux-layer-icons/);
-    assert.match(documentSource, /task-radio-operations\.js\?v=20261016-repeater-grid-10m/);
-    assert.match(documentSource, /task-execution\.js\?v=20261016-radio-planning-tasks/);
+    assert.match(documentSource, /task-radio-operations\.js\?v=20261016-repeater-simplified/);
+    assert.match(documentSource, /task-execution\.js\?v=20261016-repeater-simplified/);
     assert.match(documentSource, /tactical-graphics\.js\?v=20261016-tactical-control/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);

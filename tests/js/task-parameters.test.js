@@ -16,7 +16,7 @@ function createParametersModule({
         querySelector(selector) {
             return {
                 value: values[selector],
-                selectedOptions: selector === '#iconTypesToCover'
+                selectedOptions: ['#iconTypesToCover', '#repeaterTargetIcons'].includes(selector)
                     ? selectedOptions.map(value => ({ value }))
                     : undefined
             };
@@ -262,6 +262,45 @@ test('coverage task filters its multi-select by the selected source layer', () =
     assert.match(iconTypes.innerHTML, /selected/);
 });
 
+test('repeater target selector aggregates both map layers without filtering the insertion icon', () => {
+    const friend = 'symbols/friend/alpha.svg';
+    const enemy = 'symbols/enemy/bravo.svg';
+    const { module } = createParametersModule({
+        getLayerIconCounts: layerName => {
+            assert.equal(layerName, 'all');
+            return { [friend]: 2, [enemy]: 1 };
+        }
+    });
+    const targetIcons = {
+        value: enemy,
+        selectedOptions: [{ value: enemy }],
+        set innerHTML(html) { this.html = html; },
+        get innerHTML() { return this.html; }
+    };
+    const repeaterIcon = {
+        value: 'symbols/friend/repeater.svg',
+        innerHTML: '<option value="symbols/friend/repeater.svg">friend/repeater</option>'
+    };
+    const status = { textContent: '' };
+    const root = {
+        querySelector(selector) {
+            return {
+                '#repeaterTargetIcons': targetIcons,
+                '#repeaterIconUrl': repeaterIcon,
+                '#radioTaskLayerStatus, #taskLayerStatus': status
+            }[selector] || null;
+        }
+    };
+
+    module.bind('suggestRepeaterPositions', root);
+
+    assert.match(targetIcons.innerHTML, /alpha \(2 disponíveis\)/);
+    assert.match(targetIcons.innerHTML, /bravo \(1 disponível\)/);
+    assert.match(targetIcons.innerHTML, /selected/);
+    assert.equal(repeaterIcon.innerHTML, '<option value="symbols/friend/repeater.svg">friend/repeater</option>');
+    assert.match(status.textContent, /camadas de desenho e de sugestões/);
+});
+
 test('additional radio task forms collect coverage, route, repeater and preset settings', async () => {
     const icons = ['symbols/friend/alpha.svg', 'symbols/enemy/bravo.svg'];
     const { module } = createParametersModule({
@@ -281,18 +320,15 @@ test('additional radio task forms collect coverage, route, repeater and preset s
             '#routeRadioPreset': 'radio',
             '#routeRadioMaxDistance': '12',
             '#routeRadioInterval': '0.5',
-            '#repeaterLayer': 'drawnItems',
             '#repeaterIconUrl': icons[0],
-            '#repeaterGroup1': icons[0],
-            '#repeaterGroup2': icons[1],
             '#repeaterRadioPreset': 'radio',
             '#repeaterMaxDistance': '10',
-            '#repeaterCellSize': '1',
             '#compareRadioLayer': 'planningSuggestions',
             '#compareRadioIcon1': icons[0],
             '#compareRadioIcon2': icons[1],
             '#compareRadioMaxDistance': '20'
-        }
+        },
+        selectedOptions: [icons[0], icons[1]]
     });
 
     const coverageHtml = await module.getHtml('identifyCoverageGaps');
@@ -303,11 +339,13 @@ test('additional radio task forms collect coverage, route, repeater and preset s
     assert.match(coverageHtml, /min="10" step="10"/);
     assert.match(coverageHtml, /fas fa-border-all/);
     assert.match(routeHtml, /Intervalo entre amostras/);
-    assert.match(repeaterHtml, /Não é necessário colocar ícones de candidatos/);
-    assert.match(repeaterHtml, /Ícone da repetidora sugerida/);
-    assert.match(repeaterHtml, /Espaçamento entre posições/);
+    assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
+    assert.match(repeaterHtml, /Ícone a colocar/);
+    assert.match(repeaterHtml, /Alcance máximo de cada enlace/);
+    assert.match(repeaterHtml, /camadas de desenho e de sugestões/);
+    assert.doesNotMatch(repeaterHtml, /Espaçamento entre posições|Camada com os ícones|Grupo 1|Grupo 2/);
     assert.match(repeaterHtml, /fas fa-map-marker-alt/);
-    assert.match(repeaterHtml, /fas fa-users/);
+    assert.match(repeaterHtml, /multiple size="5"/);
     assert.match(compareHtml, /todos os presets RF e óticos/);
     for (const html of [coverageHtml, routeHtml, repeaterHtml, compareHtml]) {
         assert.match(html, /class="task-parameter-form"/);
@@ -332,13 +370,10 @@ test('additional radio task forms collect coverage, route, repeater and preset s
         area: null
     });
     assert.deepEqual(await module.getValues('suggestRepeaterPositions', {}), {
-        iconLayer: 'drawnItems',
+        iconTypesToCover: icons,
         repeaterIcon: icons[0],
-        iconType1: icons[0],
-        iconType2: icons[1],
         radioPreset: 'radio',
         maxDistance: 10,
-        cellSizeKm: 1,
         area: null
     });
     assert.deepEqual(await module.getValues('compareRadioPresets', {}), {
@@ -391,22 +426,18 @@ test('coverage-gap resolution accepts 10 meters and rejects smaller values', asy
     assert.equal(alerts.at(-1)[0], 'Aviso');
 });
 
-test('repeater task requires two different unit icon types', async () => {
+test('repeater task requires at least one target icon type', async () => {
     const { module, alerts } = createParametersModule({
         radioPresets: [{ id: 'radio', label: 'Rádio' }],
         values: {
-            '#repeaterLayer': 'drawnItems',
             '#repeaterIconUrl': 'symbols/friend/repeater.svg',
-            '#repeaterGroup1': 'symbols/friend/unit.svg',
-            '#repeaterGroup2': 'symbols/friend/unit.svg',
             '#repeaterRadioPreset': 'radio',
-            '#repeaterMaxDistance': '10',
-            '#repeaterCellSize': '1'
+            '#repeaterMaxDistance': '10'
         }
     });
 
     assert.equal(await module.getValues('suggestRepeaterPositions', {}), null);
-    assert.match(alerts[0][1], /tipos de ícone diferentes/);
+    assert.match(alerts[0][1], /Selecione os ícones que precisam de cobertura/);
 });
 
 test('unknown task form returns the existing user-facing message', async () => {

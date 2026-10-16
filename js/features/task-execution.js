@@ -101,19 +101,21 @@
                     log: addToLog
                 });
                 function getLayerIconCounts(layerName) {
-                    const sourceLayer = layerName === 'drawnItems'
-                        ? drawnItems
-                        : layerName === 'planningSuggestions'
-                            ? planejamentoLayer
-                            : null;
                     const counts = {};
-                    if (!sourceLayer) return counts;
-
-                    sourceLayer.eachLayer(layer => {
-                        if (!(layer instanceof L.Marker) || !layer.options.icon || !layer.options.icon.options.iconUrl) return;
-                        const iconUrl = layer.options.icon.options.iconUrl;
-                        counts[iconUrl] = (counts[iconUrl] || 0) + 1;
-                    });
+                    const sourceLayers = layerName === 'all'
+                        ? [drawnItems, planejamentoLayer]
+                        : layerName === 'drawnItems'
+                            ? [drawnItems]
+                            : layerName === 'planningSuggestions'
+                                ? [planejamentoLayer]
+                                : [];
+                    for (const sourceLayer of sourceLayers) {
+                        sourceLayer.eachLayer(layer => {
+                            if (!(layer instanceof L.Marker) || !layer.options.icon || !layer.options.icon.options.iconUrl) return;
+                            const iconUrl = layer.options.icon.options.iconUrl;
+                            counts[iconUrl] = (counts[iconUrl] || 0) + 1;
+                        });
+                    }
                     return counts;
                 }
 

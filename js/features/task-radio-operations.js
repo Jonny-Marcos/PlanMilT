@@ -337,41 +337,43 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
         }
 
         /**
-         * Gera uma grade de locais e recomenda posições de repetidor que alcançam dois grupos.
-         * @param {Object} params - Ícones dos grupos e do repetidor, espaçamento, preset e alcance.
-         * @returns {Promise<Array<Object>>} Posições recomendadas ordenadas pela quantidade de unidades alcançadas.
+         * Gera locais candidatos na área visível e recomenda os que cobrem os tipos de ícone selecionados.
+         * @param {Object} params - Tipos de ícone a cobrir, ícone da repetidora, preset e alcance.
+         * @returns {Promise<Array<Object>>} Posições recomendadas ordenadas pela cobertura alcançada.
          */
         async function suggestRepeaterPositions(params) {
             const area = params.area || map.getBounds();
             const repeaterIcon = params.repeaterIcon || params.candidateIcon;
-            const cellSizeKm = params.cellSizeKm || 1;
-            if (!repeaterIcon || !Number.isFinite(cellSizeKm) || cellSizeKm <= 0) {
-                throw new Error('Escolha um ícone para a repetidora e informe um espaçamento válido para a grade.');
-            }
+            const targetIcons = [...new Set(params.iconTypesToCover || [params.iconType1, params.iconType2].filter(Boolean))];
             if (!Number.isFinite(params.maxDistance) || params.maxDistance <= 0) {
                 throw new Error('Informe uma distância máxima válida para cada enlace com a repetidora.');
             }
-            if (params.iconType1 === params.iconType2) {
-                throw new Error('Escolha tipos de ícone diferentes para representar os dois grupos.');
+            if (!repeaterIcon || targetIcons.length === 0) {
+                throw new Error('Selecione os tipos de ícone que precisam de cobertura e o ícone a colocar como repetidora.');
             }
-            const markers = collectMarkers(params.iconLayer, area);
-            const firstGroup = markers.filter(marker => marker.iconUrl === params.iconType1);
-            const secondGroup = markers.filter(marker => marker.iconUrl === params.iconType2);
-            if (firstGroup.length === 0 || secondGroup.length === 0) {
-                const missingGroups = [
-                    firstGroup.length === 0 ? 'primeiro' : '',
-                    secondGroup.length === 0 ? 'segundo' : ''
-                ].filter(Boolean).join(' e ');
-                throw new Error(`Nenhuma unidade do ${missingGroups} grupo foi encontrada na área visível. Confira os tipos de ícone e a camada selecionada.`);
+            const markers = [
+                ...collectMarkers('drawnItems', area),
+                ...collectMarkers('planningSuggestions', area)
+            ];
+            const unitsByIcon = new Map(targetIcons.map(icon => [
+                icon,
+                markers.filter(marker => marker.iconUrl === icon)
+            ]));
+            const missingIcons = [...unitsByIcon]
+                .filter(([, units]) => units.length === 0)
+                .map(([icon]) => icon.substring(icon.lastIndexOf('/') + 1).split('.')[0]);
+            if (missingIcons.length > 0) {
+                throw new Error(`Não foram encontrados marcadores dos tipos selecionados na área visível: ${missingIcons.join(', ')}. Confira os ícones e ajuste o mapa.`);
             }
 
             const bounds = area instanceof leaflet.Polygon ? area.getBounds() : area;
             const centerLatitude = (bounds.getNorth() + bounds.getSouth()) / 2;
-            const latStep = cellSizeKm / 111.32;
-            const lonStep = cellSizeKm / (111.32 * Math.max(0.1, Math.cos(centerLatitude * Math.PI / 180)));
+            const desiredCellSizeKm = 1;
+            const latStep = desiredCellSizeKm / 111.32;
+            const lonStep = desiredCellSizeKm / (111.32 * Math.max(0.1, Math.cos(centerLatitude * Math.PI / 180)));
             const rows = Math.max(1, Math.ceil((bounds.getNorth() - bounds.getSouth()) / latStep));
             const columns = Math.max(1, Math.ceil((bounds.getEast() - bounds.getWest()) / lonStep));
-            const unitsPerCandidate = firstGroup.length + secondGroup.length;
+            const unitsPerCandidate = [...unitsByIcon.values()].reduce((total, units) => total + units.length, 0);
             const estimatedPointsPerLink = Math.max(2, Math.ceil(params.maxDistance * 1000 / 30) + 1);
             const maxCandidateCount = Math.max(1, Math.min(
                 Math.floor(maxAnalyzedLinks / unitsPerCandidate),
@@ -402,51 +404,51 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             const links = [];
             const metadata = [];
             const directlyConnected = [];
+            const targetIconIndexes = new Map(targetIcons.map((icon, index) => [icon, index]));
             for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
                 const candidate = candidates[candidateIndex];
-                for (const [groupId, group] of [['first', firstGroup], ['second', secondGroup]]) {
-                    for (const unit of group) {
+                for (const [icon, units] of unitsByIcon) {
+                    const targetIconIndex = targetIconIndexes.get(icon);
+                    for (const unit of units) {
                         const distanceKm = map.distance(candidate, unit.position) / 1000;
                         if (distanceKm <= 0.001) {
-                            directlyConnected.push({ candidateIndex, groupId });
+                            directlyConnected.push({ candidateIndex, targetIconIndex });
                         } else if (distanceKm <= params.maxDistance) {
                             links.push({ from: candidate, to: unit.position });
-                            metadata.push({ candidateIndex, groupId });
+                            metadata.push({ candidateIndex, targetIconIndex });
                         }
                     }
                 }
             }
             const ranked = candidates.map((position, candidateIndex) => ({
                 position,
-                firstCount: 0,
-                secondCount: 0
+                coverageByIcon: new Array(targetIcons.length).fill(0)
             }));
             directlyConnected.forEach(connection => {
                 const record = ranked[connection.candidateIndex];
-                if (connection.groupId === 'first') record.firstCount++;
-                else record.secondCount++;
+                record.coverageByIcon[connection.targetIconIndex]++;
             });
             if (links.length > 0) ensureLinkLimit(links);
             const results = links.length > 0 ? await radioPlanning.analyzeLinks(links, params.radioPreset) : [];
             results.forEach((result, index) => {
                 if (!result.isViable) return;
                 const record = ranked[metadata[index].candidateIndex];
-                if (metadata[index].groupId === 'first') record.firstCount++;
-                else record.secondCount++;
+                record.coverageByIcon[metadata[index].targetIconIndex]++;
             });
             const bridges = ranked
-                .filter(candidate => candidate.firstCount > 0 && candidate.secondCount > 0)
-                .sort((a, b) => Math.min(b.firstCount, b.secondCount) - Math.min(a.firstCount, a.secondCount) ||
-                    (b.firstCount + b.secondCount) - (a.firstCount + a.secondCount));
+                .filter(candidate => candidate.coverageByIcon.every(count => count > 0))
+                .sort((a, b) => Math.min(...b.coverageByIcon) - Math.min(...a.coverageByIcon) ||
+                    b.coverageByIcon.reduce((total, count) => total + count, 0) -
+                    a.coverageByIcon.reduce((total, count) => total + count, 0));
             if (bridges.length === 0) {
-                throw new Error('Nenhum ponto da grade alcança os dois grupos com o preset e o alcance atuais. Aumente o alcance, ajuste o espaçamento da grade ou enquadre uma área mais adequada.');
+                throw new Error('Nenhuma posição da área visível alcança todos os tipos de unidade selecionados com este preset e alcance. Aumente o alcance ou ajuste a região visível do mapa.');
             }
 
             const recommendations = bridges.slice(0, 10);
             recommendations.forEach((candidate, index) => {
                 const isBest = index === 0;
                 const name = isBest ? 'Posição recomendada para repetidor' : `Posição alternativa ${index + 1}`;
-                const description = `Enlaces viáveis: ${candidate.firstCount} para o grupo 1 e ${candidate.secondCount} para o grupo 2.`;
+                const description = `Unidades com enlace viável: ${candidate.coverageByIcon.reduce((total, count) => total + count, 0)}.`;
                 const marker = leaflet.marker(candidate.position, {
                     icon: leaflet.icon({
                         iconUrl: repeaterIcon,
@@ -462,12 +464,16 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                         folderName: 'Sugestão de Planejamento',
                         name,
                         description,
+                        coverageByIcon: Object.fromEntries(targetIcons.map((icon, targetIndex) => [
+                            icon,
+                            candidate.coverageByIcon[targetIndex]
+                        ])),
                         iconUrl: repeaterIcon,
                         color: isBest ? '#16803c' : '#2864a5'
                     }
                 };
             });
-            log(`Posições de repetidor: ${bridges.length} locais da grade conectam os dois grupos; foram marcadas as ${recommendations.length} melhores. Espaçamento aproximado: ${(cellSizeKm * stepMultiplier).toFixed(2)} km.`);
+            log(`Posições de repetidor: ${bridges.length} locais da grade alcançam todos os tipos selecionados; foram marcadas as ${recommendations.length} melhores.`);
             return recommendations;
         }
 

@@ -110,19 +110,20 @@ ${preset.label}
                         identifyCoverageGaps: { layer: '#coverageGapLayer', icons: ['#coverageGapStationIcon'] },
                         checkRouteCommunication: { layer: '#routeRadioLayer', icons: ['#routeStationIcon'] },
                         suggestRepeaterPositions: {
-                            layer: '#repeaterLayer',
-                            icons: ['#repeaterIconUrl', '#repeaterGroup1', '#repeaterGroup2']
+                            layerName: 'all',
+                            icons: ['#repeaterTargetIcons'],
+                            multiple: ['#repeaterTargetIcons']
                         },
                         compareRadioPresets: { layer: '#compareRadioLayer', icons: ['#compareRadioIcon1', '#compareRadioIcon2'] }
                     }[selectedTask];
                     if (!formConfig || !root) return;
 
-                    const layerSelect = root.querySelector(formConfig.layer);
+                    const layerSelect = formConfig.layer ? root.querySelector(formConfig.layer) : null;
                     const status = root.querySelector('#radioTaskLayerStatus, #taskLayerStatus');
-                    if (!layerSelect) return;
+                    if (formConfig.layer && !layerSelect) return;
 
                     const refreshIconOptions = () => {
-                        const counts = getLayerIconCounts(layerSelect.value) || {};
+                        const counts = getLayerIconCounts(layerSelect ? layerSelect.value : formConfig.layerName) || {};
                         const icons = Object.entries(counts).filter(([, count]) => count > 0);
                         for (const selector of formConfig.icons) {
                             const select = root.querySelector(selector);
@@ -149,12 +150,16 @@ ${preset.label}
 
                         if (status) {
                             status.textContent = icons.length > 0
-                                ? `${icons.length} tipo${icons.length === 1 ? '' : 's'} de ícone encontrado${icons.length === 1 ? '' : 's'}. Os seletores mostram apenas marcadores desta camada e informam a quantidade disponível.`
-                                : 'Nenhum marcador com ícone foi encontrado nesta camada. Escolha outra camada ou adicione os ícones ao mapa antes de executar.';
+                                ? selectedTask === 'suggestRepeaterPositions'
+                                    ? `${icons.length} tipos de ícone encontrados nas camadas de desenho e de sugestões. Selecione um ou mais tipos para cobrir.`
+                                    : `${icons.length} tipo${icons.length === 1 ? '' : 's'} de ícone encontrado${icons.length === 1 ? '' : 's'}. Os seletores mostram apenas marcadores desta camada e informam a quantidade disponível.`
+                                : selectedTask === 'suggestRepeaterPositions'
+                                    ? 'Nenhum marcador com ícone foi encontrado nas camadas de desenho ou de sugestões. Adicione unidades ao mapa antes de executar.'
+                                    : 'Nenhum marcador com ícone foi encontrado nesta camada. Escolha outra camada ou adicione os ícones ao mapa antes de executar.';
                         }
                     };
 
-                    layerSelect.addEventListener('change', refreshIconOptions);
+                    if (layerSelect) layerSelect.addEventListener('change', refreshIconOptions);
                     refreshIconOptions();
                 }
 
@@ -729,6 +734,13 @@ ${preset.label}
                                 icons,
                                 existingParameters.repeaterIcon || existingParameters.candidateIcon || defaultIcon
                             );
+                            const targetIconSelection = existingParameters.iconTypesToCover ||
+                                [existingParameters.iconType1, existingParameters.iconType2].filter(Boolean);
+                            const repeaterTargetOptions = icons.map(icon => {
+                                const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
+                                const label = `${icon.split('/')[2]}/${fileName}`;
+                                return `<option value="${escapeHtml(icon)}" ${targetIconSelection.includes(icon) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                            }).join('');
                             const presetOptions = getRadioTaskPresetOptions(existingParameters.radioPreset);
 
                             if (selectedTask === 'identifyCoverageGaps') {
@@ -792,23 +804,15 @@ ${preset.label}
                             if (selectedTask === 'suggestRepeaterPositions') {
                                 return `
 <div class="task-parameter-form">
-<p class="task-parameter-description">Gera locais candidatos automaticamente na área visível e indica até dez pontos que podem ligar os dois grupos. Não é necessário colocar ícones de candidatos antes da análise; escolha tipos de ícone diferentes para cada grupo. O espaçamento pode ser aumentado automaticamente para respeitar os limites de cálculo.</p>
-<div class="task-parameter-field">
-<label for="repeaterLayer"><i class="fas fa-layer-group" aria-hidden="true"></i> Camada dos grupos de unidades:</label>
-<select id="repeaterLayer" class="swal2-input">${layerOptions}</select>
+<p class="task-parameter-description">Escolha um ou mais tipos de unidade que precisam de cobertura, o ícone da repetidora, o rádio ou visada e o alcance máximo de cada enlace. A busca usa os marcadores das camadas de desenho e de sugestões e avalia posições na área visível do mapa. Para escolher vários tipos, use Ctrl (Windows/Linux) ou Command (Mac) ao clicar.</p>
+<div class="task-parameter-field task-parameter-field-wide">
+<label for="repeaterTargetIcons"><i class="fas fa-bullseye" aria-hidden="true"></i> Ícones que precisam de cobertura:</label>
+<select id="repeaterTargetIcons" class="swal2-input" multiple size="5">${repeaterTargetOptions}</select>
 </div>
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
-<label for="repeaterIconUrl"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ícone da repetidora sugerida:</label>
+<label for="repeaterIconUrl"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ícone a colocar:</label>
 <select id="repeaterIconUrl" class="swal2-input">${repeaterIconOptions}</select>
-</div>
-<div class="task-parameter-field">
-<label for="repeaterGroup1"><i class="fas fa-users" aria-hidden="true"></i> Ícone do primeiro grupo:</label>
-<select id="repeaterGroup1" class="swal2-input">${sourceOptions}</select>
-</div>
-<div class="task-parameter-field">
-<label for="repeaterGroup2"><i class="fas fa-users" aria-hidden="true"></i> Ícone do segundo grupo:</label>
-<select id="repeaterGroup2" class="swal2-input">${targetOptions}</select>
 </div>
 <div class="task-parameter-field">
 <label for="repeaterRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
@@ -817,10 +821,6 @@ ${preset.label}
 <div class="task-parameter-field">
 <label for="repeaterMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo de cada enlace (km):</label>
 <input id="repeaterMaxDistance" class="swal2-input" type="number" min="0.1" step="0.5" value="${existingParameters.maxDistance || 20}">
-</div>
-<div class="task-parameter-field">
-<label for="repeaterCellSize"><i class="fas fa-border-all" aria-hidden="true"></i> Espaçamento entre posições (km):</label>
-<input id="repeaterCellSize" class="swal2-input" type="number" min="0.1" step="0.1" value="${existingParameters.cellSizeKm || 1}">
 </div>
 </div>
 `;
@@ -1037,21 +1037,25 @@ ${preset.label}
                         }
 
                         case 'suggestRepeaterPositions': {
-                            const iconLayer = popup.querySelector('#repeaterLayer').value;
                             const repeaterIcon = popup.querySelector('#repeaterIconUrl').value;
-                            const iconType1 = popup.querySelector('#repeaterGroup1').value;
-                            const iconType2 = popup.querySelector('#repeaterGroup2').value;
+                            const targetIcons = Array.from(popup.querySelector('#repeaterTargetIcons').selectedOptions)
+                                .map(option => option.value)
+                                .filter(Boolean);
                             const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
                             const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
-                            const cellSizeKm = parseFloat(popup.querySelector('#repeaterCellSize').value);
-                            if (!iconLayer || !repeaterIcon || !iconType1 || !iconType2 || iconType1 === iconType2 ||
+                            if (!repeaterIcon || targetIcons.length === 0 ||
                                 !radioPresets.some(preset => preset.id === radioPreset) ||
-                                !Number.isFinite(maxDistance) || maxDistance <= 0 ||
-                                !Number.isFinite(cellSizeKm) || cellSizeKm < 0.1) {
-                                await Swal.fire('Aviso', 'Selecione dois tipos de ícone diferentes e informe o ícone de repetidora, preset, alcance e espaçamento válidos.', 'warning');
+                                !Number.isFinite(maxDistance) || maxDistance <= 0) {
+                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar, um preset e um alcance válido.', 'warning');
                                 return null;
                             }
-                            return { iconLayer, repeaterIcon, iconType1, iconType2, radioPreset, maxDistance, cellSizeKm, area: existingParameters.area || null };
+                            return {
+                                iconTypesToCover: targetIcons,
+                                repeaterIcon,
+                                radioPreset,
+                                maxDistance,
+                                area: existingParameters.area || null
+                            };
                         }
 
                         case 'compareRadioPresets': {
