@@ -297,7 +297,7 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.integration.handleCreated({}), false);
 });
 
-test('graphic selector shows symbols beside radio options and filters by section', async () => {
+test('graphic selector puts compact symbol thumbnails beside single-choice rows', async () => {
     const harness = createHarness();
     await harness.integration.startDrawing();
 
@@ -306,25 +306,27 @@ test('graphic selector shows symbols beside radio options and filters by section
     const results = harness.popupElements.get('tacticalGraphicResults');
     assert.deepEqual(category.children.map(option => option.value), ['common', 'Lines']);
     assert.equal(category.value, 'all');
-    const initialGraphicOption = results.children.find(option => option.classNames.has('tactical-graphic-option'));
+    const initialGraphicOption = results.children.find(option => option.classNames.has('tactical-graphic-result'));
     assert.ok(initialGraphicOption);
     assert.equal(initialGraphicOption.children[0].type, 'radio');
     assert.equal(initialGraphicOption.children[0].checked, true);
-    assert.equal(initialGraphicOption.children[1].classNames.has('tactical-graphic-option-preview'), true);
-    assert.equal(initialGraphicOption.children[1].children[0].tagName, 'svg');
+    assert.equal(initialGraphicOption.children[1].classNames.has('tactical-graphic-result-content'), true);
+    assert.equal(initialGraphicOption.children[1].children[0].textContent, 'Eixo principal de progressão');
+    assert.equal(initialGraphicOption.children[1].children[1].classNames.has('tactical-graphic-result-preview'), true);
+    assert.equal(initialGraphicOption.children[1].children[1].children[0].tagName, 'svg');
 
     category.value = 'common';
     category.dispatch('change');
     search.value = 'eixo';
     search.dispatch('input');
-    const graphicOption = results.children.find(option => option.classNames.has('tactical-graphic-option'));
+    const graphicOption = results.children.find(option => option.classNames.has('tactical-graphic-result'));
 
     assert.ok(graphicOption);
-    assert.equal(graphicOption.children[2].textContent, 'Eixo principal de progressão');
+    assert.equal(graphicOption.children[1].children[0].textContent, 'Eixo principal de progressão');
     graphicOption.children[0].checked = true;
     graphicOption.children[0].dispatch('change');
 
-    assert.equal(graphicOption.children[1].children[0].tagName, 'svg');
+    assert.equal(graphicOption.children[1].children[1].children[0].tagName, 'svg');
     assert.equal(graphicOption.children[0].checked, true);
     assert.equal(graphicOption.classNames.has('is-selected'), true);
     assert.match(harness.popupElements.get('tacticalGraphicSelection').textContent, /Eixo principal de progressão/);

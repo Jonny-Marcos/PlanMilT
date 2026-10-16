@@ -407,12 +407,12 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 title: 'Adicionar gráfico tático',
                 html: '<div id="tacticalGraphicPicker" class="tactical-graphic-picker">'
                     + '<div class="tactical-graphic-browser">'
-                    + '<div class="tactical-graphic-filters">'
+                    + '<div class="tactical-graphic-filters tactical-graphic-category-filter">'
                     + '<label class="tactical-graphic-field" for="tacticalGraphicCategory"><span>Categoria</span>'
                     + '<select id="tacticalGraphicCategory"><option value="all">Todas as categorias</option></select></label>'
-                    + '<label class="tactical-graphic-field" for="tacticalGraphicSearch"><span>Buscar gráficos</span>'
-                    + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
                     + '</div>'
+                    + '<label class="tactical-graphic-field tactical-graphic-search" for="tacticalGraphicSearch"><span>Buscar gráficos</span>'
+                    + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
                     + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="radiogroup" aria-label="Gráficos táticos"></div>'
                     + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
                     + '</div>'
@@ -466,7 +466,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
 
                             graphics.forEach(graphic => {
                                 const option = document.createElement('label');
-                                option.className = 'tactical-graphic-option';
+                                option.className = 'tactical-graphic-result';
                                 const radio = document.createElement('input');
                                 radio.type = 'radio';
                                 radio.name = 'tacticalGraphicSelection';
@@ -474,29 +474,32 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                                 radio.checked = graphic.name === selectedName;
                                 radio.setAttribute('aria-label', graphic.label);
                                 if (graphic.name === selectedName) option.classList.add('is-selected');
+                                const content = document.createElement('span');
+                                content.className = 'tactical-graphic-result-content';
+                                const label = document.createElement('span');
+                                label.className = 'tactical-graphic-result-title';
+                                label.textContent = graphic.label;
                                 const thumbnail = document.createElement('span');
-                                thumbnail.className = 'tactical-graphic-option-preview';
+                                thumbnail.className = 'tactical-graphic-result-preview';
                                 thumbnail.setAttribute('aria-hidden', 'true');
                                 renderGraphicExample(graphic.name, thumbnail, false);
-                                const label = document.createElement('span');
-                                label.className = 'tactical-graphic-option-label';
-                                label.textContent = graphic.label;
                                 option.appendChild(radio);
-                                option.appendChild(thumbnail);
-                                option.appendChild(label);
+                                option.appendChild(content);
+                                content.appendChild(label);
+                                content.appendChild(thumbnail);
                                 radio.addEventListener('change', () => {
                                     if (!radio.checked) return;
                                     selectedName = graphic.name;
                                     selectionStatus.textContent = `Selecionado: ${graphic.label}`;
                                     Array.from(resultsContainer.children)
-                                        .filter(result => result.classList.contains('tactical-graphic-option'))
+                                        .filter(result => result.classList.contains('tactical-graphic-result'))
                                         .forEach(result => {
                                             const resultRadio = result.children[0];
                                             const isSelected = resultRadio.value === selectedName;
                                             resultRadio.checked = isSelected;
                                             result.className = isSelected
-                                                ? 'tactical-graphic-option is-selected'
-                                                : 'tactical-graphic-option';
+                                                ? 'tactical-graphic-result is-selected'
+                                                : 'tactical-graphic-result';
                                         });
                                 });
                                 resultsContainer.appendChild(option);
