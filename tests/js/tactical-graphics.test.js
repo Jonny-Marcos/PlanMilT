@@ -40,6 +40,10 @@ class FakeSelectElement {
         this.attributes[name] = value;
     }
 
+    getAttribute(name) {
+        return this.attributes[name];
+    }
+
     addEventListener(name, listener) {
         this.listeners.set(name, listener);
     }
@@ -80,9 +84,7 @@ function createHarness({
         'tacticalGraphicCategory',
         'tacticalGraphicSearch',
         'tacticalGraphicResults',
-        'tacticalGraphicSelection',
-        'tacticalGraphicPreview',
-        'tacticalGraphicPreviewName'
+        'tacticalGraphicSelection'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -106,11 +108,14 @@ function createHarness({
         baseGeometryFor: () => geometryType,
         renderTacticalGraphic(feature) {
             renderedFeatures.push(feature);
-            if (renderError && feature.properties.tacticalGraphic.designation !== 'Exemplo') {
+            if (renderError
+                && feature.properties.tacticalGraphic.designation !== 'Exemplo'
+                && (feature.properties.tacticalGraphic.designation || '') === designation) {
                 throw renderError;
             }
-            if (feature.properties.tacticalGraphic.designation !== 'Exemplo') {
-                assert.equal(feature.properties.tacticalGraphic.name, 'MainAxisOfAdvance');
+            if (feature.properties.tacticalGraphic.designation !== 'Exemplo'
+                && feature.properties.tacticalGraphic.designation !== undefined) {
+                assert.ok(['MainAxisOfAdvance', 'PhaseLine'].includes(feature.properties.tacticalGraphic.name));
                 assert.equal(feature.properties.tacticalGraphic.designation, designation || undefined);
             }
             if (geometryType === 'Point') assert.equal(feature.properties.tacticalGraphic.radius, 500);
@@ -270,7 +275,6 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.drawTools[0].enabled, true);
     assert.equal(harness.drawTools[0].options.shapeOptions.color, '#123456');
     assert.match(harness.alerts[0].html, /tacticalGraphicPicker/);
-    assert.match(harness.alerts[0].html, /tacticalGraphicPreview/);
     assert.equal(harness.popup.classList['tactical-graphic-modal'], true);
 
     const handled = harness.integration.handleCreated({
@@ -293,18 +297,21 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.integration.handleCreated({}), false);
 });
 
-test('graphic selector filters by section and displays a rendered example beside the list', async () => {
+test('graphic selector shows each symbol beside its name and filters by section', async () => {
     const harness = createHarness();
     await harness.integration.startDrawing();
 
     const category = harness.popupElements.get('tacticalGraphicCategory');
     const search = harness.popupElements.get('tacticalGraphicSearch');
     const results = harness.popupElements.get('tacticalGraphicResults');
-    const preview = harness.popupElements.get('tacticalGraphicPreview');
-    const previewName = harness.popupElements.get('tacticalGraphicPreviewName');
     assert.deepEqual(category.children.map(option => option.value), ['common', 'Lines']);
     assert.equal(category.value, 'all');
-    assert.ok(results.children.some(option => option.classNames.has('tactical-graphic-option')));
+    const initialGraphicOption = results.children.find(option => option.classNames.has('tactical-graphic-option'));
+    assert.ok(initialGraphicOption);
+    assert.equal(initialGraphicOption.children[0].classNames.has('tactical-graphic-option-preview'), true);
+    assert.equal(initialGraphicOption.children[0].children[0].tagName, 'svg');
+    initialGraphicOption.click();
+    assert.equal(initialGraphicOption.attributes['aria-selected'], 'true');
 
     category.value = 'common';
     category.dispatch('change');
@@ -313,13 +320,11 @@ test('graphic selector filters by section and displays a rendered example beside
     const graphicOption = results.children.find(option => option.classNames.has('tactical-graphic-option'));
 
     assert.ok(graphicOption);
-    assert.equal(graphicOption.textContent, 'Eixo principal de progressão');
+    assert.equal(graphicOption.children[1].textContent, 'Eixo principal de progressão');
     graphicOption.click();
 
-    assert.equal(preview.children.length, 1);
-    assert.equal(preview.children[0].tagName, 'svg');
-    assert.ok(preview.children[0].children.length > 0);
-    assert.equal(previewName.textContent, 'Eixo principal de progressão');
+    assert.equal(graphicOption.children[0].children[0].tagName, 'svg');
+    assert.match(harness.popupElements.get('tacticalGraphicSelection').textContent, /Eixo principal de progressão/);
 });
 
 test('point graphics use the native marker tool and carry the default range', async () => {

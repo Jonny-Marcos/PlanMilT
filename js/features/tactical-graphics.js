@@ -103,7 +103,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          * @param {string} name - Identificador do gráfico.
          * @returns {Object} Feature GeoJSON de exemplo.
          */
-        function createSampleFeature(name) {
+        function createSampleFeature(name, includeDesignation = true) {
             const geometryType = library.baseGeometryFor(name);
             const sampleGeometries = {
                 Point: { type: 'Point', coordinates: [-50, -20] },
@@ -133,7 +133,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 properties: {
                     tacticalGraphic: {
                         name,
-                        designation: 'Exemplo',
+                        ...(includeDesignation ? { designation: 'Exemplo' } : {}),
                         ...(geometryType === 'Point' ? { radius: 500 } : {})
                     }
                 }
@@ -202,19 +202,23 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
         }
 
         /**
-         * Atualiza o SVG de exemplo do gráfico selecionado.
+         * Renderiza o símbolo em SVG para a lista do seletor.
          * @param {string} name - Identificador do gráfico.
          * @param {HTMLElement} preview - Contêiner da prévia.
+         * @param {boolean} includeDesignation - Inclui o rótulo ilustrativo no desenho.
          */
-        function renderGraphicExample(name, preview) {
+        function renderGraphicExample(name, preview, includeDesignation = true) {
             const svgNamespace = 'http://www.w3.org/2000/svg';
             const svg = document.createElementNS(svgNamespace, 'svg');
             svg.setAttribute('viewBox', '0 0 360 220');
             svg.setAttribute('role', 'img');
-            svg.setAttribute('aria-label', `Exemplo: ${catalog.translateName(library.getDisplayName(name), name)}`);
+            svg.setAttribute(
+                'aria-label',
+                `${includeDesignation ? 'Exemplo' : 'Símbolo'}: ${catalog.translateName(library.getDisplayName(name), name)}`
+            );
 
             try {
-                const rendered = library.renderTacticalGraphic(createSampleFeature(name));
+                const rendered = library.renderTacticalGraphic(createSampleFeature(name, includeDesignation));
                 const positions = collectGeometryPositions(rendered.graphic.geometry);
                 const labelPositions = collectPointCoordinates(rendered.labels.geometry);
                 positions.push(...labelPositions);
@@ -240,7 +244,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
 
                 appendPreviewGeometry(rendered.graphic.geometry, project, svg);
                 const labelPosition = labelPositions[0];
-                if (labelPosition) {
+                if (includeDesignation && labelPosition) {
                     const [x, y] = project(labelPosition);
                     const label = document.createElementNS(svgNamespace, 'text');
                     label.setAttribute('x', x);
@@ -398,8 +402,6 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             let searchInput;
             let resultsContainer;
             let selectionStatus;
-            let preview;
-            let selectedLabel;
 
             const selection = await sweetAlert.fire({
                 title: 'Adicionar gráfico tático',
@@ -412,14 +414,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
                     + '</div>'
                     + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="listbox" aria-label="Gráficos táticos"></div>'
-                    + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection"></div>'
+                    + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
                     + '</div>'
-                    + '<aside class="tactical-graphic-preview-panel">'
-                    + '<h3>Prévia do gráfico</h3>'
-                    + '<div id="tacticalGraphicPreview" class="tactical-graphic-preview"></div>'
-                    + '<div id="tacticalGraphicPreviewName" class="tactical-graphic-preview-name"></div>'
-                    + '<p>O exemplo é ilustrativo. A forma final depende dos pontos marcados no mapa.</p>'
-                    + '</aside>'
                     + '</div>',
                 showCancelButton: true,
                 confirmButtonText: 'Continuar',
@@ -430,8 +426,6 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     searchInput = popup.querySelector('#tacticalGraphicSearch');
                     resultsContainer = popup.querySelector('#tacticalGraphicResults');
                     selectionStatus = popup.querySelector('#tacticalGraphicSelection');
-                    preview = popup.querySelector('#tacticalGraphicPreview');
-                    selectedLabel = popup.querySelector('#tacticalGraphicPreviewName');
                     popup.classList.add('tactical-graphic-modal');
 
                     const commonOption = document.createElement('option');
@@ -472,15 +466,30 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                                 option.type = 'button';
                                 option.className = 'tactical-graphic-option';
                                 option.setAttribute('role', 'option');
+                                option.setAttribute('data-graphic-name', graphic.name);
                                 option.setAttribute('aria-selected', String(graphic.name === selectedName));
                                 if (graphic.name === selectedName) option.classList.add('is-selected');
-                                option.textContent = graphic.label;
+                                const thumbnail = document.createElement('span');
+                                thumbnail.className = 'tactical-graphic-option-preview';
+                                thumbnail.setAttribute('aria-hidden', 'true');
+                                renderGraphicExample(graphic.name, thumbnail, false);
+                                const label = document.createElement('span');
+                                label.className = 'tactical-graphic-option-label';
+                                label.textContent = graphic.label;
+                                option.appendChild(thumbnail);
+                                option.appendChild(label);
                                 option.addEventListener('click', () => {
                                     selectedName = graphic.name;
                                     selectionStatus.textContent = `Selecionado: ${graphic.label}`;
-                                    selectedLabel.textContent = graphic.label;
-                                    renderGraphicExample(graphic.name, preview);
-                                    renderResults();
+                                    Array.from(resultsContainer.children)
+                                        .filter(result => result.classList.contains('tactical-graphic-option'))
+                                        .forEach(result => {
+                                            const isSelected = result.getAttribute('data-graphic-name') === selectedName;
+                                            result.setAttribute('aria-selected', String(isSelected));
+                                            result.className = isSelected
+                                                ? 'tactical-graphic-option is-selected'
+                                                : 'tactical-graphic-option';
+                                        });
                                 });
                                 resultsContainer.appendChild(option);
                                 resultCount++;
@@ -500,11 +509,9 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     selectionStatus.textContent = initialGraphic
                         ? `Selecionado: ${initialGraphic.label}`
                         : 'Selecione um gráfico';
-                    selectedLabel.textContent = initialGraphic?.label || '';
                     categorySelect.value = 'all';
                     categorySelect.addEventListener('change', renderResults);
                     searchInput.addEventListener('input', renderResults);
-                    renderGraphicExample(selectedName, preview);
                     renderResults();
                 },
                 preConfirm: () => {
