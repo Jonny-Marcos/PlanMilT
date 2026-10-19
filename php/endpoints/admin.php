@@ -17,17 +17,10 @@ $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/admin.php'), PHP
 $scriptDirectory = str_replace('\\', '/', dirname(is_string($requestPath) ? $requestPath : '/admin.php'));
 $cookiePath = $scriptDirectory === '/' || $scriptDirectory === '.' ? '/' : $scriptDirectory . '/';
 $isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && strtolower((string) $_SERVER['HTTPS']) !== 'off';
-$remoteAddress = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-$isLoopback = in_array($remoteAddress, ['127.0.0.1', '::1'], true);
-if (!$isHttps && !$isLoopback) {
-    http_response_code(403);
-    header('Content-Type: text/plain; charset=utf-8');
-    echo 'O painel administrativo exige HTTPS fora do próprio servidor.';
-    exit;
-}
 if ($isHttps) {
     header('Strict-Transport-Security: max-age=31536000');
 }
+$remoteAddress = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
 session_name('PlanMilTAdmin');
 session_set_cookie_params([
     'lifetime' => 0,
@@ -103,16 +96,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     </section>
     <section id="passwordPanel" class="panel" hidden>
         <h2>Defina uma nova senha antes de continuar</h2>
-        <p>A senha inicial só funciona no próprio servidor. Escolha uma senha com pelo menos 12 caracteres.</p>
+        <p>A senha inicial é temporária. Defina uma nova senha com pelo menos 8 caracteres para liberar o painel.</p>
         <form id="passwordForm">
             <label>Senha atual
                 <input type="password" name="currentPassword" autocomplete="current-password" required>
             </label>
             <label>Nova senha
-                <input type="password" name="newPassword" autocomplete="new-password" minlength="12" required>
+                <input type="password" name="newPassword" autocomplete="new-password" minlength="8" required>
             </label>
             <label>Confirme a nova senha
-                <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" required>
+                <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required>
             </label>
             <button type="submit">Alterar senha</button>
         </form>
@@ -521,7 +514,7 @@ try {
         if (!is_string($currentPassword) || !is_string($newPassword)) {
             throw new RuntimeException('Dados inválidos para alterar a senha.');
         }
-        $admin->changePassword($currentPassword, $newPassword, $remoteAddress);
+        $admin->changePassword($currentPassword, $newPassword);
         session_regenerate_id(true);
         $_SESSION['admin_must_change_password'] = false;
         $_SESSION['admin_csrf'] = bin2hex(random_bytes(32));

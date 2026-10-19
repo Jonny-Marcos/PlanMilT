@@ -65,19 +65,15 @@ $assertThrows = static function (callable $operation, string $message): void {
     throw new RuntimeException($message);
 };
 
-$assertThrows(
-    static fn () => $service->authenticate('12345678', '198.51.100.5'),
-    'The initial password must not activate the admin panel remotely.'
-);
-$initialLogin = $service->authenticate('12345678', '127.0.0.1');
+$initialLogin = $service->authenticate('12345678', '198.51.100.5');
 $assert($initialLogin['mustChangePassword'], 'The initial login must require password replacement.');
 $assertThrows(
-    static fn () => $service->changePassword('12345678', 'short', '127.0.0.1'),
+    static fn () => $service->changePassword('12345678', 'short'),
     'A weak administrator password was accepted.'
 );
-$service->changePassword('12345678', 'a-strong-admin-password', '127.0.0.1');
-$remoteLogin = $service->authenticate('a-strong-admin-password', '198.51.100.5');
-$assert(!$remoteLogin['mustChangePassword'], 'A changed admin password did not unlock remote administration.');
+$service->changePassword('12345678', 'new-pass');
+$remoteLogin = $service->authenticate('new-pass', '198.51.100.5');
+$assert(!$remoteLogin['mustChangePassword'], 'A changed admin password did not unlock administration.');
 $assertThrows(
     static fn () => $service->authenticate('wrong-password', '203.0.113.5'),
     'An invalid administrator password was accepted.'
@@ -99,7 +95,7 @@ $assertThrows(
     'An invalid administrator password was accepted.'
 );
 $assertThrows(
-    static fn () => $service->authenticate('a-strong-admin-password', '203.0.113.5'),
+    static fn () => $service->authenticate('new-pass', '203.0.113.5'),
     'Login rate limiting did not block repeated failures.'
 );
 

@@ -61,9 +61,6 @@ final class AdminService
         }
 
         $mustChangePassword = (int) $account['must_change_password'] === 1;
-        if ($mustChangePassword && !$this->isLoopbackAddress($remoteAddress)) {
-            throw new RuntimeException('A senha inicial só pode ser alterada no próprio servidor.');
-        }
 
         $statement = $this->database->prepare(
             'DELETE FROM admin_login_attempts WHERE address_hash = ?'
@@ -78,23 +75,18 @@ final class AdminService
      *
      * @param string $currentPassword Senha atual da conta administrativa.
      * @param string $newPassword Nova senha administrativa.
-     * @param string $remoteAddress Endereço remoto fornecido pelo servidor web.
      */
-    public function changePassword(string $currentPassword, string $newPassword, string $remoteAddress): void
+    public function changePassword(string $currentPassword, string $newPassword): void
     {
         $characterCount = preg_match_all('/./us', $newPassword, $characters);
-        if ($characterCount === false || $characterCount < 12 || strlen($newPassword) > 1024) {
-            throw new RuntimeException('A nova senha deve ter entre 12 e 1024 caracteres.');
+        if ($characterCount === false || $characterCount < 8 || strlen($newPassword) > 1024) {
+            throw new RuntimeException('A nova senha deve ter entre 8 e 1024 caracteres.');
         }
 
         $account = $this->getAdminAccount();
         if (!password_verify($currentPassword, (string) $account['password_hash'])) {
             throw new RuntimeException('A senha atual está incorreta.');
         }
-        if ((int) $account['must_change_password'] === 1 && !$this->isLoopbackAddress($remoteAddress)) {
-            throw new RuntimeException('A senha inicial só pode ser alterada no próprio servidor.');
-        }
-
         $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
         if (!is_string($passwordHash)) {
             throw new RuntimeException('Não foi possível atualizar a senha administrativa.');
@@ -366,11 +358,6 @@ final class AdminService
         }
 
         return $account;
-    }
-
-    private function isLoopbackAddress(string $address): bool
-    {
-        return in_array($address, ['127.0.0.1', '::1'], true);
     }
 
     /**
