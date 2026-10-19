@@ -140,21 +140,19 @@ test('removing an overlay also removes it from the transparency selector', () =>
     assert.notEqual(layerSelector.value, 'Custom');
 });
 
-test('map defaults control initially visible layers and optional center/zoom', () => {
+test('map defaults control all selected base layers and the initial center/zoom', () => {
     const { layersOnMap, mapViews, setup } = createMapSetup();
-    const openTopo = setup.layerRegistry.OpenTopo;
-    const satellite = setup.layerRegistry['Google Satellite'];
-    const infrastructures = setup.layerRegistry.Infraestruturas;
+    const baseLayers = Object.entries(setup.layerRegistry)
+        .filter(([name]) => name !== 'Sugestão de Planejamento');
+    const defaults = {
+        defaultLayers: baseLayers.map(([name]) => name),
+        center: [-21.5699, -51.2457],
+        zoom: 12
+    };
 
-    setup.applyMapDefaults({
-        defaultLayers: ['Google Satellite', 'Infraestruturas'],
-        center: [-22.5, -48.25],
-        zoom: 9
-    });
+    setup.applyMapDefaults(defaults);
 
-    assert.equal(layersOnMap.has(openTopo), false);
-    assert.equal(layersOnMap.has(satellite), true);
-    assert.equal(layersOnMap.has(infrastructures), true);
-    assert.deepEqual(mapViews, [{ center: [-22.5, -48.25], zoom: 9 }]);
+    baseLayers.forEach(([, layer]) => assert.equal(layersOnMap.has(layer), true));
+    assert.deepEqual(mapViews, [{ center: [-21.5699, -51.2457], zoom: 12 }]);
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
 });

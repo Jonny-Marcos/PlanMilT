@@ -279,7 +279,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         document.getElementById('nextButton').disabled = records.length < 100;
     }
 
-    function renderSettingsTable(settings) {
+    function renderSettingsTable(mapDefaults) {
         tableHead.replaceChildren();
         tableBody.replaceChildren();
         const heading = document.createElement('tr');
@@ -290,11 +290,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         });
         tableHead.appendChild(heading);
         const rows = [
-            ['Camadas ao abrir o mapa', (settings.mapDefaults.defaultLayers || []).join(', ') || 'Nenhuma'],
-            ['Centro inicial', settings.mapDefaults.center
-                ? `${settings.mapDefaults.center[0]}, ${settings.mapDefaults.center[1]}`
+            ['Camadas ao abrir o mapa', (mapDefaults.defaultLayers || []).join(', ') || 'Nenhuma'],
+            ['Centro inicial', mapDefaults.center
+                ? `${mapDefaults.center[0]}, ${mapDefaults.center[1]}`
                 : 'Manter enquadramento atual'],
-            ['Zoom inicial', settings.mapDefaults.zoom ?? 'Manter zoom atual']
+            ['Zoom inicial', mapDefaults.zoom ?? 'Manter zoom atual']
         ];
         rows.forEach(([label, value]) => {
             const row = document.createElement('tr');
@@ -349,6 +349,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                 { entity: entitySelect.value, offset }
             );
             if (entitySelect.value === 'settings') {
+                if (!result.mapDefaults || !Array.isArray(result.mapDefaults.defaultLayers)) {
+                    throw new Error('Não foi possível carregar as configurações do mapa.');
+                }
                 renderSettingsTable(result.mapDefaults);
                 editorPanel.hidden = true;
                 showNotice('');

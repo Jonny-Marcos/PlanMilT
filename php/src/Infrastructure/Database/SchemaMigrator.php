@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 5;
+    private const VERSION = 6;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -180,9 +180,15 @@ final class SchemaMigrator
                     . 'updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
                 );
                 $defaults = [
-                    'defaultLayers' => ['OpenTopo'],
-                    'center' => null,
-                    'zoom' => null,
+                    'defaultLayers' => [
+                        'OpenTopo',
+                        'Google Satellite',
+                        'Infraestruturas',
+                        'Quadrículas - UTM',
+                        'BDGEx - CTM50',
+                    ],
+                    'center' => [-21.5699, -51.2457],
+                    'zoom' => 12,
                 ];
                 $statement = $database->prepare(
                     'INSERT INTO app_settings (setting_key, setting_value) VALUES (\'map_defaults\', ?)'
@@ -191,6 +197,31 @@ final class SchemaMigrator
                     json_encode($defaults, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
                 ]);
                 $database->exec('PRAGMA user_version = 5');
+            }
+
+            if ($version < 6) {
+                $legacyDefaults = json_encode([
+                    'defaultLayers' => ['OpenTopo'],
+                    'center' => null,
+                    'zoom' => null,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $defaults = json_encode([
+                    'defaultLayers' => [
+                        'OpenTopo',
+                        'Google Satellite',
+                        'Infraestruturas',
+                        'Quadrículas - UTM',
+                        'BDGEx - CTM50',
+                    ],
+                    'center' => [-21.5699, -51.2457],
+                    'zoom' => 12,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $statement = $database->prepare(
+                    'UPDATE app_settings SET setting_value = ?, updated_at = datetime(\'now\') '
+                    . 'WHERE setting_key = ? AND setting_value = ?'
+                );
+                $statement->execute([$defaults, 'map_defaults', $legacyDefaults]);
+                $database->exec('PRAGMA user_version = 6');
             }
 
             $database->commit();
