@@ -11,7 +11,7 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-navigation/);
+    assert.match(indexSource, /image-editor\.js\?v=20261020-editor-shortcuts-filters/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
@@ -65,6 +65,18 @@ test('theme editor initializes its map once and supports opening and closing in 
 
         setAttribute(name, value) {
             this.attributes[name] = value;
+        }
+
+        setPointerCapture(pointerId) {
+            this.capturedPointer = pointerId;
+        }
+
+        hasPointerCapture(pointerId) {
+            return this.capturedPointer === pointerId;
+        }
+
+        releasePointerCapture(pointerId) {
+            if (this.capturedPointer === pointerId) this.capturedPointer = null;
         }
 
         closest(selector) {
@@ -197,12 +209,20 @@ test('theme editor initializes its map once and supports opening and closing in 
                     type: 'image',
                     width: 1000,
                     height: 500,
+                    filters: [],
                     set(properties) { Object.assign(this, properties); },
+                    applyFilters() { this.filterApplications = (this.filterApplications || 0) + 1; },
                     setCoords() {}
                 });
+            },
+            filters: {
+                Brightness: function (options) { Object.assign(this, { type: 'Brightness' }, options); },
+                Contrast: function (options) { Object.assign(this, { type: 'Contrast' }, options); }
             }
         }
     };
+    function Canvas2dFilterBackend() {}
+    fabric.Canvas2dFilterBackend = Canvas2dFilterBackend;
     class FakeFileReader {
         readAsDataURL() {
             this.onload({ target: { result: 'data:image/png;base64,AA==' } });
@@ -246,6 +266,7 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(map.initialZoom, 6);
     assert.equal(zoomControlElement.hidden, true);
     assert.equal(geocoderElement.hidden, true);
+    assert.ok(fabric.filterBackend instanceof Canvas2dFilterBackend);
     const mainMenu = document.getElementById('imageEditorMainMenu');
     const adjustmentMenu = document.getElementById('imageEditorAdjustmentMenu');
     const openAdjustmentsButton = document.getElementById('imageEditorOpenAdjustments');
@@ -276,6 +297,25 @@ test('theme editor initializes its map once and supports opening and closing in 
     });
     assert.equal(shortcutPrevented, true);
     assert.equal(map.dragging.enabled, true);
+    const mapElement = document.getElementById('imageEditorMap');
+    const pointerEvent = (type, x, y) => ({
+        pointerId: 7,
+        clientX: x,
+        clientY: y,
+        target: mapElement,
+        currentTarget: mapElement,
+        preventDefault() {},
+        stopPropagation() {},
+        stopImmediatePropagation() {}
+    });
+    mapElement.listeners.pointerdown(pointerEvent('pointerdown', 100, 120));
+    assert.equal(map.dragging.enabled, false);
+    assert.equal(mapElement.capturedPointer, 7);
+    mapElement.listeners.pointermove(pointerEvent('pointermove', 135, 90));
+    assert.deepEqual(Array.from(mapPans[1]), [35, -30]);
+    mapElement.listeners.pointerup(pointerEvent('pointerup', 135, 90));
+    assert.equal(map.dragging.enabled, true);
+    assert.equal(mapElement.capturedPointer, null);
     window.listeners.keyup({ code: 'Space', key: ' ', target: new FakeElement() });
     assert.equal(map.dragging.enabled, false);
     const inputTarget = new FakeElement();
@@ -326,6 +366,15 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(fabricCanvas.activeObject, image);
     assert.equal(fabricCanvas.width, 800);
     assert.equal(fabricCanvas.height, 600);
+    document.getElementById('imageEditorBrightness').click('input', {
+        target: { value: '1.25' }
+    });
+    document.getElementById('imageEditorContrast').click('input', {
+        target: { value: '1.2' }
+    });
+    assert.equal(image.filterApplications, 2);
+    assert.equal(image.width, 1000);
+    assert.equal(image.height, 500);
     assert.equal(editor.classes.has('is-drop-target'), false);
 
     document.getElementById('imageEditorTools').click('click', {
