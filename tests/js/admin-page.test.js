@@ -19,6 +19,11 @@ test('admin page retains its existing action hooks and uses semantic section lan
         'id="recordForm"',
         'id="refreshButton"',
         'id="logoutButton"',
+        'id="searchForm"',
+        'id="searchField"',
+        'id="searchMode"',
+        'id="elevationFilesInput"',
+        'id="uploadElevationButton"',
         '<nav class="topbar"',
         '<header class="page-heading"',
         '<section id="adminPanel"'
@@ -31,4 +36,13 @@ test('admin page styling is responsive, keyboard-visible and respects reduced-mo
     assert.match(endpoint, /:focus-visible/);
     assert.match(endpoint, /prefers-reduced-motion:reduce/);
     assert.match(endpoint, /\.table-empty/);
+});
+
+test('admin search supports field/match filters and elevation upload uses authenticated multipart', () => {
+    assert.match(endpoint, /searchFieldsByEntity/);
+    assert.match(endpoint, /filters: currentSearch/);
+    assert.match(endpoint, /action', 'upload_files'/);
+    assert.match(endpoint, /credentials: 'same-origin'/);
+    assert.match(endpoint, /move_uploaded_file\(/);
+    assert.match(endpoint, /validateElevationUpload\(/);
 });

@@ -111,31 +111,111 @@ final class AdminService
      *
      * @param string $entity Entidade administrativa permitida.
      * @param int $offset Deslocamento da paginação.
+     * @param array{term?: string, field?: string, mode?: string} $filters Filtros avançados opcionais.
      * @return array<int, array<string, mixed>>
      */
-    public function listRecords(string $entity, int $offset = 0): array
+    public function listRecords(string $entity, int $offset = 0, array $filters = []): array
     {
         if ($offset < 0 || $offset > 1000000) {
             throw new RuntimeException('Página inválida.');
         }
 
         $queries = [
-            'map_services' => 'SELECT id, name, url, created_at, updated_at FROM map_services ORDER BY name COLLATE NOCASE',
-            'map_layers' => 'SELECT id, map_service_id, layer_name, layer_title, category_code, '
-                . 'military_relevance, review_status, category_rank FROM map_layers ORDER BY layer_title COLLATE NOCASE',
-            'drawings' => 'SELECT id, username, link, created_at, updated_at FROM drawings ORDER BY id DESC',
-            'images' => 'SELECT id, description, location, is_shared, created_at, updated_at FROM images ORDER BY id DESC',
-            'task_sequences' => 'SELECT id, name, description, created_at, updated_at FROM task_sequences ORDER BY name COLLATE NOCASE',
+            'map_services' => [
+                'sql' => 'SELECT id, name, url, created_at, updated_at FROM map_services',
+                'order' => 'name COLLATE NOCASE',
+                'fields' => ['id' => 'id', 'name' => 'name', 'url' => 'url'],
+            ],
+            'map_layers' => [
+                'sql' => 'SELECT id, map_service_id, layer_name, layer_title, category_code, '
+                    . 'military_relevance, review_status, category_rank FROM map_layers',
+                'order' => 'layer_title COLLATE NOCASE',
+                'fields' => [
+                    'id' => 'id', 'map_service_id' => 'map_service_id', 'layer_name' => 'layer_name',
+                    'layer_title' => 'layer_title', 'category_code' => 'category_code',
+                    'military_relevance' => 'military_relevance', 'review_status' => 'review_status',
+                    'category_rank' => 'category_rank',
+                ],
+            ],
+            'drawings' => [
+                'sql' => 'SELECT id, username, link, created_at, updated_at FROM drawings',
+                'order' => 'id DESC',
+                'fields' => ['id' => 'id', 'username' => 'username', 'link' => 'link'],
+            ],
+            'images' => [
+                'sql' => 'SELECT id, description, location, is_shared, created_at, updated_at FROM images',
+                'order' => 'id DESC',
+                'fields' => ['id' => 'id', 'description' => 'description', 'location' => 'location'],
+            ],
+            'task_sequences' => [
+                'sql' => 'SELECT id, name, description, created_at, updated_at FROM task_sequences',
+                'order' => 'name COLLATE NOCASE',
+                'fields' => ['id' => 'id', 'name' => 'name', 'description' => 'description'],
+            ],
         ];
         if (!isset($queries[$entity])) {
             throw new RuntimeException('Tipo de registro não permitido.');
         }
 
-        $statement = $this->database->prepare($queries[$entity] . ' LIMIT ' . self::PAGE_SIZE . ' OFFSET ?');
-        $statement->bindValue(1, $offset, PDO::PARAM_INT);
+        $query = $queries[$entity];
+        $where = '';
+        $parameters = [];
+        $term = $filters['term'] ?? '';
+        if (!is_string($term) || strlen($term) > 120) {
+            throw new RuntimeException('O texto da pesquisa deve ter até 120 caracteres.');
+        }
+        if ($term !== '') {
+            $field = $filters['field'] ?? 'all';
+            $mode = $filters['mode'] ?? 'contains';
+            if (!is_string($field) || ($field !== 'all' && !isset($query['fields'][$field]))) {
+                throw new RuntimeException('Campo de pesquisa não permitido para esta seção.');
+            }
+            if (!is_string($mode) || !in_array($mode, ['contains', 'exact'], true)) {
+                throw new RuntimeException('Tipo de correspondência inválido.');
+            }
+
+            $columns = $field === 'all' ? array_values($query['fields']) : [$query['fields'][$field]];
+            $comparisons = [];
+            foreach ($columns as $column) {
+                $comparisons[] = $mode === 'exact'
+                    ? 'LOWER(CAST(' . $column . ' AS TEXT)) = LOWER(?)'
+                    : 'LOWER(CAST(' . $column . ' AS TEXT)) LIKE LOWER(?) ESCAPE \'\\\'';
+                $parameters[] = $mode === 'exact'
+                    ? $term
+                    : '%' . strtr($term, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
+            }
+            $where = ' WHERE (' . implode(' OR ', $comparisons) . ')';
+        }
+
+        $statement = $this->database->prepare(
+            $query['sql'] . $where . ' ORDER BY ' . $query['order'] . ' LIMIT ' . self::PAGE_SIZE . ' OFFSET ?'
+        );
+        foreach ($parameters as $index => $parameter) {
+            $statement->bindValue($index + 1, $parameter, PDO::PARAM_STR);
+        }
+        $statement->bindValue(count($parameters) + 1, $offset, PDO::PARAM_INT);
         $statement->execute();
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Valida um upload HGT e retorna seu nome canônico em maiúsculas.
+     *
+     * @param string $name Nome do arquivo enviado.
+     * @param int $size Tamanho informado pelo PHP.
+     * @return string Nome canônico do tile.
+     */
+    public function validateElevationUpload(string $name, int $size): string
+    {
+        if (!$this->isValidElevationFilename($name)) {
+            throw new RuntimeException('Nome do tile HGT inválido.');
+        }
+        if (!in_array($size, [1201 * 1201 * 2, 3601 * 3601 * 2], true)) {
+            throw new RuntimeException('O arquivo não tem um tamanho SRTM1 ou SRTM3 válido.');
+        }
+
+        return strtoupper($name);
     }
 
     /**

@@ -95,6 +95,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         .toolbar>label{flex:1 1 250px;max-width:390px;margin:0}
         .toolbar select{background-color:#fff}
         .actions{margin:0}
+        .search-panel{display:grid;grid-template-columns:minmax(220px,2fr) minmax(170px,1fr) minmax(150px,.8fr) auto;align-items:end;gap:12px;margin-top:14px;padding:15px;border:1px solid #e0e7ef;border-radius:12px;background:#fff}
+        .search-panel label{margin:0}
+        .search-actions{display:flex;gap:8px}
+        .upload-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:14px;padding:17px 19px;border:1px dashed #bdcada;border-radius:12px;background:#f9fbfd}
+        .upload-panel h3{margin:0 0 5px;color:#304860;font-size:14px}
+        .upload-panel p{margin:0;color:#718096;font-size:12px;line-height:1.5}
+        .upload-controls{display:flex;align-items:center;gap:10px}
+        .upload-controls input[type=file]{width:min(360px,45vw);min-height:auto;padding:7px;background:#fff;font-size:12px}
         .section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 16px}
         .section-heading h2{margin:0;color:#203b58;font-size:21px;letter-spacing:-.03em}
         .section-heading p{margin:6px 0 0;color:#6c7b8e;font-size:13px;line-height:1.5}
@@ -124,8 +132,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         #editorPanel form>.actions button{min-width:130px}
         .table-empty{padding:30px;text-align:center;color:#718096}
         [hidden]{display:none!important}
-        @media(max-width:720px){.admin-shell{width:min(100% - 28px,1180px);padding-top:16px}.topbar{margin-bottom:27px}.page-heading{align-items:flex-start;flex-direction:column}.heading-note{display:none}.toolbar{align-items:stretch}.toolbar>label{max-width:none}.toolbar>.actions{justify-content:flex-start}.section-heading{align-items:flex-start;flex-direction:column}.panel{padding:19px}.table-card{margin-top:12px}}
-        @media(max-width:520px){.admin-shell{width:calc(100% - 20px);padding-top:12px}.topbar-tag{font-size:9px}.toolbar>.actions{display:grid;width:100%;grid-template-columns:1fr 1fr}.toolbar>.actions button{width:100%;padding-right:8px;padding-left:8px}.toolbar>.actions #logoutButton{grid-column:1/-1}.pagination{gap:7px}.pagination button{padding:8px 10px}.pagination .muted{font-size:11px}#editorPanel form{grid-template-columns:1fr}#editorPanel form>fieldset,#editorPanel form>.actions{grid-column:1}.record-actions{white-space:normal}}
+        @media(max-width:900px){.search-panel{grid-template-columns:repeat(2,minmax(0,1fr))}.search-actions{grid-column:1/-1}}
+        @media(max-width:720px){.admin-shell{width:min(100% - 28px,1180px);padding-top:16px}.topbar{margin-bottom:27px}.page-heading{align-items:flex-start;flex-direction:column}.heading-note{display:none}.toolbar{align-items:stretch}.toolbar>label{max-width:none}.toolbar>.actions{justify-content:flex-start}.section-heading{align-items:flex-start;flex-direction:column}.panel{padding:19px}.table-card{margin-top:12px}.upload-panel{align-items:stretch;flex-direction:column}.upload-controls{align-items:stretch;flex-direction:column}.upload-controls input[type=file]{width:100%}}
+        @media(max-width:520px){.admin-shell{width:calc(100% - 20px);padding-top:12px}.topbar-tag{font-size:9px}.toolbar>.actions{display:grid;width:100%;grid-template-columns:1fr 1fr}.toolbar>.actions button{width:100%;padding-right:8px;padding-left:8px}.toolbar>.actions #logoutButton{grid-column:1/-1}.search-panel{grid-template-columns:1fr}.search-actions{grid-column:1}.search-actions button{flex:1}.pagination{gap:7px}.pagination button{padding:8px 10px}.pagination .muted{font-size:11px}#editorPanel form{grid-template-columns:1fr}#editorPanel form>fieldset,#editorPanel form>.actions{grid-column:1}.record-actions{white-space:normal}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
     </style>
 </head>
@@ -199,6 +208,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                 <button id="logoutButton" class="secondary" type="button">Sair</button>
             </div>
         </div>
+        <form id="searchForm" class="search-panel">
+            <label for="searchTerm">Pesquisar itens
+                <input id="searchTerm" name="term" type="search" maxlength="120" placeholder="Digite um nome, título, link ou identificador">
+            </label>
+            <label for="searchField">Pesquisar em
+                <select id="searchField" name="field"></select>
+            </label>
+            <label for="searchMode">Correspondência
+                <select id="searchMode" name="mode">
+                    <option value="contains">Contém o texto</option>
+                    <option value="exact">Correspondência exata</option>
+                </select>
+            </label>
+            <div class="search-actions">
+                <button type="submit">Pesquisar</button>
+                <button id="clearSearchButton" class="secondary" type="button">Limpar</button>
+            </div>
+        </form>
+        <section id="elevationUploadPanel" class="upload-panel" hidden>
+            <div>
+                <h3>Adicionar arquivos de elevação</h3>
+                <p>Envie até 10 tiles HGT SRTM1/SRTM3 (limite total de 120 MiB por envio). O nome deve corresponder às coordenadas, por exemplo N23W046.hgt. Tiles existentes não serão substituídos.</p>
+            </div>
+            <div class="upload-controls">
+                <input id="elevationFilesInput" type="file" accept=".hgt" multiple aria-label="Selecionar tiles HGT">
+                <button id="uploadElevationButton" type="button">Enviar arquivos</button>
+            </div>
+        </section>
         <div class="table-card">
             <div class="table-wrap">
                 <table>
@@ -275,6 +312,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         ['Quadrículas - UTM', 'Quadrículas UTM'],
         ['BDGEx - CTM50', 'BDGEx - CTM50']
     ];
+    const searchFieldsByEntity = {
+        map_services: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['name', 'Nome'], ['url', 'URL']
+        ],
+        map_layers: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['map_service_id', 'ID do serviço'],
+            ['layer_name', 'Nome técnico'], ['layer_title', 'Título'], ['category_code', 'Categoria'],
+            ['military_relevance', 'Relevância'], ['review_status', 'Revisão'], ['category_rank', 'Posição']
+        ],
+        drawings: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['username', 'Usuário'], ['link', 'Link']
+        ],
+        images: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['description', 'Descrição'], ['location', 'Localização']
+        ],
+        task_sequences: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['name', 'Nome'], ['description', 'Descrição']
+        ],
+        elevation_files: [['all', 'Todos os campos'], ['name', 'Nome do tile']]
+    };
+    let currentSearch = { term: '', field: 'all', mode: 'contains' };
+    let elevationFiles = [];
 
     function showNotice(message, isError = false) {
         notice.textContent = message;
@@ -299,6 +358,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         passwordPanel.hidden = !adminConfig.authenticated || !adminConfig.mustChangePassword;
         adminPanel.hidden = !adminConfig.authenticated || adminConfig.mustChangePassword;
         document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
+    }
+
+    function updateSearchControls() {
+        const isSettings = entitySelect.value === 'settings';
+        document.getElementById('searchForm').hidden = isSettings;
+        document.getElementById('elevationUploadPanel').hidden = entitySelect.value !== 'elevation_files';
+        const fieldSelect = document.getElementById('searchField');
+        fieldSelect.replaceChildren();
+        (searchFieldsByEntity[entitySelect.value] || []).forEach(([value, label]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            fieldSelect.appendChild(option);
+        });
+        currentSearch = { term: '', field: 'all', mode: 'contains' };
+        document.getElementById('searchTerm').value = '';
+        document.getElementById('searchMode').value = 'contains';
     }
 
     function displayValue(value) {
@@ -391,6 +467,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     function renderFilesTable(files) {
         tableHead.replaceChildren();
         tableBody.replaceChildren();
+        const term = currentSearch.term.trim().toLocaleLowerCase();
+        const filteredFiles = term
+            ? files.filter(file => currentSearch.mode === 'exact'
+                ? file.name.toLocaleLowerCase() === term
+                : file.name.toLocaleLowerCase().includes(term))
+            : files;
         const heading = document.createElement('tr');
         ['Arquivo HGT', 'Tamanho', 'Ações'].forEach(text => {
             const cell = document.createElement('th');
@@ -398,7 +480,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             heading.appendChild(cell);
         });
         tableHead.appendChild(heading);
-        files.forEach(file => {
+        filteredFiles.forEach(file => {
             const row = document.createElement('tr');
             const name = document.createElement('td');
             name.textContent = file.name;
@@ -414,16 +496,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             row.append(name, size, actions);
             tableBody.appendChild(row);
         });
-        if (files.length === 0) {
+        if (filteredFiles.length === 0) {
             const row = document.createElement('tr');
             const empty = document.createElement('td');
             empty.className = 'table-empty';
             empty.colSpan = 3;
-            empty.textContent = 'Nenhum tile HGT disponível em SRTM3.';
+            empty.textContent = term ? 'Nenhum tile corresponde à pesquisa.' : 'Nenhum tile HGT disponível em SRTM3.';
             row.appendChild(empty);
             tableBody.appendChild(row);
         }
-        document.getElementById('pageStatus').textContent = `${files.length} tiles HGT`;
+        document.getElementById('pageStatus').textContent = term
+            ? `${filteredFiles.length} de ${files.length} tiles HGT`
+            : `${files.length} tiles HGT`;
         document.getElementById('previousButton').disabled = true;
         document.getElementById('nextButton').disabled = true;
     }
@@ -433,7 +517,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             const result = await request(
                 entitySelect.value === 'settings' ? 'get_settings'
                     : entitySelect.value === 'elevation_files' ? 'list_files' : 'list',
-                { entity: entitySelect.value, offset }
+                {
+                    entity: entitySelect.value,
+                    offset,
+                    filters: currentSearch
+                }
             );
             if (entitySelect.value === 'settings') {
                 if (!result.mapDefaults || !Array.isArray(result.mapDefaults.defaultLayers)) {
@@ -445,7 +533,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                 return;
             }
             if (entitySelect.value === 'elevation_files') {
-                renderFilesTable(result.files);
+                elevationFiles = result.files;
+                renderFilesTable(elevationFiles);
                 editorPanel.hidden = true;
                 showNotice('');
                 return;
@@ -614,6 +703,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         } catch (error) {
             showNotice(error.message, true);
         }
+
+        async function uploadElevationFiles() {
+            const input = document.getElementById('elevationFilesInput');
+            const files = Array.from(input.files || []);
+            if (files.length === 0) {
+                showNotice('Selecione pelo menos um arquivo HGT.', true);
+                return;
+            }
+            if (files.length > 10) {
+                showNotice('Selecione no máximo 10 arquivos por envio.', true);
+                return;
+            }
+            if (files.reduce((total, file) => total + file.size, 0) > 125829120) {
+                showNotice('O tamanho total dos arquivos não pode ultrapassar 120 MiB por envio.', true);
+                return;
+            }
+            const body = new FormData();
+            body.append('action', 'upload_files');
+            body.append('csrf', adminConfig.csrf);
+            files.forEach(file => body.append('files[]', file, file.name));
+            const button = document.getElementById('uploadElevationButton');
+            button.disabled = true;
+            try {
+                const response = await fetch('admin.php', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body
+                });
+                const result = await response.json();
+                if (!response.ok || result.error) throw new Error(result.error || 'Não foi possível enviar os arquivos.');
+                input.value = '';
+                showNotice(`${result.files.length} arquivo(s) de elevação enviado(s).`);
+                await loadRecords();
+            } catch (error) {
+                showNotice(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        }
     }
 
     document.getElementById('loginForm').addEventListener('submit', async event => {
@@ -696,6 +824,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         }
     });
 
+    document.getElementById('searchForm').addEventListener('submit', event => {
+        event.preventDefault();
+        currentSearch = {
+            term: document.getElementById('searchTerm').value.trim(),
+            field: document.getElementById('searchField').value || 'all',
+            mode: document.getElementById('searchMode').value
+        };
+        offset = 0;
+        loadRecords();
+    });
+    document.getElementById('clearSearchButton').addEventListener('click', () => {
+        document.getElementById('searchTerm').value = '';
+        document.getElementById('searchField').value = 'all';
+        document.getElementById('searchMode').value = 'contains';
+        currentSearch = { term: '', field: 'all', mode: 'contains' };
+        offset = 0;
+        loadRecords();
+    });
+    document.getElementById('uploadElevationButton').addEventListener('click', uploadElevationFiles);
+
     document.getElementById('newButton').addEventListener('click', () => openEditor({}, 0));
     document.getElementById('editSettingsButton')?.addEventListener('click', async () => {
         try {
@@ -728,11 +876,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     entitySelect.addEventListener('change', () => {
         offset = 0;
         updatePanels();
+        updateSearchControls();
         document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
         document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
         loadRecords();
     });
     updatePanels();
+    updateSearchControls();
     document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
     document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
     if (adminConfig.authenticated && !adminConfig.mustChangePassword) loadRecords();
@@ -752,13 +902,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 $contentLength = filter_var($_SERVER['CONTENT_LENGTH'] ?? '0', FILTER_VALIDATE_INT);
-if ($contentLength === false || $contentLength > 6291456) {
+$isMultipartUpload = str_starts_with(
+    strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')),
+    'multipart/form-data;'
+);
+$maximumRequestBytes = $isMultipartUpload ? 134217728 : 6291456;
+if ($contentLength === false || $contentLength > $maximumRequestBytes) {
     http_response_code(413);
     echo json_encode(['error' => 'A requisição excede o limite permitido.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+if ($isMultipartUpload && $contentLength > 0 && $_POST === []) {
+    http_response_code(413);
+    echo json_encode(
+        ['error' => 'O servidor recusou o upload. Verifique post_max_size e os limites de upload do PHP.'],
+        JSON_UNESCAPED_UNICODE
+    );
+    exit;
+}
 
-$request = json_decode((string) file_get_contents('php://input'), true);
+$request = $isMultipartUpload ? $_POST : json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($request) || !is_string($request['action'] ?? null)) {
     http_response_code(400);
     echo json_encode(['error' => 'Requisição inválida.'], JSON_UNESCAPED_UNICODE);
@@ -866,14 +1029,74 @@ try {
         exit;
     }
 
+    if ($action === 'upload_files') {
+        $uploads = $_FILES['files'] ?? null;
+        if (!is_array($uploads) || !is_array($uploads['name'] ?? null)
+            || !is_array($uploads['tmp_name'] ?? null) || !is_array($uploads['error'] ?? null)
+            || !is_array($uploads['size'] ?? null)) {
+            throw new RuntimeException('Selecione arquivos HGT para enviar.');
+        }
+        if (count($uploads['name']) < 1 || count($uploads['name']) > 10) {
+            throw new RuntimeException('Envie entre 1 e 10 arquivos HGT por vez.');
+        }
+
+        $directory = dirname(__DIR__, 2) . '/SRTM3';
+        $realDirectory = realpath($directory);
+        if ($realDirectory === false || !is_dir($realDirectory) || !is_writable($realDirectory)) {
+            throw new RuntimeException('O diretório SRTM3 não está disponível para gravação.');
+        }
+
+        $validatedUploads = [];
+        foreach ($uploads['name'] as $index => $originalName) {
+            $temporaryPath = $uploads['tmp_name'][$index] ?? null;
+            $uploadError = $uploads['error'][$index] ?? UPLOAD_ERR_NO_FILE;
+            $reportedSize = $uploads['size'][$index] ?? null;
+            if (!is_string($originalName) || !is_string($temporaryPath)
+                || $uploadError !== UPLOAD_ERR_OK || !is_int($reportedSize)
+                || !is_uploaded_file($temporaryPath)) {
+                throw new RuntimeException('Um dos arquivos não foi recebido corretamente pelo servidor.');
+            }
+            $actualSize = filesize($temporaryPath);
+            if ($actualSize === false || $actualSize !== $reportedSize) {
+                throw new RuntimeException('Não foi possível confirmar o tamanho de um dos arquivos enviados.');
+            }
+            $fileName = $admin->validateElevationUpload($originalName, $actualSize);
+            $destination = $realDirectory . DIRECTORY_SEPARATOR . $fileName;
+            if (is_link($destination) || file_exists($destination)) {
+                throw new RuntimeException('O tile ' . $fileName . ' já existe; nenhum arquivo foi substituído.');
+            }
+            foreach ($validatedUploads as $validatedUpload) {
+                if ($validatedUpload['name'] === $fileName) {
+                    throw new RuntimeException('O mesmo tile foi selecionado mais de uma vez.');
+                }
+            }
+            $validatedUploads[] = [
+                'name' => $fileName,
+                'temporaryPath' => $temporaryPath,
+                'destination' => $destination,
+            ];
+        }
+
+        $uploadedNames = [];
+        foreach ($validatedUploads as $validatedUpload) {
+            if (!move_uploaded_file($validatedUpload['temporaryPath'], $validatedUpload['destination'])) {
+                throw new RuntimeException('Não foi possível gravar o tile ' . $validatedUpload['name'] . '.');
+            }
+            $uploadedNames[] = $validatedUpload['name'];
+        }
+        echo json_encode(['success' => true, 'files' => $uploadedNames], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if ($action === 'list') {
         $entity = $request['entity'] ?? null;
         $offset = filter_var($request['offset'] ?? 0, FILTER_VALIDATE_INT);
-        if (!is_string($entity) || $offset === false) {
+        $filters = $request['filters'] ?? [];
+        if (!is_string($entity) || $offset === false || !is_array($filters)) {
             throw new RuntimeException('Parâmetros inválidos para listar registros.');
         }
         echo json_encode(
-            ['records' => $admin->listRecords($entity, $offset)],
+            ['records' => $admin->listRecords($entity, $offset, $filters)],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
         );
         exit;

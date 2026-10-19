@@ -191,12 +191,72 @@ $assertThrows(
     static fn () => $service->listElevationFiles($elevationDirectory),
     'The file manager silently accepted a missing elevation directory.'
 );
+$assert(
+    $service->validateElevationUpload('n37w122.hgt', 1201 * 1201 * 2) === 'N37W122.HGT',
+    'A valid SRTM3 upload filename was not canonicalized.'
+);
+$assert(
+    $service->validateElevationUpload('S23E046.HGT', 3601 * 3601 * 2) === 'S23E046.HGT',
+    'A valid SRTM1 upload was rejected.'
+);
+$assertThrows(
+    static fn () => $service->validateElevationUpload('../N37W122.hgt', 1201 * 1201 * 2),
+    'The elevation upload accepted a traversal filename.'
+);
+$assertThrows(
+    static fn () => $service->validateElevationUpload('N37W122.hgt', 128),
+    'The elevation upload accepted an invalid SRTM file size.'
+);
 
 $serviceId = $service->saveRecord('map_services', 0, [
     'name' => 'SIG de teste',
     'url' => 'https://maps.example.test/wms',
 ]);
 $assert($serviceId === 1, 'A map service was not created.');
+$secondServiceId = $service->saveRecord('map_services', 0, [
+    'name' => 'IBGE Cartografia',
+    'url' => 'https://ibge.example.test/wms',
+]);
+$matchingServices = $service->listRecords('map_services', 0, [
+    'term' => 'IBGE',
+    'field' => 'name',
+    'mode' => 'contains',
+]);
+$assert(
+    count($matchingServices) === 1 && (int) $matchingServices[0]['id'] === $secondServiceId,
+    'Advanced field-specific contains search did not filter map services.'
+);
+$exactServices = $service->listRecords('map_services', 0, [
+    'term' => 'https://maps.example.test/wms',
+    'field' => 'url',
+    'mode' => 'exact',
+]);
+$assert(
+    count($exactServices) === 1 && (int) $exactServices[0]['id'] === $serviceId,
+    'Exact search did not match a map service URL.'
+);
+$literalWildcardSearch = $service->listRecords('map_services', 0, [
+    'term' => '%',
+    'field' => 'name',
+    'mode' => 'contains',
+]);
+$assert($literalWildcardSearch === [], 'Search wildcards were not treated as literal characters.');
+$assertThrows(
+    static fn () => $service->listRecords('map_services', 0, [
+        'term' => 'IBGE',
+        'field' => 'url) OR 1=1 --',
+        'mode' => 'contains',
+    ]),
+    'The search accepted a field outside the allowlist.'
+);
+$assertThrows(
+    static fn () => $service->listRecords('map_services', 0, [
+        'term' => str_repeat('a', 121),
+        'field' => 'name',
+        'mode' => 'contains',
+    ]),
+    'The search accepted an oversized search phrase.'
+);
 $assertThrows(
     static fn () => $service->saveRecord('map_services', $serviceId, [
         'name' => 'URL inválida',
@@ -298,7 +358,7 @@ $assertThrows(
 $service->deleteRecord('map_services', $serviceId);
 $assert(
     (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() === 0
-    && (int) $database->query('SELECT COUNT(*) FROM map_services')->fetchColumn() === 0,
+    && (int) $database->query('SELECT COUNT(*) FROM map_services')->fetchColumn() === 1,
     'Deleting a map service did not remove its catalog layers transactionally.'
 );
 
