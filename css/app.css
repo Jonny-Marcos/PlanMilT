@@ -1162,3 +1162,103 @@
                 cursor: not-allowed;
                 opacity: 0.5;
             }
+
+            .image-editor-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 10000;
+                overflow: hidden;
+                background: #fff;
+            }
+
+            .image-editor-overlay[hidden] {
+                display: none;
+            }
+
+            .image-editor-map {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            #imageEditorCanvas {
+                position: absolute;
+                inset: 0 auto auto 0;
+                z-index: 500;
+            }
+
+            #imageEditorTools {
+                position: relative;
+                z-index: 1200;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-start;
+                gap: 8px;
+                max-width: calc(100vw - 80px);
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background: rgba(255, 255, 255, 0.94);
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            }
+
+            #imageEditorTools .toolbar-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 32px;
+                min-height: 32px;
+                padding: 4px;
+                border: 0;
+                background: transparent;
+                color: #333;
+                font-size: 18px;
+                cursor: pointer;
+            }
+
+            #imageEditorTools .toolbar-icon:hover {
+                color: #007bff;
+            }
+
+            #imageEditorTools .image-editor-slider {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 120px;
+                font-size: 12px;
+            }
+
+            .image-editor-move-buttons {
+                display: flex;
+                align-items: center;
+            }
+
+            .image-editor-close {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                z-index: 7000;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 9px 12px;
+                border: 1px solid #c5cad2;
+                border-radius: 5px;
+                background: #fff;
+                color: #333;
+                cursor: pointer;
+            }
+
+            @media (max-width: 600px) {
+                #imageEditorTools {
+                    top: 52px;
+                    max-width: calc(100vw - 20px);
+                    gap: 4px;
+                    padding: 6px;
+                }
+
+                #imageEditorTools .image-editor-slider {
+                    min-width: 100px;
+                }
+            }

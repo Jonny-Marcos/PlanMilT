@@ -23,17 +23,23 @@
                         // Monta as opções para o select
                         const options = data.images.map(image => `<option value="${image.id}">${image.descricao}</option>`).join('');
 
-                        // Exibe o SweetAlert2 com o select e o novo botão "Enviar imagem"
+                        // Mantém o editor no aplicativo principal, sem abrir outra página.
                         const { value: imageId } = await Swal.fire({
                             title: 'Carregar Imagem',
                             html: `
 <select id="swal-input1" class="swal2-input">${options}</select>
 <br><br>
-<a href="criador-tema.html" class="swal2-styled swal2-cancel">Enviar imagem</a>
+<button id="openImageEditor" type="button" class="swal2-styled swal2-cancel">Criar tema</button>
 `,
                             focusConfirm: false,
                             showCancelButton: true,
                             confirmButtonText: 'Carregar',
+                            didOpen: () => {
+                                document.getElementById('openImageEditor').addEventListener('click', () => {
+                                    Swal.close();
+                                    window.PlanMilT.openImageEditor();
+                                });
+                            },
                             preConfirm: () => {
                                 const selectedId = document.getElementById('swal-input1').value;
                                 if (!selectedId) {
@@ -137,7 +143,6 @@
                     Swal.fire('Erro!', 'Erro ao carregar a imagem.', 'error');
                 }
             }
-
 
 
 

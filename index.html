@@ -70,12 +70,55 @@
 
 
 
-        <link rel="stylesheet" href="css/app.css?v=20261016-toolbar-icons-restored">
+        <link rel="stylesheet" href="css/app.css?v=20261019-integrated-editor">
         <title>PlanMilT</title>
     </head>
     <body>
         <div id="map">
         </div>
+        <section id="imageEditor" class="image-editor-overlay" aria-label="Criador de tema" hidden>
+            <div id="imageEditorMap" class="image-editor-map"></div>
+            <canvas id="imageEditorCanvas"></canvas>
+            <button id="closeImageEditor" class="image-editor-close" type="button" aria-label="Voltar ao mapa principal">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                Voltar ao mapa
+            </button>
+            <div id="imageEditorTools" class="toolbar-icons">
+                <label class="image-editor-slider">
+                    <span>Contraste</span>
+                    <input type="range" id="imageEditorContrast" min="0" max="2" step="0.01" value="1">
+                </label>
+                <label class="image-editor-slider">
+                    <span>Brilho</span>
+                    <input type="range" id="imageEditorBrightness" min="0" max="2" step="0.01" value="1">
+                </label>
+                <input type="file" id="imageEditorFile" accept="image/*" hidden>
+                <label for="imageEditorFile" class="toolbar-icon" title="Carregar imagem">
+                    <i class="fas fa-upload" aria-hidden="true"></i>
+                </label>
+                <button class="toolbar-icon" type="button" title="Salvar imagem e localização" data-image-editor-action="save">
+                    <i class="fas fa-save" aria-hidden="true"></i>
+                </button>
+                <button class="toolbar-icon" type="button" title="Remover fundo" data-image-editor-action="remove-background">
+                    <i class="fas fa-times-circle" aria-hidden="true"></i>
+                </button>
+                <button class="toolbar-icon" type="button" title="Tornar escala de cinza" data-image-editor-action="grayscale">
+                    <i class="fas fa-filter" aria-hidden="true"></i>
+                </button>
+                <button class="toolbar-icon" type="button" title="Resetar imagem" data-image-editor-action="reset">
+                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                </button>
+                <button class="toolbar-icon" type="button" title="Remover imagem" data-image-editor-action="remove">
+                    <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                </button>
+                <div id="imageEditorMoveButtons" class="image-editor-move-buttons">
+                    <button class="toolbar-icon" type="button" title="Mover para cima" data-image-editor-move="up"><i class="fas fa-arrow-up" aria-hidden="true"></i></button>
+                    <button class="toolbar-icon" type="button" title="Mover para esquerda" data-image-editor-move="left"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
+                    <button class="toolbar-icon" type="button" title="Mover para baixo" data-image-editor-move="down"><i class="fas fa-arrow-down" aria-hidden="true"></i></button>
+                    <button class="toolbar-icon" type="button" title="Mover para direita" data-image-editor-move="right"><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </section>
         <div id="elevation-profile-container" style="display: none; position: relative;">
             <button id="close-btn" style="position: absolute; top: 0; right: 0;">Fechar</button>
             <canvas id="elevation-profile-canvas" width="400" height="200"></canvas>
@@ -120,6 +163,7 @@
         <script src="js/library/clustering.js"></script>
         <script src="js/library/tactical-graphics.min.js"></script>
         <script src="js/features/api-client.js"></script>
+        <script src="js/library/fabric.min.js"></script>
         <script src="js/features/map-layers.js?v=20261015-catalog-advanced-search"></script>
         <script src="js/features/elevation-profile.js"></script>
         <script src="js/features/geolocation.js"></script>
@@ -165,5 +209,6 @@
         <script src="js/features/task-sequence-controls.js"></script>
         <script src="js/features/layer-management.js?v=20261015-catalog-title-25"></script>
         <script src="js/features/help-and-planning.js"></script>
+        <script src="js/features/image-editor.js?v=20261019-integrated-editor"></script>
     </body>
 </html>

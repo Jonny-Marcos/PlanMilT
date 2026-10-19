@@ -63,6 +63,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. Durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém apenas gráficos cuja simbologia acrescenta geometria própria; linhas, áreas básicas e círculos equivalentes às ferramentas nativas continuam disponíveis no Leaflet Draw.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
+- **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema” para editar e salvar um calco sem sair do mapa principal.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
 
