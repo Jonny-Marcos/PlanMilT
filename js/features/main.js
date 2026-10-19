@@ -1,7 +1,6 @@
 /**
  * @fileoverview Inicializa o mapa principal, a toolbar, o seletor de cor e as ferramentas de desenho.
- * @exports Função global googleTranslateElementInit.
- * @requires Leaflet, jQuery/Spectrum e módulos PlanMilT carregados antes deste script; registra googleTranslateElementInit global.
+ * @requires Leaflet, jQuery/Spectrum, callback Google Translate definido em index.html e módulos PlanMilT.
  */
 
 
@@ -123,16 +122,7 @@
 
             // Adicionar o controle ao mapa
             map.addControl(new TranslateControl());
-
-            // Inicializar o Google Translate
-            /**
-             * Inicializa o controle do Google Translate dentro do mapa.
-             */
-            function googleTranslateElementInit() {
-                new google.translate.TranslateElement({
-                    pageLanguage: 'pt'
-                }, 'google_translate_element');
-            }
+            window.googleTranslateElementInit?.();
 
 
 

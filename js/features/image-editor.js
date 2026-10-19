@@ -14,16 +14,20 @@
     const editor = document.getElementById('imageEditor');
 
     /**
-     * Inicializa a tradução do editor quando a API do Google estiver disponível.
+     * Exibe alertas acima da sobreposição fixa do editor.
+     * @param {Object|string} options Opções ou título do alerta.
+     * @param {string} [text] Texto para a forma abreviada.
+     * @param {string} [icon] Ícone para a forma abreviada.
+     * @returns {Promise<Object>} Resultado do SweetAlert2.
      */
-    function initializeEditorTranslation() {
-        const translateElement = document.getElementById('image_editor_google_translate_element');
-        if (!translateElement || !window.google?.translate?.TranslateElement ||
-            translateElement.dataset.initialized) return;
-        new window.google.translate.TranslateElement({
-            pageLanguage: 'pt-br'
-        }, 'image_editor_google_translate_element');
-        translateElement.dataset.initialized = 'true';
+    function showEditorAlert(options, text, icon) {
+        const config = typeof options === 'string'
+            ? { title: options, text, icon }
+            : options;
+        document.body.classList.add('image-editor-alert-open');
+        return Swal.fire(config).finally(() => {
+            document.body.classList.remove('image-editor-alert-open');
+        });
     }
 
     /**
@@ -98,7 +102,7 @@
             }
         });
         state.map.addControl(new TranslateControl());
-        initializeEditorTranslation();
+        window.googleTranslateElementInit?.();
 
         state.geocoderControl = L.Control.geocoder({
             position: 'topright',
@@ -295,20 +299,20 @@
      */
     function loadImage(file) {
         if (!file || !file.type.startsWith('image/')) {
-            Swal.fire('Arquivo inválido', 'Escolha um arquivo de imagem para criar o tema.', 'warning');
+            showEditorAlert('Arquivo inválido', 'Escolha um arquivo de imagem para criar o tema.', 'warning');
             return;
         }
 
         const reader = new FileReader();
         reader.onerror = () => {
             console.error('[PlanMilT][Editor] Falha ao ler o arquivo de imagem.');
-            Swal.fire('Erro!', 'Não foi possível ler a imagem selecionada.', 'error');
+            showEditorAlert('Erro!', 'Não foi possível ler a imagem selecionada.', 'error');
         };
         reader.onload = event => {
             fabric.Image.fromURL(event.target.result, image => {
                 if (!image || image.width <= 0 || image.height <= 0) {
                     console.error('[PlanMilT][Editor] O arquivo selecionado não pôde ser decodificado como imagem.');
-                    Swal.fire('Erro!', 'Não foi possível abrir a imagem selecionada.', 'error');
+                    showEditorAlert('Erro!', 'Não foi possível abrir a imagem selecionada.', 'error');
                     return;
                 }
                 const scale = Math.min(
@@ -439,7 +443,7 @@
      */
     async function saveImage() {
         if (!state.canvas.getObjects().some(object => object.type === 'image')) {
-            await Swal.fire('Imagem necessária', 'Envie uma imagem antes de salvar o tema.', 'warning');
+            await showEditorAlert('Imagem necessária', 'Envie uma imagem antes de salvar o tema.', 'warning');
             return;
         }
         state.canvas.renderAll();
@@ -450,7 +454,7 @@
             [mapBounds.getSouthEast().lat, mapBounds.getSouthEast().lng]
         ];
 
-        const { value: formValues } = await Swal.fire({
+        const { value: formValues } = await showEditorAlert({
             title: 'Salvar Imagem',
             html: '<label for="descricao">Título do Calco:</label>' +
                 '<input id="swal-input1" class="swal2-input" placeholder="Digite o título">' +
@@ -490,16 +494,16 @@
                 console.error('[PlanMilT][Imagens] Servidor recusou o salvamento.', {
                     status: response.status
                 });
-                await Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
+                await showEditorAlert('Erro!', 'Erro ao salvar a imagem.', 'error');
                 return;
             }
             console.info('[PlanMilT][Imagens] Imagem salva.', {
                 compartilhavel: formValues.compartilhavel
             });
-            await Swal.fire('Sucesso!', 'Imagem salva com sucesso!', 'success');
+            await showEditorAlert('Sucesso!', 'Imagem salva com sucesso!', 'success');
         } catch (error) {
             console.error('[PlanMilT][Imagens] Falha na requisição de salvamento.', error);
-            await Swal.fire('Erro!', 'Erro ao salvar a imagem.', 'error');
+            await showEditorAlert('Erro!', 'Erro ao salvar a imagem.', 'error');
         }
     }
 
@@ -567,8 +571,6 @@
 
     window.PlanMilT = window.PlanMilT || {};
     window.PlanMilT.openImageEditor = openImageEditor;
-    window.PlanMilT.initializeImageEditorTranslation = initializeEditorTranslation;
-
     if (new URLSearchParams(window.location.search).has('abrir-criador-tema')) {
         const url = new URL(window.location.href);
         url.searchParams.delete('abrir-criador-tema');

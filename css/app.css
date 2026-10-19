@@ -1175,6 +1175,10 @@
                 display: none;
             }
 
+            body.image-editor-alert-open .swal2-container {
+                z-index: 11000 !important;
+            }
+
             .image-editor-map {
                 position: absolute;
                 inset: 0;

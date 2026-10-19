@@ -11,8 +11,12 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-search-translate/);
-    assert.match(indexSource, /initializeImageEditorTranslation/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-save-translate/);
+    assert.match(indexSource, /image_editor_google_translate_element/);
+    assert.match(fs.readFileSync(path.join(root, 'css/app.css'), 'utf8'),
+        /body\.image-editor-alert-open \.swal2-container\s*\{\s*z-index: 11000 !important;/);
+    assert.match(fs.readFileSync(path.join(root, 'js/features/main.js'), 'utf8'),
+        /map\.addControl\(new TranslateControl\(\)\);\s*window\.googleTranslateElementInit\?\.\(\)/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
@@ -30,6 +34,41 @@ test('theme editor is embedded in index and the former page redirects to it', ()
     assert.match(redirectSource, /url=index\.html\?abrir-criador-tema/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/image-overlays.js'), 'utf8'),
         /href="criador-tema\.html"/);
+});
+
+test('Google Translate initializes whichever map controls exist when its callback runs', () => {
+    const callbackSource = indexSource.match(
+        /<script type="text\/javascript">\s*(function googleTranslateElementInit[\s\S]*?)\s*<\/script>/
+    )[1];
+    const targets = new Map();
+    const initializedTargets = [];
+    const google = {
+        translate: {
+            TranslateElement: function (options, targetId) {
+                initializedTargets.push({ options, targetId });
+            }
+        }
+    };
+    const window = { google };
+    const document = {
+        getElementById(id) {
+            return targets.get(id) || null;
+        }
+    };
+    const context = vm.createContext({ window, document, google });
+    vm.runInContext(callbackSource, context);
+
+    context.googleTranslateElementInit();
+    targets.set('google_translate_element', { dataset: {} });
+    targets.set('image_editor_google_translate_element', { dataset: {} });
+    context.googleTranslateElementInit();
+    context.googleTranslateElementInit();
+
+    assert.deepEqual(initializedTargets.map(item => item.targetId), [
+        'google_translate_element',
+        'image_editor_google_translate_element'
+    ]);
+    assert.ok(initializedTargets.every(item => item.options.pageLanguage === 'pt-br'));
 });
 
 test('theme editor initializes its map once and supports opening and closing in place', () => {
@@ -99,6 +138,7 @@ test('theme editor initializes its map once and supports opening and closing in 
 
     const elements = new Map();
     const document = {
+        body: new FakeElement(),
         getElementById(id) {
             if (!elements.has(id)) {
                 const element = new FakeElement();
@@ -108,6 +148,7 @@ test('theme editor initializes its map once and supports opening and closing in 
             return elements.get(id);
         }
     };
+    const alertCalls = [];
     let mapCreations = 0;
     let mapInvalidations = 0;
     const mapPans = [];
@@ -131,7 +172,12 @@ test('theme editor initializes its map once and supports opening and closing in 
         zoomIn() { mapZooms.push('in'); },
         zoomOut() { mapZooms.push('out'); },
         fitBounds() {},
-        getBounds() { return {}; },
+        getBounds() {
+            return {
+                getNorthWest: () => ({ lat: 1, lng: 2 }),
+                getSouthEast: () => ({ lat: 3, lng: 4 })
+            };
+        },
         dragging: createInteraction(),
         scrollWheelZoom: createInteraction(),
         doubleClickZoom: createInteraction(),
@@ -201,6 +247,7 @@ test('theme editor initializes its map once and supports opening and closing in 
         this.getActiveObject = () => this.activeObject;
         this.discardActiveObject = () => { this.activeObject = null; };
         this.renderAll = () => {};
+        this.toDataURL = () => 'data:image/png;base64,AA==';
         this.calcOffset = () => {};
         this.requestRenderAll = () => {};
     }
@@ -235,8 +282,10 @@ test('theme editor initializes its map once and supports opening and closing in 
     const window = {
         listeners: {},
         PlanMilT: {},
+        translateCallbackCount: 0,
         location: { search: '', href: 'https://example.test/' },
         history: { replaceState() {} },
+        googleTranslateElementInit() { this.translateCallbackCount += 1; },
         addEventListener(type, callback) { this.listeners[type] = callback; },
         map: {
             getCenter: () => [12, 34],
@@ -249,6 +298,12 @@ test('theme editor initializes its map once and supports opening and closing in 
         window,
         L: leaflet,
         fabric,
+        Swal: {
+            fire(options) {
+                alertCalls.push(options);
+                return Promise.resolve({ value: null });
+            }
+        },
         URLSearchParams,
         URL,
         FileReader: FakeFileReader,
@@ -260,6 +315,7 @@ test('theme editor initializes its map once and supports opening and closing in 
     window.PlanMilT.openImageEditor();
     assert.equal(editor.hidden, false);
     assert.equal(mapCreations, 1);
+    assert.equal(window.translateCallbackCount, 1);
     assert.equal(map.dragging.enabled, false);
     assert.equal(fabricCanvas.wrapperEl.style.zIndex, '500');
     assert.equal(fabricCanvas.upperCanvasEl.style.pointerEvents, 'auto');
@@ -270,17 +326,6 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(map.initialZoom, 6);
     assert.equal(zoomControlElement.hidden, true);
     assert.equal(geocoderElement.hidden, false);
-    const translateTargets = [];
-    window.google = {
-        translate: {
-            TranslateElement: function (options, target) {
-                translateTargets.push({ options, target });
-            }
-        }
-    };
-    window.PlanMilT.initializeImageEditorTranslation();
-    window.PlanMilT.initializeImageEditorTranslation();
-    assert.deepEqual(translateTargets.map(item => item.target), ['image_editor_google_translate_element']);
     assert.ok(fabric.filterBackend instanceof Canvas2dFilterBackend);
     const mainMenu = document.getElementById('imageEditorMainMenu');
     const adjustmentMenu = document.getElementById('imageEditorAdjustmentMenu');
@@ -336,6 +381,11 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(image.filterApplications, 2);
     assert.equal(image.width, 1000);
     assert.equal(image.height, 500);
+    document.getElementById('imageEditorTools').click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorAction: 'save' } })
+    });
+    assert.equal(alertCalls[0].title, 'Salvar Imagem');
+    assert.equal(document.body.classes.has('image-editor-alert-open'), true);
     document.getElementById('imageEditorBrightness').value = '1.25';
     document.getElementById('imageEditorContrast').value = '1.2';
     document.getElementById('imageEditorTools').click('click', {
