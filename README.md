@@ -51,7 +51,9 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 4. Garanta que o usuário do Apache possa ler os arquivos do projeto e gravar em `bd.db`, no diretório que contém esse banco e em `SRTM3/`.
 5. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
 
-Antes de atualizar uma instalação existente, faça uma cópia de segurança de `bd.db`. Na primeira conexão ao banco após a atualização, o PlanMilT aplica migrações versionadas que renomeiam tabelas e colunas para inglês e adicionam timestamps, preservando os registros. Se encontrar chaves duplicadas que impeçam os índices únicos, a migração falha sem apagar registros; corrija o conflito manualmente após backup e tente novamente.
+Antes de atualizar uma instalação existente, faça uma cópia de segurança de `bd.db`. Na primeira conexão ao banco após a atualização, o PlanMilT aplica migrações versionadas que renomeiam tabelas e colunas para inglês, adicionam timestamps e inicializam a conta administrativa, preservando os registros existentes. Se encontrar chaves duplicadas que impeçam os índices únicos, a migração falha sem apagar registros; corrija o conflito manualmente após backup e tente novamente.
+
+O painel fica em `http://localhost/PlanMilT/admin.php`. Na primeira instalação, a senha temporária é `12345678`, armazenada no SQLite somente como hash. Por segurança, esse primeiro acesso só é aceito pelo próprio servidor (`localhost`); o painel exige trocar a senha por uma de pelo menos 12 caracteres antes de liberar as funções. Faça essa configuração localmente antes de disponibilizar a instalação pela rede. Acesso remoto ao painel exige HTTPS; acessos remotos por HTTP são bloqueados. O painel permite administrar serviços SIG, classificação de camadas WMS, desenhos, metadados de temas e sequências de tarefas. Não mostra hashes de senhas nem o conteúdo binário das imagens; criação de imagens continua no editor de temas. Faça backup do banco antes de exclusões importantes.
 
 Para popular o catálogo de camadas na instalação, execute na raiz do projeto `php tools/catalog-wms-layers.php` e depois `php tools/import-wms-layer-catalog.php`. A primeira etapa consulta os WMS e grava o CSV em `storage/`; a segunda aplica as migrações pendentes e importa o snapshot para `bd.db`. Faça backup antes da primeira importação. Atualizações futuras do catálogo são manuais e mantêm revisões já marcadas como concluídas.
 
@@ -63,12 +65,14 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. A designação é opcional e pode ser digitada no próprio seletor, abaixo de “Selecionado:”; durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém gráficos com simbologia própria, omite os símbolos simples indicados como substituíveis pelas ferramentas nativas e, nas medidas de coordenação do espaço aéreo, mantém somente “Corredor aéreo”.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
+- **Administração:** Acesse `admin.php` para consultar e administrar registros selecionados do SQLite; o primeiro acesso usa uma senha temporária que só funciona localmente e exige troca.
 - **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema” para começar ou use “Carregar tema” dentro do editor para editar um tema salvo. Temas protegidos exigem a senha atual; ao salvar, é possível manter o nome, renomear ou definir uma nova senha. Envie uma imagem ou solte o arquivo no mapa; arraste-a para posicionar, use os cantos para redimensionar/esticar e a alça superior para girar. Use “Mover mapa” ou os botões em “Controle do mapa” para navegar sem deslocar a imagem. “Redefinir ajustes” também restaura os controles de brilho e contraste.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
 
 ### Segurança
 A aplicação usa armazenamento local SQLite. O armazenamento local, por si só, não substitui controles de acesso, backup e proteção contra alterações ou perdas.
+O login do painel não altera os contratos de autenticação dos endpoints legados da aplicação. Antes de expor o PlanMilT à internet, revise a proteção de cada operação pública de escrita conforme o modo de publicação.
 
 ## Contribuições
 Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request no repositório.
@@ -77,7 +81,7 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 Para atualizar o bundle local da biblioteca de gráficos táticos, execute `npm install` e depois `npm run build:tactical-graphics`.
 
 Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
-Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php` e `php tests/php/images-service.test.php`.
+Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/admin-service.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php` e `php tests/php/images-service.test.php`.
 Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
 
 ---
@@ -135,7 +139,9 @@ The application is built with the following technologies and libraries:
 4. Ensure the Apache user can read the project files and write to `bd.db`, its containing directory, and `SRTM3/`.
 5. Open `http://localhost/PlanMilT/` or the address configured on the server.
 
-Back up `bd.db` before updating an existing installation. On the first database connection after the update, PlanMilT applies versioned migrations that rename tables and columns to English and add timestamps while preserving records. If duplicate keys prevent unique indexes, migration fails without deleting records; resolve the conflict manually after backing up, then retry.
+Back up `bd.db` before updating an existing installation. On the first database connection after the update, PlanMilT applies versioned migrations that rename tables and columns to English, add timestamps, and initialize the administrator account while preserving existing records. If duplicate keys prevent unique indexes, migration fails without deleting records; resolve the conflict manually after backing up, then retry.
+
+The administration panel is available at `http://localhost/PlanMilT/admin.php`. A temporary `12345678` password is stored only as a SQLite password hash. For safety, this initial login is accepted only from the server itself (`localhost`), and the panel requires replacing it with a password of at least 12 characters before enabling management features. Complete this setup locally before exposing the installation to a network. Remote access requires HTTPS; remote HTTP requests are blocked. The panel manages SIG services, WMS layer classification, drawings, theme metadata, and task sequences. It does not reveal password hashes or image binary data; create images in the theme editor. Back up the database before important deletions.
 
 To populate the layer catalog, run `php tools/catalog-wms-layers.php` and then `php tools/import-wms-layer-catalog.php` from the project root. The first step queries the WMS services and writes a CSV under `storage/`; the second applies pending migrations and imports the snapshot into `bd.db`. Back up the database before the first import. Catalog refreshes are manual and preserve reviews marked complete.
 
@@ -147,12 +153,14 @@ There is no project-specific PHP configuration file; adjust upload and execution
 - **Drawing:** Add polygons, lines, circles, and markers directly to the map.
 - **Tactical graphics:** Use the “Gráfico tático” button to open a selector with search, section filters, and a preview of the selected symbol, following the layer catalog pattern. Designation is optional and can be entered in the selector below “Selecionado:”; while drawing, symbology and designation follow the vertices and cursor in a temporary preview. The catalog keeps graphics with distinctive symbology, omits simple symbols replaceable by native drawing tools, and retains only “Air corridor” among airspace coordinating measures.
 - **Customization:** Choose colors, icons, and styles for map elements.
+- **Administration:** Use `admin.php` to review and manage selected SQLite records; the temporary initial password works only locally and must be changed.
 - **Theme creator:** Choose “Criar tema” in the image loader to start, or use “Carregar tema” inside the editor to edit a saved theme. Password-protected themes require the current password; when saving, you can keep the name, rename the theme, or set a new password. Upload or drop an image onto the map, then drag it to position, resize/stretch it from the corners, and rotate it using the top handle. Switch to “Mover mapa” or use the “Controle do mapa” buttons to navigate without moving the image. “Redefinir ajustes” also resets brightness and contrast.
 - **Import/Export:** Support for KMZ files.
 - **Editing:** Modify text and properties of existing elements.
 
 ### Security
 The application uses local SQLite storage. Local deployment alone does not replace access controls, backups, and protection against data loss or modification.
+The panel login does not change authentication contracts of the legacy application endpoints. Before exposing PlanMilT to the public internet, review protection for every public write operation according to the deployment model.
 
 ## Contributions
 Contributions are welcome! Feel free to open an issue or submit a pull request on the repository.
@@ -160,7 +168,7 @@ Contributions are welcome! Feel free to open an issue or submit a pull request o
 ### Development tests
 Rebuild the local tactical graphics bundle with `npm install` followed by `npm run build:tactical-graphics`.
 Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
-PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php`, and `php tests/php/images-service.test.php`.
+PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/admin-service.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php`, and `php tests/php/images-service.test.php`.
 Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
 
 © 2024-2026 - João Marcos Barbosa Oliveira

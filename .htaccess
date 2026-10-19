@@ -14,6 +14,7 @@ RewriteRule ^(?:tasks|task-sequences)\.php$ php/endpoints/task-sequences.php [EN
 RewriteRule ^(?:upload_elevation_files|elevation-upload)\.php$ php/endpoints/elevation-upload.php [END,NC]
 RewriteRule ^proxy\.php$ php/endpoints/proxy.php [END,NC]
 RewriteRule ^symbols/icons\.php$ php/endpoints/icons.php [END,NC]
+RewriteRule ^admin\.php$ php/endpoints/admin.php [END,NC]
 
 <FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|bootstrap\.php)$">
     Require all denied

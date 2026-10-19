@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 3;
+    private const VERSION = 4;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -141,6 +141,35 @@ final class SchemaMigrator
                 $database->exec('CREATE INDEX idx_map_layers_name ON map_layers (layer_name)');
                 $database->exec('CREATE INDEX idx_map_layers_title ON map_layers (layer_title)');
                 $database->exec('PRAGMA user_version = 3');
+            }
+
+            if ($version < 4) {
+                $database->exec(
+                    'CREATE TABLE admin_users ('
+                    . 'id INTEGER PRIMARY KEY CHECK (id = 1), '
+                    . 'password_hash TEXT NOT NULL, '
+                    . 'must_change_password INTEGER NOT NULL DEFAULT 1, '
+                    . 'updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
+                );
+                $passwordHash = password_hash('12345678', PASSWORD_DEFAULT);
+                if (!is_string($passwordHash)) {
+                    throw new RuntimeException('Não foi possível inicializar a senha administrativa.');
+                }
+                $statement = $database->prepare(
+                    'INSERT INTO admin_users (id, password_hash, must_change_password) VALUES (1, ?, 1)'
+                );
+                $statement->execute([$passwordHash]);
+                $database->exec(
+                    'CREATE TABLE admin_login_attempts ('
+                    . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                    . 'address_hash TEXT NOT NULL, '
+                    . 'attempted_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
+                );
+                $database->exec(
+                    'CREATE INDEX idx_admin_login_attempts_address_time '
+                    . 'ON admin_login_attempts (address_hash, attempted_at)'
+                );
+                $database->exec('PRAGMA user_version = 4');
             }
 
             $database->commit();

@@ -46,10 +46,11 @@ $database->exec("INSERT INTO task_sequences (name, password, sequence, date_crea
 
 SchemaMigrator::migrate($database);
 SchemaMigrator::migrate($database);
-$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 3, 'Schema version was not recorded.');
+$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 4, 'Schema version was not recorded.');
 
 $expectedTables = [
-    'drawings', 'images', 'map_layer_categories', 'map_layers', 'map_services', 'task_sequences'
+    'admin_login_attempts', 'admin_users', 'drawings', 'images', 'map_layer_categories',
+    'map_layers', 'map_services', 'task_sequences'
 ];
 $actualTables = $database->query(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -63,6 +64,16 @@ $assert(
 $assert(
     (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() === 0,
     'Catalog migration should create an empty layer catalog without inventing records.'
+);
+$adminAccount = $database->query(
+    'SELECT password_hash, must_change_password FROM admin_users WHERE id = 1'
+)->fetch(PDO::FETCH_ASSOC);
+$assert(
+    is_array($adminAccount)
+    && password_verify('12345678', $adminAccount['password_hash'])
+    && (int) $adminAccount['must_change_password'] === 1
+    && $adminAccount['password_hash'] !== '12345678',
+    'The initial admin credential was not stored as a forced-change password hash.'
 );
 
 $drawing = $database->query(
@@ -157,7 +168,7 @@ $previousPath = getenv('PLANMILT_DB_PATH');
 putenv('PLANMILT_DB_PATH=' . $factoryPath);
 try {
     $factoryConnection = ConnectionFactory::create();
-    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 3, 'ConnectionFactory did not apply migrations.');
+    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 4, 'ConnectionFactory did not apply migrations.');
     $indexes = $factoryConnection->query(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN "
         . "('idx_drawings_username_link', 'idx_task_sequences_name')"
