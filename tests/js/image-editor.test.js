@@ -11,12 +11,13 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261020-editor-shortcuts-filters/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-controls/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
     assert.match(indexSource, /id="imageEditorHint"/);
     assert.match(indexSource, /id="imageEditorNavigation"[^>]*aria-label="Controles de navegação do mapa"/);
+    assert.match(indexSource, /class="image-editor-navigation-title">Controle do mapa</);
     assert.match(indexSource, /data-image-editor-pan="up"/);
     assert.match(indexSource, /data-image-editor-zoom="in"/);
     assert.match(indexSource, /id="imageEditorAdjustmentMenu"[^>]*hidden/);
@@ -287,60 +288,6 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.deepEqual(Array.from(mapPans[0]), [-120, 0]);
     assert.deepEqual(mapZooms, ['in', 'out']);
 
-    let shortcutPrevented = false;
-    window.listeners.keydown({
-        code: 'Space',
-        key: ' ',
-        repeat: false,
-        target: new FakeElement(),
-        preventDefault() { shortcutPrevented = true; }
-    });
-    assert.equal(shortcutPrevented, true);
-    assert.equal(map.dragging.enabled, true);
-    const mapElement = document.getElementById('imageEditorMap');
-    const pointerEvent = (type, x, y) => ({
-        pointerId: 7,
-        clientX: x,
-        clientY: y,
-        target: mapElement,
-        currentTarget: mapElement,
-        preventDefault() {},
-        stopPropagation() {},
-        stopImmediatePropagation() {}
-    });
-    mapElement.listeners.pointerdown(pointerEvent('pointerdown', 100, 120));
-    assert.equal(map.dragging.enabled, false);
-    assert.equal(mapElement.capturedPointer, 7);
-    mapElement.listeners.pointermove(pointerEvent('pointermove', 135, 90));
-    assert.deepEqual(Array.from(mapPans[1]), [35, -30]);
-    mapElement.listeners.pointerup(pointerEvent('pointerup', 135, 90));
-    assert.equal(map.dragging.enabled, true);
-    assert.equal(mapElement.capturedPointer, null);
-    window.listeners.keyup({ code: 'Space', key: ' ', target: new FakeElement() });
-    assert.equal(map.dragging.enabled, false);
-    const inputTarget = new FakeElement();
-    inputTarget.editable = true;
-    shortcutPrevented = false;
-    window.listeners.keydown({
-        code: 'Space',
-        key: ' ',
-        repeat: false,
-        target: inputTarget,
-        preventDefault() { shortcutPrevented = true; }
-    });
-    assert.equal(shortcutPrevented, false);
-    assert.equal(map.dragging.enabled, false);
-    window.listeners.keydown({
-        code: 'AltLeft',
-        key: 'Alt',
-        repeat: false,
-        target: new FakeElement(),
-        preventDefault() { shortcutPrevented = true; }
-    });
-    assert.equal(map.dragging.enabled, true);
-    window.listeners.keyup({ code: 'AltLeft', key: 'Alt', target: new FakeElement() });
-    assert.equal(map.dragging.enabled, false);
-
     const file = { type: 'image/png' };
     editor.click('drop', {
         target: editor,
@@ -375,6 +322,14 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(image.filterApplications, 2);
     assert.equal(image.width, 1000);
     assert.equal(image.height, 500);
+    document.getElementById('imageEditorBrightness').value = '1.25';
+    document.getElementById('imageEditorContrast').value = '1.2';
+    document.getElementById('imageEditorTools').click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorAction: 'reset' } })
+    });
+    assert.equal(image.filters.length, 0);
+    assert.equal(document.getElementById('imageEditorBrightness').value, '1');
+    assert.equal(document.getElementById('imageEditorContrast').value, '1');
     assert.equal(editor.classes.has('is-drop-target'), false);
 
     document.getElementById('imageEditorTools').click('click', {

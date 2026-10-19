@@ -8,8 +8,6 @@
         canvas: null,
         geocoderControl: null,
         mode: 'image',
-        mapShortcutHeld: false,
-        mapDrag: null,
         width: 0,
         height: 0
     };
@@ -111,10 +109,6 @@
 
         addMapLayers();
         state.map.invalidateSize();
-        mapElement.addEventListener('pointerdown', handleMapPointerDown, true);
-        mapElement.addEventListener('pointermove', handleMapPointerMove);
-        mapElement.addEventListener('pointerup', finishMapPointerDrag);
-        mapElement.addEventListener('pointercancel', finishMapPointerDrag);
         setMode('image');
     }
 
@@ -243,86 +237,6 @@
     function zoomMap(direction) {
         if (direction === 'in') state.map.zoomIn();
         if (direction === 'out') state.map.zoomOut();
-    }
-
-    /**
-     * Ignora atalhos de navegação enquanto o usuário interage com campos editáveis.
-     * @param {EventTarget} target Elemento que recebeu o evento de teclado.
-     * @returns {boolean} Se o foco está em um campo editável.
-     */
-    function isEditableTarget(target) {
-        return Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"]'));
-    }
-
-    /**
-     * Inicia o arrasto manual do mapa quando Espaço ou Alt estiver pressionado.
-     * @param {PointerEvent} event Evento de ponteiro.
-     */
-    function handleMapPointerDown(event) {
-        if (!state.mapShortcutHeld && !event.altKey) return;
-        if (event.target.closest?.('.leaflet-control, button, input, select, textarea, a')) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        state.map.dragging.disable();
-        state.mapDrag = {
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-            target: event.currentTarget
-        };
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-    }
-
-    /**
-     * Move o mapa conforme o deslocamento do ponteiro capturado.
-     * @param {PointerEvent} event Evento de ponteiro.
-     */
-    function handleMapPointerMove(event) {
-        if (!state.mapDrag || state.mapDrag.pointerId !== event.pointerId) return;
-        const deltaX = event.clientX - state.mapDrag.x;
-        const deltaY = event.clientY - state.mapDrag.y;
-        state.mapDrag.x = event.clientX;
-        state.mapDrag.y = event.clientY;
-        event.preventDefault();
-        state.map.panBy([deltaX, deltaY], { animate: false });
-    }
-
-    /**
-     * Finaliza o arrasto manual do mapa e restaura a interação do modo atual.
-     * @param {PointerEvent} event Evento de ponteiro ou cancelamento.
-     */
-    function finishMapPointerDrag(event) {
-        if (!state.mapDrag || (event.pointerId !== undefined &&
-            state.mapDrag.pointerId !== event.pointerId)) return;
-        const { pointerId, target } = state.mapDrag;
-        state.mapDrag = null;
-        if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
-        if (state.mode === 'map') state.map.dragging.enable();
-    }
-
-    /**
-     * Permite arrastar o mapa mantendo Espaço ou Alt pressionado.
-     * @param {KeyboardEvent} event Evento de teclado.
-     */
-    function handleMapShortcutDown(event) {
-        if (editor.hidden || event.repeat || isEditableTarget(event.target)) return;
-        if (event.code !== 'Space' && event.key !== 'Alt') return;
-        event.preventDefault();
-        state.mapShortcutHeld = true;
-        setMode('map');
-    }
-
-    /**
-     * Retorna ao posicionamento da imagem quando Espaço ou Alt é solto.
-     * @param {KeyboardEvent} event Evento de teclado.
-     */
-    function handleMapShortcutUp(event) {
-        if (editor.hidden || (event.code !== 'Space' && event.key !== 'Alt')) return;
-        state.mapShortcutHeld = false;
-        if (state.mapDrag) finishMapPointerDrag({});
-        setMode('image');
     }
 
     /**
@@ -473,6 +387,8 @@
      * Remove os filtros da imagem selecionada.
      */
     function resetImage() {
+        document.getElementById('imageEditorBrightness').value = '1';
+        document.getElementById('imageEditorContrast').value = '1';
         const activeObject = state.canvas.getActiveObject();
         if (!activeObject) return;
         activeObject.filters = [];
@@ -638,11 +554,7 @@
         if (file) loadImage(file);
     });
     window.addEventListener('resize', resizeEditor);
-    window.addEventListener('keydown', handleMapShortcutDown, true);
-    window.addEventListener('keyup', handleMapShortcutUp, true);
     window.addEventListener('blur', () => {
-        state.mapShortcutHeld = false;
-        if (state.mapDrag) finishMapPointerDrag({});
         if (!editor.hidden && state.mode === 'map') setMode('image');
     });
 

@@ -1314,6 +1314,13 @@
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             }
 
+            .image-editor-navigation-title {
+                grid-column: 1 / -1;
+                color: #35465d;
+                font-size: 12px;
+                text-align: center;
+            }
+
             .image-editor-pan-controls {
                 display: grid;
                 grid-template-columns: repeat(3, 36px);
@@ -1363,14 +1370,6 @@
             .image-editor-nav-button:hover {
                 border-color: #435f88;
                 background: #e6edf7;
-            }
-
-            .image-editor-navigation-hint {
-                grid-column: 1 / -1;
-                color: #58677b;
-                font-size: 11px;
-                text-align: center;
-                white-space: nowrap;
             }
 
             .image-editor-overlay.is-drop-target::after {
@@ -1425,8 +1424,4 @@
                     padding: 5px;
                 }
 
-                .image-editor-navigation-hint {
-                    max-width: 130px;
-                    white-space: normal;
-                }
             }
