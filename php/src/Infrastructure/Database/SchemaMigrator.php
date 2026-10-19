@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 4;
+    private const VERSION = 5;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -170,6 +170,27 @@ final class SchemaMigrator
                     . 'ON admin_login_attempts (address_hash, attempted_at)'
                 );
                 $database->exec('PRAGMA user_version = 4');
+            }
+
+            if ($version < 5) {
+                $database->exec(
+                    'CREATE TABLE app_settings ('
+                    . 'setting_key TEXT PRIMARY KEY, '
+                    . 'setting_value TEXT NOT NULL, '
+                    . 'updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
+                );
+                $defaults = [
+                    'defaultLayers' => ['OpenTopo'],
+                    'center' => null,
+                    'zoom' => null,
+                ];
+                $statement = $database->prepare(
+                    'INSERT INTO app_settings (setting_key, setting_value) VALUES (\'map_defaults\', ?)'
+                );
+                $statement->execute([
+                    json_encode($defaults, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
+                ]);
+                $database->exec('PRAGMA user_version = 5');
             }
 
             $database->commit();

@@ -46,10 +46,10 @@ $database->exec("INSERT INTO task_sequences (name, password, sequence, date_crea
 
 SchemaMigrator::migrate($database);
 SchemaMigrator::migrate($database);
-$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 4, 'Schema version was not recorded.');
+$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 5, 'Schema version was not recorded.');
 
 $expectedTables = [
-    'admin_login_attempts', 'admin_users', 'drawings', 'images', 'map_layer_categories',
+    'admin_login_attempts', 'admin_users', 'app_settings', 'drawings', 'images', 'map_layer_categories',
     'map_layers', 'map_services', 'task_sequences'
 ];
 $actualTables = $database->query(
@@ -60,6 +60,14 @@ $assert($actualTables === $expectedTables, 'Legacy table names were not fully mi
 $assert(
     (int) $database->query('SELECT COUNT(*) FROM map_layer_categories')->fetchColumn() === 10,
     'Catalog migration did not seed the ten layer categories.'
+);
+$mapDefaults = json_decode(
+    (string) $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn(),
+    true
+);
+$assert(
+    $mapDefaults === ['defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null],
+    'The map defaults setting was not initialized.'
 );
 $assert(
     (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() === 0,
@@ -168,7 +176,7 @@ $previousPath = getenv('PLANMILT_DB_PATH');
 putenv('PLANMILT_DB_PATH=' . $factoryPath);
 try {
     $factoryConnection = ConnectionFactory::create();
-    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 4, 'ConnectionFactory did not apply migrations.');
+    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 5, 'ConnectionFactory did not apply migrations.');
     $indexes = $factoryConnection->query(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN "
         . "('idx_drawings_username_link', 'idx_task_sequences_name')"

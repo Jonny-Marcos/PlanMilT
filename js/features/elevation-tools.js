@@ -8,6 +8,9 @@
             var planejamentoLayer = mapSetup.planejamentoLayer;
             var addNewOverlayLayer = mapSetup.addNewOverlayLayer;
             var removeOverlayLayer = mapSetup.removeOverlayLayer;
+            window.PlanMilT.apiClient.getJson('php/endpoints/map-settings.php')
+                .then(settings => mapSetup.applyMapDefaults(settings))
+                .catch(error => console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error));
 
             // botão de fechar perfil topográfico
             document.getElementById('close-btn').addEventListener('click', function() {

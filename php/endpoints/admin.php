@@ -7,6 +7,8 @@ use PlanMilT\Infrastructure\Database\ConnectionFactory;
 require_once dirname(__DIR__) . '/bootstrap.php';
 require_once dirname(__DIR__) . '/src/Application/AdminService.php';
 
+const PLANMILT_REQUIRE_ADMIN_PASSWORD_CHANGE = false;
+
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -39,7 +41,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     $clientConfig = json_encode([
         'csrf' => $_SESSION['admin_csrf'],
         'authenticated' => ($_SESSION['admin_authenticated'] ?? false) === true,
-        'mustChangePassword' => ($_SESSION['admin_must_change_password'] ?? false) === true,
+        'mustChangePassword' => PLANMILT_REQUIRE_ADMIN_PASSWORD_CHANGE
+            && ($_SESSION['admin_must_change_password'] ?? false) === true,
+        'requirePasswordChange' => PLANMILT_REQUIRE_ADMIN_PASSWORD_CHANGE,
     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
     header('Content-Type: text/html; charset=utf-8');
     ?>
@@ -114,14 +118,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         <div class="toolbar">
             <label>Tipo de registro
                 <select id="entitySelect">
+                    <option value="settings">Configurações do mapa</option>
                     <option value="map_services">Serviços SIG</option>
                     <option value="map_layers">Camadas WMS</option>
                     <option value="drawings">Desenhos</option>
                     <option value="images">Temas e imagens</option>
                     <option value="task_sequences">Sequências de tarefas</option>
+                    <option value="elevation_files">Arquivos de elevação (SRTM3)</option>
                 </select>
             </label>
             <div class="actions">
+                <button id="editSettingsButton" type="button" hidden>Editar configurações</button>
                 <button id="newButton" type="button">Novo registro</button>
                 <button id="refreshButton" class="secondary" type="button">Atualizar</button>
                 <button id="logoutButton" class="secondary" type="button">Sair</button>
@@ -147,11 +154,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 <script>
     const adminConfig = <?= $clientConfig ?>;
     const entityLabels = {
+        settings: 'Configurações do mapa',
         map_services: 'Serviços SIG',
         map_layers: 'Camadas WMS',
         drawings: 'Desenhos',
         images: 'Temas e imagens',
-        task_sequences: 'Sequências de tarefas'
+        task_sequences: 'Sequências de tarefas',
+        elevation_files: 'Arquivos de elevação (SRTM3)'
     };
     const fieldsByEntity = {
         map_services: [
@@ -191,6 +200,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     const recordForm = document.getElementById('recordForm');
     let offset = 0;
     let currentId = 0;
+    const defaultLayerOptions = [
+        ['OpenTopo', 'OpenTopo (relevo)'],
+        ['Google Satellite', 'Google Satellite'],
+        ['Infraestruturas', 'Infraestruturas'],
+        ['Quadrículas - UTM', 'Quadrículas UTM'],
+        ['BDGEx - CTM50', 'BDGEx - CTM50']
+    ];
 
     function showNotice(message, isError = false) {
         notice.textContent = message;
@@ -226,6 +242,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     function renderTable(records) {
         tableHead.replaceChildren();
         tableBody.replaceChildren();
+        if (entitySelect.value === 'settings' || entitySelect.value === 'elevation_files') return;
         const columns = records.length ? Object.keys(records[0]) : [];
         const header = document.createElement('tr');
         [...columns, 'Ações'].forEach(column => {
@@ -262,15 +279,149 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         document.getElementById('nextButton').disabled = records.length < 100;
     }
 
+    function renderSettingsTable(settings) {
+        tableHead.replaceChildren();
+        tableBody.replaceChildren();
+        const heading = document.createElement('tr');
+        ['Configuração', 'Valor'].forEach(text => {
+            const cell = document.createElement('th');
+            cell.textContent = text;
+            heading.appendChild(cell);
+        });
+        tableHead.appendChild(heading);
+        const rows = [
+            ['Camadas ao abrir o mapa', (settings.mapDefaults.defaultLayers || []).join(', ') || 'Nenhuma'],
+            ['Centro inicial', settings.mapDefaults.center
+                ? `${settings.mapDefaults.center[0]}, ${settings.mapDefaults.center[1]}`
+                : 'Manter enquadramento atual'],
+            ['Zoom inicial', settings.mapDefaults.zoom ?? 'Manter zoom atual']
+        ];
+        rows.forEach(([label, value]) => {
+            const row = document.createElement('tr');
+            [label, String(value)].forEach(text => {
+                const cell = document.createElement('td');
+                cell.textContent = text;
+                row.appendChild(cell);
+            });
+            tableBody.appendChild(row);
+        });
+        document.getElementById('pageStatus').textContent = 'Preferências globais aplicadas a todos os usuários';
+        document.getElementById('previousButton').disabled = true;
+        document.getElementById('nextButton').disabled = true;
+    }
+
+    function renderFilesTable(files) {
+        tableHead.replaceChildren();
+        tableBody.replaceChildren();
+        const heading = document.createElement('tr');
+        ['Arquivo HGT', 'Tamanho', 'Ações'].forEach(text => {
+            const cell = document.createElement('th');
+            cell.textContent = text;
+            heading.appendChild(cell);
+        });
+        tableHead.appendChild(heading);
+        files.forEach(file => {
+            const row = document.createElement('tr');
+            const name = document.createElement('td');
+            name.textContent = file.name;
+            const size = document.createElement('td');
+            size.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            const actions = document.createElement('td');
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'danger';
+            remove.textContent = 'Excluir';
+            remove.addEventListener('click', () => deleteFile(file.name));
+            actions.appendChild(remove);
+            row.append(name, size, actions);
+            tableBody.appendChild(row);
+        });
+        document.getElementById('pageStatus').textContent = `${files.length} tiles HGT`;
+        document.getElementById('previousButton').disabled = true;
+        document.getElementById('nextButton').disabled = true;
+    }
+
     async function loadRecords() {
         try {
-            const result = await request('list', { entity: entitySelect.value, offset });
+            const result = await request(
+                entitySelect.value === 'settings' ? 'get_settings'
+                    : entitySelect.value === 'elevation_files' ? 'list_files' : 'list',
+                { entity: entitySelect.value, offset }
+            );
+            if (entitySelect.value === 'settings') {
+                renderSettingsTable(result.mapDefaults);
+                editorPanel.hidden = true;
+                showNotice('');
+                return;
+            }
+            if (entitySelect.value === 'elevation_files') {
+                renderFilesTable(result.files);
+                editorPanel.hidden = true;
+                showNotice('');
+                return;
+            }
             renderTable(result.records);
             editorPanel.hidden = true;
             showNotice('');
         } catch (error) {
             showNotice(error.message, true);
         }
+    }
+
+    function addDefaultLayersField(form, defaults) {
+        const wrapper = document.createElement('fieldset');
+        const legend = document.createElement('legend');
+        legend.textContent = 'Camadas visíveis ao abrir o mapa';
+        wrapper.appendChild(legend);
+        defaultLayerOptions.forEach(([key, label]) => {
+            const row = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = 'defaultLayers';
+            input.value = key;
+            input.checked = defaults.defaultLayers.includes(key);
+            row.append(input, document.createTextNode(label));
+            wrapper.appendChild(row);
+        });
+        form.appendChild(wrapper);
+    }
+
+    function openSettingsEditor(settings) {
+        recordForm.replaceChildren();
+        document.getElementById('editorTitle').textContent = 'Configurações do mapa';
+        addDefaultLayersField(recordForm, settings.mapDefaults);
+        [
+            ['centerLat', 'Latitude do centro inicial', settings.mapDefaults.center?.[0] ?? ''],
+            ['centerLng', 'Longitude do centro inicial', settings.mapDefaults.center?.[1] ?? ''],
+            ['zoom', 'Zoom inicial (1–28)', settings.mapDefaults.zoom ?? '']
+        ].forEach(([name, label, value]) => {
+            const wrapper = document.createElement('label');
+            wrapper.textContent = label;
+            const input = document.createElement('input');
+            input.name = name;
+            input.type = 'number';
+            input.step = 'any';
+            input.value = value;
+            if (name === 'centerLat') { input.min = '-90'; input.max = '90'; }
+            if (name === 'centerLng') { input.min = '-180'; input.max = '180'; }
+            if (name === 'zoom') { input.min = '1'; input.max = '28'; }
+            wrapper.appendChild(input);
+            recordForm.appendChild(wrapper);
+        });
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.textContent = 'Salvar configurações';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'secondary';
+        cancel.textContent = 'Cancelar';
+        cancel.addEventListener('click', () => { editorPanel.hidden = true; });
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        actions.append(save, cancel);
+        recordForm.appendChild(actions);
+        editorPanel.hidden = false;
+        recordForm.dataset.editorType = 'settings';
     }
 
     function addField(form, definition, value, isNew) {
@@ -319,6 +470,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     function openEditor(record, id) {
         currentId = id;
         recordForm.replaceChildren();
+        recordForm.dataset.editorType = '';
         const isNew = id === 0;
         document.getElementById('editorTitle').textContent = `${isNew ? 'Novo' : 'Editar'}: ${entityLabels[entitySelect.value]}`;
         fieldsByEntity[entitySelect.value].forEach(field => addField(recordForm, field, record[field[0]], isNew));
@@ -359,12 +511,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         }
     }
 
+    async function deleteFile(name) {
+        if (!confirm(`Excluir o tile ${name}? Os perfis de elevação dessa região deixarão de funcionar até o arquivo ser enviado novamente.`)) return;
+        try {
+            await request('delete_file', { name });
+            showNotice('Tile excluído.');
+            await loadRecords();
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async event => {
         event.preventDefault();
         try {
             const result = await request('login', { password: new FormData(event.currentTarget).get('password') });
             adminConfig.authenticated = true;
-            adminConfig.mustChangePassword = result.mustChangePassword;
+            adminConfig.mustChangePassword = adminConfig.requirePasswordChange && result.mustChangePassword;
             if (result.csrf) adminConfig.csrf = result.csrf;
             updatePanels();
             if (!adminConfig.mustChangePassword) await loadRecords();
@@ -398,6 +561,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 
     recordForm.addEventListener('submit', async event => {
         event.preventDefault();
+        if (recordForm.dataset.editorType === 'settings') {
+            const formData = new FormData(recordForm);
+            const defaultLayers = formData.getAll('defaultLayers');
+            const centerLat = formData.get('centerLat');
+            const centerLng = formData.get('centerLng');
+            const zoom = formData.get('zoom');
+            if ((centerLat === '') !== (centerLng === '')) {
+                showNotice('Informe latitude e longitude juntas, ou deixe ambas vazias.', true);
+                return;
+            }
+            try {
+                const result = await request('save_settings', {
+                    mapDefaults: {
+                        defaultLayers,
+                        center: centerLat === '' && centerLng === '' ? null : [Number(centerLat), Number(centerLng)],
+                        zoom: zoom === '' ? null : Number(zoom)
+                    }
+                });
+                adminConfig.csrf = result.csrf || adminConfig.csrf;
+                recordForm.dataset.editorType = '';
+                editorPanel.hidden = true;
+                showNotice('Configurações salvas. Atualize o mapa para aplicar as alterações.');
+                await loadRecords();
+            } catch (error) {
+                showNotice(error.message, true);
+            }
+            return;
+        }
         const data = {};
         new FormData(recordForm).forEach((value, key) => { data[key] = value; });
         recordForm.querySelectorAll('input[type="checkbox"]').forEach(input => { data[input.name] = input.checked; });
@@ -412,6 +603,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     });
 
     document.getElementById('newButton').addEventListener('click', () => openEditor({}, 0));
+    document.getElementById('editSettingsButton')?.addEventListener('click', async () => {
+        try {
+            const result = await request('get_settings');
+            openSettingsEditor(result);
+        } catch (error) {
+            showNotice(error.message, true);
+        }
+    });
     document.getElementById('refreshButton').addEventListener('click', loadRecords);
     document.getElementById('logoutButton').addEventListener('click', async () => {
         try {
@@ -435,9 +634,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     entitySelect.addEventListener('change', () => {
         offset = 0;
         updatePanels();
+        document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
+        document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
         loadRecords();
     });
     updatePanels();
+    document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
+    document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
     if (adminConfig.authenticated && !adminConfig.mustChangePassword) loadRecords();
 </script>
 </body>
@@ -502,6 +705,14 @@ try {
         exit;
     }
 
+    if (PLANMILT_REQUIRE_ADMIN_PASSWORD_CHANGE
+        && $action !== 'change_password'
+        && ($_SESSION['admin_must_change_password'] ?? false) === true) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Altere a senha inicial antes de usar o painel.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     if (($_SESSION['admin_authenticated'] ?? false) !== true) {
         http_response_code(401);
         echo json_encode(['error' => 'Autenticação administrativa necessária.'], JSON_UNESCAPED_UNICODE);
@@ -522,9 +733,42 @@ try {
         exit;
     }
 
-    if (($_SESSION['admin_must_change_password'] ?? false) === true) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Altere a senha inicial antes de usar o painel.'], JSON_UNESCAPED_UNICODE);
+    if ($action === 'get_settings') {
+        echo json_encode(
+            ['mapDefaults' => $admin->getMapDefaults()],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        );
+        exit;
+    }
+
+    if ($action === 'save_settings') {
+        $mapDefaults = $request['mapDefaults'] ?? null;
+        if (!is_array($mapDefaults)) {
+            throw new RuntimeException('Configurações do mapa inválidas.');
+        }
+        $savedSettings = $admin->saveMapDefaults($mapDefaults);
+        echo json_encode(
+            ['mapDefaults' => $savedSettings],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        );
+        exit;
+    }
+
+    if ($action === 'list_files') {
+        echo json_encode(
+            ['files' => $admin->listElevationFiles(dirname(__DIR__, 2) . '/SRTM3')],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        );
+        exit;
+    }
+
+    if ($action === 'delete_file') {
+        $name = $request['name'] ?? null;
+        if (!is_string($name)) {
+            throw new RuntimeException('Nome do arquivo HGT inválido.');
+        }
+        $admin->deleteElevationFile(dirname(__DIR__, 2) . '/SRTM3', $name);
+        echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
         exit;
     }
 

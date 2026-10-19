@@ -49,6 +49,16 @@ $database->exec(
     . 'id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, password_hash TEXT, sequence TEXT, description TEXT, '
     . 'created_at TEXT, updated_at TEXT)'
 );
+$database->exec(
+    'CREATE TABLE app_settings ('
+    . 'setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL)'
+);
+$database->prepare(
+    'INSERT INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, datetime(\'now\'))'
+)->execute([
+    'map_defaults',
+    json_encode(['defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null]),
+]);
 
 $service = new AdminService($database);
 $assert = static function (bool $condition, string $message): void {
@@ -97,6 +107,89 @@ $assertThrows(
 $assertThrows(
     static fn () => $service->authenticate('new-pass', '203.0.113.5'),
     'Login rate limiting did not block repeated failures.'
+);
+
+$assert(
+    $service->getMapDefaults() === ['defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null],
+    'Default map preferences were not read.'
+);
+$updatedDefaults = $service->saveMapDefaults([
+    'defaultLayers' => ['Google Satellite', 'BDGEx - CTM50', 'Google Satellite'],
+    'center' => [-22.5, -48.25],
+    'zoom' => 9,
+]);
+$assert(
+    $updatedDefaults === [
+        'defaultLayers' => ['Google Satellite', 'BDGEx - CTM50'],
+        'center' => [-22.5, -48.25],
+        'zoom' => 9.0,
+    ],
+    'Map default settings were not normalized or saved.'
+);
+$assert($service->getMapDefaults() === $updatedDefaults, 'Saved map defaults were not persisted.');
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['No Such Layer'],
+        'center' => [0, 0],
+        'zoom' => 10,
+    ]),
+    'The map accepted an unregistered default layer.'
+);
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['OpenTopo'],
+        'center' => [91, 0],
+        'zoom' => 10,
+    ]),
+    'The map accepted an out-of-range latitude.'
+);
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['OpenTopo'],
+        'center' => [0 => 0, 'longitude' => 0],
+        'zoom' => 10,
+    ]),
+    'The map accepted a center without a latitude/longitude pair.'
+);
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => [],
+        'center' => null,
+        'zoom' => null,
+    ]),
+    'The map accepted an empty default layer list.'
+);
+
+$elevationDirectory = sys_get_temp_dir() . '/planmilt-elevation-' . bin2hex(random_bytes(8));
+if (!mkdir($elevationDirectory, 0700)) {
+    throw new RuntimeException('Could not create temporary elevation test directory.');
+}
+file_put_contents($elevationDirectory . '/N37W122.hgt', 'tile');
+file_put_contents($elevationDirectory . '/invalid.hgt', 'not a tile');
+file_put_contents($elevationDirectory . '/N90E000.hgt', 'outside latitude range');
+file_put_contents($elevationDirectory . '/S00W001.hgt', 'outside latitude range');
+file_put_contents($elevationDirectory . '/N00E180.hgt', 'outside longitude range');
+file_put_contents($elevationDirectory . '/notes.txt', 'not an elevation file');
+$elevationFiles = $service->listElevationFiles($elevationDirectory);
+$assert(
+    count($elevationFiles) === 1 && $elevationFiles[0]['name'] === 'N37W122.hgt',
+    'The file manager listed files outside its HGT allowlist.'
+);
+$assertThrows(
+    static fn () => $service->deleteElevationFile($elevationDirectory, '../notes.txt'),
+    'The file manager accepted a path traversal filename.'
+);
+$service->deleteElevationFile($elevationDirectory, 'N37W122.hgt');
+$assert(!is_file($elevationDirectory . '/N37W122.hgt'), 'The selected elevation tile was not deleted.');
+unlink($elevationDirectory . '/invalid.hgt');
+unlink($elevationDirectory . '/N90E000.hgt');
+unlink($elevationDirectory . '/S00W001.hgt');
+unlink($elevationDirectory . '/N00E180.hgt');
+unlink($elevationDirectory . '/notes.txt');
+rmdir($elevationDirectory);
+$assertThrows(
+    static fn () => $service->listElevationFiles($elevationDirectory),
+    'The file manager silently accepted a missing elevation directory.'
 );
 
 $serviceId = $service->saveRecord('map_services', 0, [

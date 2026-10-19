@@ -16,6 +16,13 @@ final class AdminService
     private const LOGIN_WINDOW_MINUTES = 15;
     private const MAX_LOGIN_ATTEMPTS = 5;
     private const MAX_JSON_BYTES = 5242880;
+    private const DEFAULT_LAYERS = [
+        'OpenTopo',
+        'Google Satellite',
+        'Infraestruturas',
+        'Quadrículas - UTM',
+        'BDGEx - CTM50',
+    ];
 
     private PDO $database;
 
@@ -344,6 +351,124 @@ final class AdminService
     }
 
     /**
+     * Lê preferências globais não confidenciais do mapa.
+     *
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     */
+    public function getMapDefaults(): array
+    {
+        $statement = $this->database->prepare(
+            'SELECT setting_value FROM app_settings WHERE setting_key = ?'
+        );
+        $statement->execute(['map_defaults']);
+        $encoded = $statement->fetchColumn();
+        if (!is_string($encoded)) {
+            throw new RuntimeException('Configurações do mapa não encontradas.');
+        }
+        try {
+            $settings = json_decode($encoded, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $error) {
+            throw new RuntimeException('Configurações do mapa inválidas no banco.');
+        }
+        if (!is_array($settings)) {
+            throw new RuntimeException('Configurações do mapa inválidas no banco.');
+        }
+
+        return $this->normalizeMapDefaults($settings);
+    }
+
+    /**
+     * Valida e persiste camadas, centro e zoom padrão do mapa.
+     *
+     * @param array<string, mixed> $settings Preferências enviadas pelo painel.
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     */
+    public function saveMapDefaults(array $settings): array
+    {
+        $normalized = $this->normalizeMapDefaults($settings);
+        $statement = $this->database->prepare(
+            'UPDATE app_settings SET setting_value = ?, updated_at = datetime(\'now\') WHERE setting_key = ?'
+        );
+        $statement->execute([
+            json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'map_defaults',
+        ]);
+        if ($statement->rowCount() === 0) {
+            $exists = $this->database->prepare(
+                'SELECT 1 FROM app_settings WHERE setting_key = ?'
+            );
+            $exists->execute(['map_defaults']);
+            if ($exists->fetchColumn() === false) {
+                throw new RuntimeException('Configurações do mapa não encontradas.');
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Lista somente metadados de arquivos HGT válidos no diretório de elevação configurado.
+     *
+     * @param string $directory Diretório operacional SRTM3 da instalação.
+     * @return array<int, array{name: string, size: int, modifiedAt: int}>
+     */
+    public function listElevationFiles(string $directory): array
+    {
+        $realDirectory = realpath($directory);
+        if ($realDirectory === false || !is_dir($realDirectory)) {
+            throw new RuntimeException('Diretório de elevação não encontrado.');
+        }
+
+        $files = [];
+        $entries = scandir($realDirectory);
+        if ($entries === false) {
+            throw new RuntimeException('Não foi possível listar os arquivos de elevação.');
+        }
+        foreach ($entries as $name) {
+            if (!$this->isValidElevationFilename($name)) {
+                continue;
+            }
+            $path = $realDirectory . DIRECTORY_SEPARATOR . $name;
+            if (!is_file($path) || is_link($path)) {
+                continue;
+            }
+            $size = filesize($path);
+            $modifiedAt = filemtime($path);
+            if ($size === false || $modifiedAt === false) {
+                throw new RuntimeException('Não foi possível ler os metadados de um tile HGT.');
+            }
+            $files[] = ['name' => $name, 'size' => $size, 'modifiedAt' => $modifiedAt];
+        }
+        usort($files, static fn (array $left, array $right): int => strcmp($left['name'], $right['name']));
+
+        return $files;
+    }
+
+    /**
+     * Remove um tile HGT validado diretamente dentro do diretório operacional.
+     *
+     * @param string $directory Diretório operacional SRTM3 da instalação.
+     * @param string $name Nome do tile.
+     */
+    public function deleteElevationFile(string $directory, string $name): void
+    {
+        if (!$this->isValidElevationFilename($name)) {
+            throw new RuntimeException('Nome de arquivo HGT inválido.');
+        }
+        $realDirectory = realpath($directory);
+        if ($realDirectory === false || !is_dir($realDirectory)) {
+            throw new RuntimeException('Diretório de elevação não encontrado.');
+        }
+        $path = $realDirectory . DIRECTORY_SEPARATOR . $name;
+        if (is_link($path) || !is_file($path)) {
+            throw new RuntimeException('Arquivo HGT não encontrado.');
+        }
+        if (!unlink($path)) {
+            throw new RuntimeException('Não foi possível excluir o arquivo HGT.');
+        }
+    }
+
+    /**
      * Lê a conta administrativa inicial da tabela singleton.
      *
      * @return array{password_hash: string, must_change_password: int}
@@ -358,6 +483,74 @@ final class AdminService
         }
 
         return $account;
+    }
+
+    /**
+     * Normaliza e valida os valores aceitos para a configuração do mapa.
+     *
+     * @param array<string, mixed> $settings Valores recebidos do banco ou do painel.
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     */
+    private function normalizeMapDefaults(array $settings): array
+    {
+        $layers = $settings['defaultLayers'] ?? null;
+        if (!is_array($layers)) {
+            throw new RuntimeException('Selecione as camadas padrão do mapa.');
+        }
+        foreach ($layers as $layer) {
+            if (!is_string($layer) || !in_array($layer, self::DEFAULT_LAYERS, true)) {
+                throw new RuntimeException('Camada padrão não permitida.');
+            }
+        }
+        $layers = array_values(array_unique($layers));
+        if ($layers === []) {
+            throw new RuntimeException('Selecione pelo menos uma camada padrão.');
+        }
+
+        $center = $settings['center'] ?? null;
+        if ($center !== null) {
+            if (!is_array($center) || count($center) !== 2
+                || !array_key_exists(0, $center) || !array_key_exists(1, $center)
+                || !is_numeric($center[0]) || !is_numeric($center[1])
+                || (float) $center[0] < -90 || (float) $center[0] > 90
+                || (float) $center[1] < -180 || (float) $center[1] > 180) {
+                throw new RuntimeException('Centro inicial inválido; informe latitude e longitude válidas.');
+            }
+            $center = [(float) $center[0], (float) $center[1]];
+        }
+
+        $zoom = $settings['zoom'] ?? null;
+        if ($zoom !== null) {
+            if (!is_numeric($zoom) || (float) $zoom < 1 || (float) $zoom > 28) {
+                throw new RuntimeException('O zoom inicial deve estar entre 1 e 28.');
+            }
+            $zoom = (float) $zoom;
+        }
+        if ($center === null && $zoom !== null) {
+            throw new RuntimeException('Defina o centro inicial para configurar o zoom.');
+        }
+
+        return ['defaultLayers' => $layers, 'center' => $center, 'zoom' => $zoom];
+    }
+
+    /**
+     * Valida o nome geográfico de um tile HGT sem permitir coordenadas fora da grade global.
+     */
+    private function isValidElevationFilename(string $name): bool
+    {
+        if (!preg_match('/^([NS])(\d{2})([EW])(\d{3})\.hgt$/iD', $name, $parts)) {
+            return false;
+        }
+        $latitude = (int) $parts[2];
+        $longitude = (int) $parts[4];
+        $latitudeValid = strtoupper($parts[1]) === 'N'
+            ? $latitude < 90
+            : $latitude > 0 && $latitude <= 90;
+        $longitudeValid = strtoupper($parts[3]) === 'E'
+            ? $longitude < 180
+            : $longitude > 0 && $longitude <= 180;
+
+        return $latitudeValid && $longitudeValid;
     }
 
     /**

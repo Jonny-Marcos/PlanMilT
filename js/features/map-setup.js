@@ -292,6 +292,27 @@ window.PlanMilT.mapSetup = Object.freeze({
                 }
             }
 
+            /**
+             * Aplica as preferências globais de camadas e enquadramento inicial.
+             * @param {Object} settings - Preferências públicas carregadas do servidor.
+             */
+            function applyMapDefaults(settings) {
+                const defaultLayers = new Set(settings.defaultLayers);
+                Object.entries(layerRegistry).forEach(([layerName, layer]) => {
+                    if (layerName === 'Sugestão de Planejamento') {
+                        if (map.hasLayer(layer)) map.removeLayer(layer);
+                    } else if (defaultLayers.has(layerName) && !map.hasLayer(layer)) {
+                        map.addLayer(layer);
+                    } else if (!defaultLayers.has(layerName) && map.hasLayer(layer)) {
+                        map.removeLayer(layer);
+                    }
+                });
+                if (Array.isArray(settings.center) && settings.center.length === 2 && settings.zoom !== null) {
+                    map.setView(settings.center, settings.zoom);
+                }
+                if (layerControl) layerControl._update();
+            }
+
             // Chame a função após a inicialização do mapa e das camadas
             deselecionarCamadasIniciais();
 
@@ -388,6 +409,6 @@ window.PlanMilT.mapSetup = Object.freeze({
             document.getElementById('layerSelector').addEventListener('change', adjustLayerTransparency);
             document.getElementById('transparencySlider').addEventListener('input', adjustLayerTransparency);
 
-        return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer, removeOverlayLayer };
+        return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer, removeOverlayLayer, applyMapDefaults };
     }
 });

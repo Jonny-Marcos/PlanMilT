@@ -43,12 +43,14 @@ function createMapSetup() {
     const layersOnMap = new Set();
     const panes = new Map();
     const overlays = new Map();
+    const mapViews = [];
     const map = {
         createPane(name) { panes.set(name, { style: {} }); },
         getPane(name) { return panes.get(name); },
         addLayer(layer) { layersOnMap.add(layer); },
         removeLayer(layer) { layersOnMap.delete(layer); },
-        hasLayer(layer) { return layersOnMap.has(layer); }
+        hasLayer(layer) { return layersOnMap.has(layer); },
+        setView(center, zoom) { mapViews.push({ center, zoom }); }
     };
 
     const makeLayer = (type, url, options) => ({ type, url, options, addTo(targetMap) { targetMap.addLayer(this); return this; } });
@@ -76,7 +78,7 @@ function createMapSetup() {
     };
 
     const setup = window.PlanMilT.mapSetup.attach({ map, leaflet });
-    return { layersOnMap, layerControl, overlays, setup };
+    return { layersOnMap, layerControl, overlays, mapViews, setup };
 }
 
 test('setup returns standard layers and planning state in its registry', () => {
@@ -136,4 +138,23 @@ test('removing an overlay also removes it from the transparency selector', () =>
     assert.equal(layersOnMap.has(overlay), false);
     assert.equal(layerSelector.children.some(option => option.value === 'Custom'), false);
     assert.notEqual(layerSelector.value, 'Custom');
+});
+
+test('map defaults control initially visible layers and optional center/zoom', () => {
+    const { layersOnMap, mapViews, setup } = createMapSetup();
+    const openTopo = setup.layerRegistry.OpenTopo;
+    const satellite = setup.layerRegistry['Google Satellite'];
+    const infrastructures = setup.layerRegistry.Infraestruturas;
+
+    setup.applyMapDefaults({
+        defaultLayers: ['Google Satellite', 'Infraestruturas'],
+        center: [-22.5, -48.25],
+        zoom: 9
+    });
+
+    assert.equal(layersOnMap.has(openTopo), false);
+    assert.equal(layersOnMap.has(satellite), true);
+    assert.equal(layersOnMap.has(infrastructures), true);
+    assert.deepEqual(mapViews, [{ center: [-22.5, -48.25], zoom: 9 }]);
+    assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
 });
