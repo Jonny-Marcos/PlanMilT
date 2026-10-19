@@ -12,8 +12,13 @@ header("Content-Type: application/json");
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['id'])) {
-        $id = $_POST['id'];
+        $id = filter_var($_POST['id'], FILTER_VALIDATE_INT);
         $providedPassword = $_POST['senha'] ?? '';
+        $isEditing = ($_POST['modo'] ?? '') === 'edicao';
+        if ($id === false || $id < 1 || !is_string($providedPassword)) {
+            echo json_encode(['error' => 'Parâmetros inválidos para carregar a imagem.']);
+            exit;
+        }
 
         try {
             // Conecta ao banco de dados SQLite
@@ -35,7 +40,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $isShared = (int) $image['is_shared'];
 
                 // Verifica se a imagem requer senha
-                if ($isShared === 0 && !empty($storedPasswordHash)) {
+                if ((!$isShared || $isEditing) && !empty($storedPasswordHash)) {
                     // Imagem requer senha
                     if (empty($providedPassword) || !password_verify($providedPassword, $storedPasswordHash)) {
                         echo json_encode(['error' => 'Senha incorreta ou não fornecida.']);
@@ -50,7 +55,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 echo json_encode([
                     'url' => $imgSrc,
                     'bounds' => json_decode($image['location'], true),
-                    'descricao' => $image['description']
+                    'descricao' => $image['description'],
+                    'compartilhavel' => $isShared === 1
                 ]);
             } else {
                 echo json_encode(['error' => 'Imagem não encontrada.']);

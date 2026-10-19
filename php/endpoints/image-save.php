@@ -7,46 +7,52 @@
 use PlanMilT\Infrastructure\Database\ConnectionFactory;
 
 require_once dirname(__DIR__) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/src/Application/ImagesService.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
-        // Conecta ao banco de dados SQLite
         $db = ConnectionFactory::create();
-
-        // Recebe os dados do formulário
         $imageDataUrl = $_POST['imagem'] ?? '';
         $description = $_POST['descricao'] ?? '';
         $location = $_POST['localizacao'] ?? '';
-        $createdAt = $_POST['data_criacao'] ?? gmdate('Y-m-d H:i:s');
         $password = $_POST['senha'] ?? '';
-        $isShared = isset($_POST['compartilhavel']) && $_POST['compartilhavel'] === 'true' ? 1 : 0;
-
-        // Decodifica a imagem de Base64
-        $image = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $imageDataUrl));
-
-        // Hash da senha, se fornecida
-        $passwordHash = !empty($password) ? password_hash($password, PASSWORD_DEFAULT) : '';
-
-        // Prepara a inserção no banco de dados
-        $stmt = $db->prepare(
-            'INSERT INTO images (image, location, created_at, updated_at, description, password_hash, is_shared) '
-            . 'VALUES (:image, :location, :createdAt, datetime(\'now\'), :description, :passwordHash, :isShared)'
-        );
-        $stmt->bindParam(':image', $image, PDO::PARAM_LOB);
-        $stmt->bindParam(':location', $location);
-        $stmt->bindParam(':createdAt', $createdAt);
-        $stmt->bindParam(':description', $description);
-        $stmt->bindParam(':passwordHash', $passwordHash);
-        $stmt->bindParam(':isShared', $isShared, PDO::PARAM_INT);
-
-        // Executa a inserção
-        if ($stmt->execute()) {
-            echo "Imagem salva com sucesso!";
-        } else {
-            echo "Erro ao salvar a imagem.";
+        $currentPassword = $_POST['senha_atual'] ?? '';
+        $createdAt = $_POST['data_criacao'] ?? null;
+        if (!is_string($imageDataUrl) || !is_string($description) || !is_string($location) ||
+            !is_string($password) || !is_string($currentPassword) ||
+            ($createdAt !== null && !is_string($createdAt))) {
+            http_response_code(400);
+            echo 'Dados inválidos para salvar o tema.';
+            exit;
         }
+        $isShared = isset($_POST['compartilhavel']) && $_POST['compartilhavel'] === 'true';
+        $imageId = isset($_POST['id']) ? filter_var($_POST['id'], FILTER_VALIDATE_INT) : null;
+        $imageContents = preg_replace('#^data:image/\w+;base64,#i', '', $imageDataUrl);
+        $image = is_string($imageContents) ? base64_decode($imageContents, true) : false;
+        $decodedLocation = json_decode($location, true);
+
+        if ($image === false || $description === '' || $location === '' ||
+            !is_array($decodedLocation) || count($decodedLocation) < 2 ||
+            (isset($_POST['id']) && ($imageId === false || $imageId < 1))) {
+            http_response_code(400);
+            echo 'Dados inválidos para salvar o tema.';
+            exit;
+        }
+
+        $service = new \PlanMilT\Application\ImagesService($db);
+        echo $service->save(
+            $image,
+            $description,
+            $location,
+            $password,
+            $isShared,
+            $imageId === null ? null : (int) $imageId,
+            $currentPassword,
+            $createdAt
+        );
     } catch (PDOException $e) {
-        echo 'Não foi possível salvar a imagem.';
+        http_response_code(500);
+        echo 'Não foi possível salvar o tema.';
     }
 } else {
     echo "Método de requisição não suportado.";

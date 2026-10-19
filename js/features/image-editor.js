@@ -7,6 +7,7 @@
         map: null,
         canvas: null,
         geocoderControl: null,
+        editingTheme: null,
         mode: 'image',
         width: 0,
         height: 0
@@ -184,6 +185,193 @@
     }
 
     /**
+     * Escapa nomes de temas antes de inseri-los no seletor HTML.
+     * @param {string} value Texto fornecido pelo banco.
+     * @returns {string} Texto seguro para conteúdo HTML.
+     */
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, character => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[character]);
+    }
+
+    /**
+     * Busca a lista de temas e permite escolher um para edição.
+     */
+    async function chooseThemeToEdit() {
+        try {
+            const response = await window.PlanMilT.apiClient.request('image-load.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+            const data = await response.json();
+            if (!response.ok || !Array.isArray(data.images)) {
+                throw new Error(data.error || 'Não foi possível listar os temas.');
+            }
+            if (data.images.length === 0) {
+                await showEditorAlert('Nenhum tema disponível', 'Salve um tema antes de carregá-lo para edição.', 'info');
+                return;
+            }
+
+            const options = data.images
+                .map(image => `<option value="${escapeHtml(image.id)}">${escapeHtml(image.descricao)}</option>`)
+                .join('');
+            const { value: imageId } = await showEditorAlert({
+                title: 'Carregar tema para edição',
+                html: `<select id="imageEditorThemeSelect" class="swal2-input">${options}</select>`,
+                showCancelButton: true,
+                confirmButtonText: 'Carregar',
+                preConfirm: () => document.getElementById('imageEditorThemeSelect').value
+            });
+            if (imageId) await loadThemeForEditing(imageId);
+        } catch (error) {
+            console.error('[PlanMilT][Editor] Falha ao listar temas para edição.', error);
+            await showEditorAlert('Erro!', 'Não foi possível obter a lista de temas.', 'error');
+        }
+    }
+
+    /**
+     * Busca o conteúdo de um tema, solicitando senha quando necessária.
+     * @param {string} imageId Identificador persistido do tema.
+     * @param {string} [password] Senha atual, mantida somente durante a edição.
+     * @returns {Promise<Object>} Imagem e metadados autorizados pelo endpoint.
+     */
+    async function requestThemeForEditing(imageId, password = '') {
+        const params = new URLSearchParams({ id: imageId, modo: 'edicao' });
+        if (password) params.set('senha', password);
+        const response = await window.PlanMilT.apiClient.request('image-load.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+        return response.json();
+    }
+
+    /**
+     * Carrega o tema selecionado no canvas para edição.
+     * @param {string} imageId Identificador persistido do tema.
+     */
+    async function loadThemeForEditing(imageId) {
+        let password = '';
+        let passwordAttempts = 0;
+        let data;
+        while (passwordAttempts <= 3) {
+            try {
+                data = await requestThemeForEditing(imageId, password);
+            } catch (error) {
+                console.error('[PlanMilT][Editor] Falha ao carregar tema para edição.', error);
+                await showEditorAlert('Erro!', 'Não foi possível carregar o tema.', 'error');
+                return;
+            }
+            if (data.url && Array.isArray(data.bounds)) break;
+            if (data.error !== 'Senha incorreta ou não fornecida.' || passwordAttempts === 3) {
+                await showEditorAlert('Erro!', data.error || 'Tema não encontrado ou dados incompletos.', 'error');
+                return;
+            }
+
+            const { value: enteredPassword } = await showEditorAlert({
+                title: 'Senha necessária',
+                input: 'password',
+                inputPlaceholder: 'Digite a senha do tema',
+                showCancelButton: true,
+                confirmButtonText: 'Carregar',
+                preConfirm: value => {
+                    if (!value) {
+                        Swal.showValidationMessage('A senha não pode estar vazia.');
+                        return false;
+                    }
+                    return value;
+                }
+            });
+            if (!enteredPassword) return;
+            password = enteredPassword;
+            passwordAttempts += 1;
+        }
+
+        if (!data?.url || !Array.isArray(data.bounds) || data.bounds.length < 2) {
+            await showEditorAlert('Erro!', 'Tema não encontrado ou dados incompletos.', 'error');
+            return;
+        }
+        if (data.bounds.some(point => !Array.isArray(point) || point.length < 2 ||
+            !point.every(Number.isFinite))) {
+            console.error('[PlanMilT][Editor] Limites geográficos inválidos no tema carregado.');
+            await showEditorAlert('Erro!', 'Os limites geográficos do tema são inválidos.', 'error');
+            return;
+        }
+        state.map.fitBounds(data.bounds, { animate: false });
+        state.map.invalidateSize({ pan: false });
+        fabric.Image.fromURL(data.url, image => {
+            if (!image || image.width <= 0 || image.height <= 0) {
+                console.error('[PlanMilT][Editor] O tema carregado não pôde ser decodificado.');
+                showEditorAlert('Erro!', 'Não foi possível abrir a imagem do tema.', 'error');
+                return;
+            }
+            const northWest = state.map.latLngToContainerPoint(data.bounds[0]);
+            const southEast = state.map.latLngToContainerPoint(data.bounds[1]);
+            const width = southEast.x - northWest.x;
+            const height = southEast.y - northWest.y;
+            if (![northWest.x, northWest.y, southEast.x, southEast.y, width, height].every(Number.isFinite) ||
+                width <= 0 || height <= 0) {
+                console.error('[PlanMilT][Editor] Limites inválidos no tema carregado.');
+                showEditorAlert('Erro!', 'Os limites geográficos do tema são inválidos.', 'error');
+                return;
+            }
+            image.filters = [];
+            image.set({
+                scaleX: width / image.width,
+                scaleY: height / image.height,
+                originX: 'left',
+                originY: 'top',
+                left: northWest.x,
+                top: northWest.y
+            });
+            state.editingTheme = {
+                id: imageId,
+                description: data.descricao,
+                password,
+                isShared: data.compartilhavel === true
+            };
+            document.getElementById('imageEditorBrightness').value = '1';
+            document.getElementById('imageEditorContrast').value = '1';
+            document.getElementById('imageEditorDropHint').hidden = true;
+            addEditableImage(image);
+            console.info('[PlanMilT][Editor] Tema carregado para edição.', { id: imageId });
+        }, { crossOrigin: 'anonymous' });
+    }
+
+    /**
+     * Define os controles e substitui a imagem atual no canvas.
+     * @param {fabric.Image} image Imagem que será editada.
+     * @param {Object} [position] Transformação inicial específica da imagem.
+     */
+    function addEditableImage(image, position = {}) {
+        image.set({
+            selectable: true,
+            evented: true,
+            hasControls: true,
+            hasBorders: true,
+            lockMovementX: false,
+            lockMovementY: false,
+            lockScalingX: false,
+            lockScalingY: false,
+            lockRotation: false,
+            lockUniScaling: false,
+            ...position
+        });
+        state.canvas.clear();
+        image.setCoords();
+        state.canvas.add(image);
+        state.canvas.setActiveObject(image);
+        state.canvas.calcOffset();
+        state.canvas.renderAll();
+        setMode('image');
+    }
+
+    /**
      * Alterna entre posicionar a imagem e navegar pelo mapa.
      * @param {'image'|'map'} mode Modo de interação ativo.
      */
@@ -325,29 +513,13 @@
                     originX: 'center',
                     originY: 'center',
                     left: state.width / 2,
-                    top: state.height / 2,
-                    selectable: true,
-                    evented: true,
-                    hasControls: true,
-                    hasBorders: true,
-                    lockMovementX: false,
-                    lockMovementY: false,
-                    lockScalingX: false,
-                    lockScalingY: false,
-                    lockRotation: false,
-                    lockUniScaling: false
+                    top: state.height / 2
                 });
-
-                state.canvas.clear();
-                image.setCoords();
-                state.canvas.add(image);
-                state.canvas.setActiveObject(image);
-                state.canvas.calcOffset();
-                state.canvas.renderAll();
+                state.editingTheme = null;
                 document.getElementById('imageEditorDropHint').hidden = true;
                 document.getElementById('imageEditorBrightness').value = '1';
                 document.getElementById('imageEditorContrast').value = '1';
-                setMode('image');
+                addEditableImage(image);
             }, { crossOrigin: 'anonymous' });
         };
         reader.readAsDataURL(file);
@@ -415,6 +587,7 @@
         if (!activeObject || activeObject.type !== 'image') return;
         state.canvas.remove(activeObject);
         state.canvas.discardActiveObject();
+        state.editingTheme = null;
         state.canvas.renderAll();
         document.getElementById('imageEditorDropHint').hidden = false;
         setMode('image');
@@ -454,13 +627,14 @@
             [mapBounds.getSouthEast().lat, mapBounds.getSouthEast().lng]
         ];
 
+        const editingTheme = state.editingTheme;
         const { value: formValues } = await showEditorAlert({
-            title: 'Salvar Imagem',
+            title: editingTheme ? 'Atualizar tema' : 'Salvar Imagem',
             html: '<label for="descricao">Título do Calco:</label>' +
-                '<input id="swal-input1" class="swal2-input" placeholder="Digite o título">' +
-                '<label for="senha">Senha (opcional):</label>' +
-                '<input id="swal-input2" class="swal2-input" type="password" placeholder="Digite a senha">' +
-                '<label><input type="checkbox" id="swal-input3"> Compartilhar sem senha</label>',
+                `<input id="swal-input1" class="swal2-input" placeholder="Digite o título" value="${escapeHtml(editingTheme?.description || '')}">` +
+                `<label for="swal-input2">${editingTheme ? 'Nova senha (opcional):' : 'Senha (opcional):'}</label>` +
+                '<input id="swal-input2" class="swal2-input" type="password" placeholder="Deixe vazio para manter a senha atual">' +
+                `<label><input type="checkbox" id="swal-input3" ${editingTheme?.isShared ? 'checked' : ''}> Compartilhar sem senha</label>`,
             focusConfirm: false,
             showCancelButton: true,
             confirmButtonText: 'Salvar',
@@ -483,6 +657,10 @@
         formData.append('compartilhavel', formValues.compartilhavel);
         formData.append('imagem', imageDataUrl);
         formData.append('localizacao', JSON.stringify(canvasBounds));
+        if (editingTheme) {
+            formData.append('id', editingTheme.id);
+            formData.append('senha_atual', editingTheme.password);
+        }
 
         try {
             const response = await window.PlanMilT.apiClient.request('image-save.php', {
@@ -490,17 +668,31 @@
                 body: formData
             });
             const message = (await response.text()).trim();
-            if (!response.ok || message !== 'Imagem salva com sucesso!') {
+            if (!response.ok ||
+                (message !== 'Imagem salva com sucesso!' && message !== 'Imagem atualizada com sucesso!')) {
                 console.error('[PlanMilT][Imagens] Servidor recusou o salvamento.', {
                     status: response.status
                 });
                 await showEditorAlert('Erro!', 'Erro ao salvar a imagem.', 'error');
                 return;
             }
+            if (editingTheme) {
+                state.editingTheme = {
+                    ...editingTheme,
+                    description: formValues.descricao,
+                    password: formValues.senha || editingTheme.password,
+                    isShared: formValues.compartilhavel
+                };
+            }
             console.info('[PlanMilT][Imagens] Imagem salva.', {
-                compartilhavel: formValues.compartilhavel
+                compartilhavel: formValues.compartilhavel,
+                atualizada: Boolean(editingTheme)
             });
-            await showEditorAlert('Sucesso!', 'Imagem salva com sucesso!', 'success');
+            await showEditorAlert(
+                'Sucesso!',
+                editingTheme ? 'Tema atualizado com sucesso!' : 'Imagem salva com sucesso!',
+                'success'
+            );
         } catch (error) {
             console.error('[PlanMilT][Imagens] Falha na requisição de salvamento.', error);
             await showEditorAlert('Erro!', 'Erro ao salvar a imagem.', 'error');
@@ -512,6 +704,7 @@
         if (event.target.files[0]) loadImage(event.target.files[0]);
         event.target.value = '';
     });
+    document.getElementById('imageEditorLoadTheme').addEventListener('click', chooseThemeToEdit);
     document.getElementById('imageEditorBrightness').addEventListener('input', event => {
         applyFilter('Brightness', { brightness: parseFloat(event.target.value) - 1 });
     });
@@ -535,7 +728,7 @@
             reset: resetImage,
             remove: removeImage
         };
-        if (action && actions[action]) actions[action]();
+        if (action && actions[action]) return actions[action]();
     });
     document.getElementById('imageEditorMode').addEventListener('click', () => {
         setMode(state.mode === 'image' ? 'map' : 'image');

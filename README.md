@@ -63,7 +63,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. Durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém apenas gráficos cuja simbologia acrescenta geometria própria; linhas, áreas básicas e círculos equivalentes às ferramentas nativas continuam disponíveis no Leaflet Draw.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
-- **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema”, envie uma imagem ou solte o arquivo diretamente no mapa. Arraste a imagem para posicioná-la, use os cantos para aumentar, diminuir ou esticar e a alça superior para girar. Use “Mover mapa” ou os botões em “Controle do mapa” para navegar sem deslocar a imagem. “Redefinir ajustes” também restaura os controles de brilho e contraste. “Salvar tema” grava o calco.
+- **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema” para começar ou use “Carregar tema” dentro do editor para editar um tema salvo. Temas protegidos exigem a senha atual; ao salvar, é possível manter o nome, renomear ou definir uma nova senha. Envie uma imagem ou solte o arquivo no mapa; arraste-a para posicionar, use os cantos para redimensionar/esticar e a alça superior para girar. Use “Mover mapa” ou os botões em “Controle do mapa” para navegar sem deslocar a imagem. “Redefinir ajustes” também restaura os controles de brilho e contraste.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
 
@@ -77,7 +77,7 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 Para atualizar o bundle local da biblioteca de gráficos táticos, execute `npm install` e depois `npm run build:tactical-graphics`.
 
 Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
-Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php` e `php tests/php/drawings-service.test.php`.
+Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php` e `php tests/php/images-service.test.php`.
 Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
 
 ---
@@ -147,7 +147,7 @@ There is no project-specific PHP configuration file; adjust upload and execution
 - **Drawing:** Add polygons, lines, circles, and markers directly to the map.
 - **Tactical graphics:** Use the “Gráfico tático” button to open a selector with search, section filters, and a preview of the selected symbol, following the layer catalog pattern. While drawing, symbology and designation follow the vertices and cursor in a temporary preview. The catalog keeps graphics whose symbology adds distinctive geometry; basic lines, areas, and circles equivalent to native tools remain available in Leaflet Draw.
 - **Customization:** Choose colors, icons, and styles for map elements.
-- **Theme creator:** Choose “Criar tema” in the image loader, upload or drop an image onto the map, then drag it to position, resize or stretch it from the corners, and rotate it using the top handle. Switch to “Mover mapa” or use the “Controle do mapa” buttons to navigate without moving the image. “Redefinir ajustes” also resets the brightness and contrast controls. Choose “Salvar tema” to store the overlay.
+- **Theme creator:** Choose “Criar tema” in the image loader to start, or use “Carregar tema” inside the editor to edit a saved theme. Password-protected themes require the current password; when saving, you can keep the name, rename the theme, or set a new password. Upload or drop an image onto the map, then drag it to position, resize/stretch it from the corners, and rotate it using the top handle. Switch to “Mover mapa” or use the “Controle do mapa” buttons to navigate without moving the image. “Redefinir ajustes” also resets brightness and contrast.
 - **Import/Export:** Support for KMZ files.
 - **Editing:** Modify text and properties of existing elements.
 
@@ -160,7 +160,7 @@ Contributions are welcome! Feel free to open an issue or submit a pull request o
 ### Development tests
 Rebuild the local tactical graphics bundle with `npm install` followed by `npm run build:tactical-graphics`.
 Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
-PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, and `php tests/php/drawings-service.test.php`.
+PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php`, and `php tests/php/images-service.test.php`.
 Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
 
 © 2024-2026 - João Marcos Barbosa Oliveira

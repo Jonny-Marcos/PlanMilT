@@ -11,7 +11,8 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-save-translate/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-edit-saved-themes/);
+    assert.match(indexSource, /id="imageEditorLoadTheme"/);
     assert.match(indexSource, /image_editor_google_translate_element/);
     assert.match(fs.readFileSync(path.join(root, 'css/app.css'), 'utf8'),
         /body\.image-editor-alert-open \.swal2-container\s*\{\s*z-index: 11000 !important;/);
@@ -71,7 +72,7 @@ test('Google Translate initializes whichever map controls exist when its callbac
     assert.ok(initializedTargets.every(item => item.options.pageLanguage === 'pt-br'));
 });
 
-test('theme editor initializes its map once and supports opening and closing in place', () => {
+test('theme editor initializes its map once and supports opening and closing in place', async () => {
     class FakeElement {
         constructor() {
             this.listeners = {};
@@ -101,7 +102,7 @@ test('theme editor initializes its map once and supports opening and closing in 
         }
 
         click(type, event = { target: this }) {
-            this.listeners[type](event);
+            return this.listeners[type](event);
         }
 
         setAttribute(name, value) {
@@ -151,6 +152,9 @@ test('theme editor initializes its map once and supports opening and closing in 
     const alertCalls = [];
     let mapCreations = 0;
     let mapInvalidations = 0;
+    let lastSavedFormData = null;
+    const apiRequests = [];
+    const alertResults = [];
     const mapPans = [];
     const mapZooms = [];
     const createInteraction = () => ({
@@ -171,7 +175,13 @@ test('theme editor initializes its map once and supports opening and closing in 
         panBy(offset) { mapPans.push(offset); },
         zoomIn() { mapZooms.push('in'); },
         zoomOut() { mapZooms.push('out'); },
-        fitBounds() {},
+        fitBounds(bounds, options) {
+            this.fittedBounds = bounds;
+            this.fitBoundsOptions = options;
+        },
+        latLngToContainerPoint(point) {
+            return point[1] === 10 ? { x: 100, y: 50 } : { x: 700, y: 550 };
+        },
         getBounds() {
             return {
                 getNorthWest: () => ({ lat: 1, lng: 2 }),
@@ -242,6 +252,7 @@ test('theme editor initializes its map once and supports opening and closing in 
         };
         this.getObjects = () => this.objects;
         this.add = object => this.objects.push(object);
+        this.remove = object => { this.objects = this.objects.filter(item => item !== object); };
         this.clear = () => { this.objects = []; };
         this.setActiveObject = object => { this.activeObject = object; };
         this.getActiveObject = () => this.activeObject;
@@ -272,6 +283,15 @@ test('theme editor initializes its map once and supports opening and closing in 
             }
         }
     };
+    class FakeFormData {
+        constructor() {
+            this.values = {};
+        }
+
+        append(name, value) {
+            this.values[name] = value;
+        }
+    }
     function Canvas2dFilterBackend() {}
     fabric.Canvas2dFilterBackend = Canvas2dFilterBackend;
     class FakeFileReader {
@@ -301,9 +321,10 @@ test('theme editor initializes its map once and supports opening and closing in 
         Swal: {
             fire(options) {
                 alertCalls.push(options);
-                return Promise.resolve({ value: null });
+                return Promise.resolve({ value: alertResults.length ? alertResults.shift() : null });
             }
         },
+        FormData: FakeFormData,
         URLSearchParams,
         URL,
         FileReader: FakeFileReader,
@@ -313,6 +334,49 @@ test('theme editor initializes its map once and supports opening and closing in 
     const editor = document.getElementById('imageEditor');
     document.getElementById('imageEditorDropHint').hidden = false;
     window.PlanMilT.openImageEditor();
+    window.PlanMilT.apiClient = {
+        async request(endpoint, options = {}) {
+            apiRequests.push({ endpoint, options });
+            if (endpoint === 'image-load.php' && !options.body) {
+                return {
+                    ok: true,
+                    async json() {
+                        return { images: [{ id: 41, descricao: '<Tema & teste>' }] };
+                    }
+                };
+            }
+            if (endpoint === 'image-load.php') {
+                const params = new URLSearchParams(options.body);
+                if (!params.get('senha')) {
+                    return {
+                        ok: true,
+                        async json() {
+                            return { error: 'Senha incorreta ou não fornecida.' };
+                        }
+                    };
+                }
+                return {
+                    ok: true,
+                    async json() {
+                        return {
+                            url: 'data:image/png;base64,AA==',
+                            bounds: [[50, 10], [0, 30]],
+                            descricao: '<Tema & teste>',
+                            compartilhavel: false
+                        };
+                    }
+                };
+            }
+            if (endpoint === 'image-save.php') {
+                lastSavedFormData = options.body;
+                return {
+                    ok: true,
+                    async text() { return 'Imagem atualizada com sucesso!'; }
+                };
+            }
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        }
+    };
     assert.equal(editor.hidden, false);
     assert.equal(mapCreations, 1);
     assert.equal(window.translateCallbackCount, 1);
@@ -425,9 +489,51 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.match(document.getElementById('imageEditorHint').textContent, /cantos para redimensionar ou esticar/);
     assert.match(document.getElementById('imageEditorHint').textContent, /alça superior para girar/);
 
+    alertResults.push('41', 'theme-secret');
+    await document.getElementById('imageEditorLoadTheme').click('click');
+    assert.match(alertCalls.find(call => call.title === 'Carregar tema para edição').html,
+        /&lt;Tema &amp; teste&gt;/);
+    const editRequests = apiRequests.filter(request =>
+        request.endpoint === 'image-load.php' && request.options.body
+    );
+    assert.equal(new URLSearchParams(editRequests[0].options.body).get('modo'), 'edicao');
+    assert.equal(new URLSearchParams(editRequests[0].options.body).get('senha'), null);
+    assert.equal(new URLSearchParams(editRequests[1].options.body).get('senha'), 'theme-secret');
+    assert.deepEqual(Array.from(map.fittedBounds), [[50, 10], [0, 30]]);
+    const editedImage = fabricCanvas.getObjects()[0];
+    assert.equal(editedImage.left, 100);
+    assert.equal(editedImage.top, 50);
+    assert.equal(editedImage.scaleX, 0.6);
+    assert.equal(editedImage.scaleY, 1);
+
+    alertResults.push({
+        descricao: 'Tema renomeado',
+        senha: 'new-secret',
+        compartilhavel: false
+    });
+    await document.getElementById('imageEditorTools').click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorAction: 'save' } })
+    });
+    assert.equal(lastSavedFormData.values.id, '41');
+    assert.equal(lastSavedFormData.values.senha_atual, 'theme-secret');
+    assert.equal(lastSavedFormData.values.senha, 'new-secret');
+    assert.equal(lastSavedFormData.values.descricao, 'Tema renomeado');
+    assert.equal(alertCalls.at(-1).text, 'Tema atualizado com sucesso!');
+    alertResults.push({
+        descricao: 'Tema renomeado novamente',
+        senha: '',
+        compartilhavel: false
+    });
+    await document.getElementById('imageEditorTools').click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorAction: 'save' } })
+    });
+    assert.equal(lastSavedFormData.values.senha_atual, 'new-secret');
+    assert.equal(lastSavedFormData.values.senha, '');
+    assert.equal(lastSavedFormData.values.descricao, 'Tema renomeado novamente');
+
     window.PlanMilT.openImageEditor();
     assert.equal(mapCreations, 1);
-    assert.equal(mapInvalidations, 2);
+    assert.equal(mapInvalidations, 3);
 
     document.getElementById('closeImageEditor').click('click');
     assert.equal(editor.hidden, true);
