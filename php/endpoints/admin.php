@@ -54,43 +54,100 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Administração | PlanMilT</title>
     <style>
-        :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#202a36;background:#f2f4f7}
-        body{margin:0;padding:24px}
-        main{max-width:1100px;margin:auto;background:#fff;border:1px solid #d7dce3;border-radius:10px;padding:24px}
-        h1{margin-top:0;color:#243b5a}
-        h2{font-size:1.15rem}
-        p{line-height:1.5}
+        :root{color-scheme:light;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1d2939;background:#f3f6fa;font-synthesis:none;text-rendering:optimizeLegibility}
+        *{box-sizing:border-box}
+        body{min-width:320px;min-height:100vh;margin:0;background:radial-gradient(ellipse at 88% 0,#e2ebf6 0,transparent 34rem),#f3f6fa}
+        button,input,select,textarea{font:inherit}
+        button{min-height:42px;border:1px solid transparent;border-radius:8px;padding:9px 15px;background:#34577f;color:#fff;font-weight:650;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+        button:hover:not(:disabled){background:#284768;transform:translateY(-1px)}
+        button:active:not(:disabled){transform:translateY(0)}
+        button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #8bb7e6;outline-offset:2px}
+        button.secondary{border-color:#d4dce6;background:#fff;color:#34445a}
+        button.secondary:hover:not(:disabled){border-color:#aebdce;background:#f6f8fb}
+        button.danger{background:#a33a42}
+        button.danger:hover:not(:disabled){background:#842d35}
+        button:disabled{opacity:.52;cursor:not-allowed}
+        .admin-shell{width:min(1180px,calc(100% - 48px));margin:0 auto;padding:28px 0 48px}
+        .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:38px}
+        .brand{display:inline-flex;align-items:center;gap:11px;color:#1e344d;text-decoration:none;font-size:15px;font-weight:750;letter-spacing:.01em}
+        .brand-mark{display:grid;width:38px;height:38px;place-items:center;border-radius:11px;background:#294969;color:#fff;font-size:17px;font-weight:800;box-shadow:0 5px 12px #2949692b}
+        .topbar-tag{border:1px solid #d7e0eb;border-radius:999px;padding:7px 11px;background:#ffffffa8;color:#52657b;font-size:11px;font-weight:750;letter-spacing:.12em}
+        .page-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px}
+        .eyebrow{margin:0 0 8px;color:#587594;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+        h1{margin:0;color:#1c3550;font-size:clamp(27px,4vw,38px);letter-spacing:-.04em;line-height:1.12}
+        .intro{max-width:690px;margin:11px 0 0;color:#64748b;font-size:14px;line-height:1.65}
+        .heading-note{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:10px 13px;border:1px solid #dce5ef;border-radius:10px;background:#ffffffa8;color:#58708a;font-size:12px;font-weight:650}
+        .heading-dot{width:8px;height:8px;border-radius:50%;background:#45a477;box-shadow:0 0 0 4px #45a4771c}
+        .notice{display:none;margin:0 0 18px;padding:12px 15px;border:1px solid #cddded;border-radius:9px;background:#edf5fc;color:#315579;font-size:14px;line-height:1.5}
+        .notice:not(:empty){display:block}
+        .notice.error{border-color:#f0c9c7;background:#fff1f0;color:#923a36}
+        .panel{margin:0 0 20px;padding:24px;border:1px solid #e0e7ef;border-radius:14px;background:#fff;box-shadow:0 10px 28px #203a5710}
+        .panel h2{margin:0 0 6px;color:#233c57;font-size:18px;letter-spacing:-.02em}
+        .panel>p{margin:0 0 18px;color:#64748b;font-size:13px;line-height:1.6}
+        #loginPanel,#passwordPanel{max-width:470px;margin:30px auto}
+        #loginForm,#passwordForm{margin-top:18px}
+        label{display:grid;gap:7px;margin:15px 0;color:#38485c;font-size:13px;font-weight:650}
+        input,select,textarea{width:100%;max-width:100%;min-height:42px;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;background:#fff;color:#243449}
+        input::placeholder,textarea::placeholder{color:#97a4b4}
+        textarea{min-height:130px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.5}
         .toolbar,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-        .toolbar{justify-content:space-between}
-        label{display:grid;gap:5px;margin:12px 0;font-weight:600}
-        input,select,textarea,button{font:inherit}
-        input,select,textarea{box-sizing:border-box;width:100%;max-width:100%;padding:9px;border:1px solid #aeb7c3;border-radius:5px}
-        textarea{min-height:130px;font-family:ui-monospace,monospace}
-        button{border:0;border-radius:5px;padding:9px 14px;background:#34577f;color:#fff;cursor:pointer}
-        button.secondary{background:#5d6877}
-        button.danger{background:#a13232}
-        button:disabled{opacity:.55;cursor:wait}
-        .panel{margin:18px 0;padding:16px;border:1px solid #d7dce3;border-radius:7px}
-        .notice{min-height:1.5em;color:#334b67}
-        .error{color:#a13232}
+        .toolbar{justify-content:space-between;padding:16px;border:1px solid #e0e7ef;border-radius:12px;background:#fff}
+        .toolbar>label{flex:1 1 250px;max-width:390px;margin:0}
+        .toolbar select{background-color:#fff}
+        .actions{margin:0}
+        .section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 16px}
+        .section-heading h2{margin:0;color:#203b58;font-size:21px;letter-spacing:-.03em}
+        .section-heading p{margin:6px 0 0;color:#6c7b8e;font-size:13px;line-height:1.5}
+        .table-card{overflow:hidden;margin-top:16px;border:1px solid #e0e7ef;border-radius:12px;background:#fff;box-shadow:0 8px 22px #203a5708}
         .table-wrap{overflow:auto}
-        table{width:100%;border-collapse:collapse;font-size:.92rem}
-        th,td{text-align:left;padding:9px;border-bottom:1px solid #e0e4e9;vertical-align:top}
-        th{background:#f4f6f9}
-        td{overflow-wrap:anywhere}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        th,td{text-align:left;padding:13px 15px;border-bottom:1px solid #e9edf2;vertical-align:middle}
+        th{background:#f7f9fc;color:#5c6d82;font-size:11px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+        tbody tr:last-child td{border-bottom:0}
+        tbody tr:hover{background:#f8fafc}
+        td{overflow-wrap:anywhere;color:#35465a}
         .record-actions{white-space:nowrap}
-        .record-actions button{margin:2px}
-        .muted{color:#606b78;font-size:.9rem}
-        @media(max-width:600px){body{padding:10px}main{padding:16px}}
+        .record-actions button{min-height:34px;margin:2px;padding:6px 10px;font-size:12px}
+        .pagination{justify-content:space-between;margin-top:13px;padding:3px 1px}
+        .pagination .muted{flex:1;text-align:center}
+        .muted{color:#718096;font-size:12px}
+        #editorPanel{margin-top:20px;border-color:#cfdbea;background:linear-gradient(145deg,#fff,#f9fbfd)}
+        #editorPanel form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+        #editorPanel form>fieldset,#editorPanel form>.actions{grid-column:1/-1}
+        #editorPanel fieldset{margin:10px 0 18px;padding:15px;border:1px solid #dce4ed;border-radius:10px;background:#fff}
+        #editorPanel legend{padding:0 6px;color:#324b67;font-size:13px;font-weight:750}
+        #editorPanel fieldset>label{display:flex;align-items:center;gap:10px;margin:9px 0;padding:8px 10px;border:1px solid #edf0f4;border-radius:7px;background:#fff}
+        #editorPanel fieldset>label:hover{border-color:#ccd8e6;background:#f5f8fb}
+        #editorPanel fieldset input[type=checkbox]{width:17px;min-height:17px;height:17px;margin:0;accent-color:#435f88}
+        #editorPanel fieldset .muted{margin:2px 0 12px;line-height:1.6}
+        #editorPanel form>.actions{justify-content:flex-end;margin-top:8px;padding-top:15px;border-top:1px solid #e3e9ef}
+        #editorPanel form>.actions button{min-width:130px}
+        .table-empty{padding:30px;text-align:center;color:#718096}
+        [hidden]{display:none!important}
+        @media(max-width:720px){.admin-shell{width:min(100% - 28px,1180px);padding-top:16px}.topbar{margin-bottom:27px}.page-heading{align-items:flex-start;flex-direction:column}.heading-note{display:none}.toolbar{align-items:stretch}.toolbar>label{max-width:none}.toolbar>.actions{justify-content:flex-start}.section-heading{align-items:flex-start;flex-direction:column}.panel{padding:19px}.table-card{margin-top:12px}}
+        @media(max-width:520px){.admin-shell{width:calc(100% - 20px);padding-top:12px}.topbar-tag{font-size:9px}.toolbar>.actions{display:grid;width:100%;grid-template-columns:1fr 1fr}.toolbar>.actions button{width:100%;padding-right:8px;padding-left:8px}.toolbar>.actions #logoutButton{grid-column:1/-1}.pagination{gap:7px}.pagination button{padding:8px 10px}.pagination .muted{font-size:11px}#editorPanel form{grid-template-columns:1fr}#editorPanel form>fieldset,#editorPanel form>.actions{grid-column:1}.record-actions{white-space:normal}}
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
     </style>
 </head>
 <body>
-<main>
-    <h1>Administração do PlanMilT</h1>
-    <p class="muted">Gerencie serviços SIG, catálogo WMS e registros salvos. Senhas de desenhos e sequências e os arquivos binários dos temas não são exibidos.</p>
+<main class="admin-shell">
+    <nav class="topbar" aria-label="Navegação principal">
+        <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">P</span><span>PlanMilT <span class="muted">/ Administração</span></span></a>
+        <span class="topbar-tag">PAINEL ADMINISTRATIVO</span>
+    </nav>
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Gestão da aplicação</p>
+            <h1>Administração do PlanMilT</h1>
+            <p class="intro">Gerencie dados, camadas e preferências do mapa em um só lugar. Credenciais e conteúdo binário dos temas permanecem protegidos.</p>
+        </div>
+        <div class="heading-note"><span class="heading-dot" aria-hidden="true"></span>Área restrita</div>
+    </header>
     <p id="notice" class="notice" role="status"></p>
     <section id="loginPanel" class="panel" hidden>
+        <p class="eyebrow">Acesso seguro</p>
         <h2>Acesso administrativo</h2>
+        <p>Entre com a senha administrativa para gerenciar a aplicação.</p>
         <form id="loginForm">
             <label>Senha administrativa
                 <input type="password" name="password" autocomplete="current-password" required>
@@ -99,6 +156,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         </form>
     </section>
     <section id="passwordPanel" class="panel" hidden>
+        <p class="eyebrow">Segurança da conta</p>
         <h2>Defina uma nova senha antes de continuar</h2>
         <p>A senha inicial é temporária. Defina uma nova senha com pelo menos 8 caracteres para liberar o painel.</p>
         <form id="passwordForm">
@@ -115,6 +173,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         </form>
     </section>
     <section id="adminPanel" hidden>
+        <header class="section-heading">
+            <div>
+                <p class="eyebrow">Área de trabalho</p>
+                <h2>Gerenciar aplicação</h2>
+                <p>Escolha uma seção para consultar ou editar os dados disponíveis.</p>
+            </div>
+        </header>
         <div class="toolbar">
             <label>Tipo de registro
                 <select id="entitySelect">
@@ -134,18 +199,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                 <button id="logoutButton" class="secondary" type="button">Sair</button>
             </div>
         </div>
-        <div class="table-wrap">
-            <table>
-                <thead id="tableHead"></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+        <div class="table-card">
+            <div class="table-wrap">
+                <table>
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="actions">
+        <div class="actions pagination">
             <button id="previousButton" class="secondary" type="button">Anterior</button>
             <span id="pageStatus" class="muted"></span>
             <button id="nextButton" class="secondary" type="button">Próxima</button>
         </div>
         <section id="editorPanel" class="panel" hidden>
+            <p class="eyebrow">Edição</p>
             <h2 id="editorTitle">Registro</h2>
             <form id="recordForm"></form>
         </section>
@@ -243,7 +311,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         tableHead.replaceChildren();
         tableBody.replaceChildren();
         if (entitySelect.value === 'settings' || entitySelect.value === 'elevation_files') return;
-        const columns = records.length ? Object.keys(records[0]) : [];
+        const columns = records.length ? Object.keys(records[0]) : ['Registros'];
         const header = document.createElement('tr');
         [...columns, 'Ações'].forEach(column => {
             const cell = document.createElement('th');
@@ -251,6 +319,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             header.appendChild(cell);
         });
         tableHead.appendChild(header);
+
+        if (records.length === 0) {
+            const row = document.createElement('tr');
+            const empty = document.createElement('td');
+            empty.className = 'table-empty';
+            empty.colSpan = columns.length + 1;
+            empty.textContent = `Nenhum registro de ${entityLabels[entitySelect.value].toLowerCase()} encontrado.`;
+            row.appendChild(empty);
+            tableBody.appendChild(row);
+        }
 
         records.forEach(record => {
             const row = document.createElement('tr');
@@ -336,6 +414,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             row.append(name, size, actions);
             tableBody.appendChild(row);
         });
+        if (files.length === 0) {
+            const row = document.createElement('tr');
+            const empty = document.createElement('td');
+            empty.className = 'table-empty';
+            empty.colSpan = 3;
+            empty.textContent = 'Nenhum tile HGT disponível em SRTM3.';
+            row.appendChild(empty);
+            tableBody.appendChild(row);
+        }
         document.getElementById('pageStatus').textContent = `${files.length} tiles HGT`;
         document.getElementById('previousButton').disabled = true;
         document.getElementById('nextButton').disabled = true;
