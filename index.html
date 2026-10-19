@@ -70,7 +70,7 @@
 
 
 
-        <link rel="stylesheet" href="css/app.css?v=20261019-editor-drag-mode">
+        <link rel="stylesheet" href="css/app.css?v=20261019-editor-transform-controls">
         <title>PlanMilT</title>
     </head>
     <body>
@@ -87,18 +87,35 @@
                 Voltar ao mapa
             </button>
             <div id="imageEditorTools" class="toolbar-icons">
-                <input type="file" id="imageEditorFile" accept="image/*" hidden>
-                <label for="imageEditorFile" class="image-editor-button">
-                    <i class="fas fa-upload" aria-hidden="true"></i>
-                    Enviar imagem
-                </label>
-                <button id="imageEditorMode" class="image-editor-button" type="button" aria-pressed="false">
-                    <i class="fas fa-arrows-alt" aria-hidden="true"></i>
-                    <span id="imageEditorModeLabel">Mover mapa</span>
-                </button>
-                <span id="imageEditorHint" class="image-editor-hint" hidden></span>
-                <details class="image-editor-adjustments">
-                    <summary>Ajustes</summary>
+                <div id="imageEditorMainMenu" class="image-editor-menu">
+                    <input type="file" id="imageEditorFile" accept="image/*" hidden>
+                    <label for="imageEditorFile" class="image-editor-button">
+                        <i class="fas fa-upload" aria-hidden="true"></i>
+                        Enviar imagem
+                    </label>
+                    <button id="imageEditorMode" class="image-editor-button" type="button" aria-pressed="false">
+                        <i class="fas fa-arrows-alt" aria-hidden="true"></i>
+                        <span id="imageEditorModeLabel">Mover mapa</span>
+                    </button>
+                    <span id="imageEditorHint" class="image-editor-hint" hidden></span>
+                    <button id="imageEditorOpenAdjustments" class="image-editor-button" type="button"
+                        aria-expanded="false" aria-controls="imageEditorAdjustmentMenu">
+                        <i class="fas fa-sliders-h" aria-hidden="true"></i>
+                        Ajustes
+                    </button>
+                    <button class="image-editor-button image-editor-save" type="button" data-image-editor-action="save">
+                        <i class="fas fa-save" aria-hidden="true"></i>
+                        Salvar tema
+                    </button>
+                </div>
+                <div id="imageEditorAdjustmentMenu" class="image-editor-adjustment-menu" hidden>
+                    <div class="image-editor-adjustment-heading">
+                        <button id="imageEditorAdjustmentBack" class="image-editor-button image-editor-back" type="button" data-image-editor-back>
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            Voltar
+                        </button>
+                        <strong>Ajustes da imagem</strong>
+                    </div>
                     <label class="image-editor-slider">
                         <span>Contraste</span>
                         <input type="range" id="imageEditorContrast" min="0" max="2" step="0.01" value="1">
@@ -111,11 +128,7 @@
                     <button class="image-editor-button" type="button" data-image-editor-action="grayscale">Escala de cinza</button>
                     <button class="image-editor-button" type="button" data-image-editor-action="reset">Redefinir ajustes</button>
                     <button class="image-editor-button" type="button" data-image-editor-action="remove">Remover imagem</button>
-                </details>
-                <button class="image-editor-button image-editor-save" type="button" data-image-editor-action="save">
-                    <i class="fas fa-save" aria-hidden="true"></i>
-                    Salvar tema
-                </button>
+                </div>
             </div>
         </section>
         <div id="elevation-profile-container" style="display: none; position: relative;">
@@ -208,6 +221,6 @@
         <script src="js/features/task-sequence-controls.js"></script>
         <script src="js/features/layer-management.js?v=20261015-catalog-title-25"></script>
         <script src="js/features/help-and-planning.js"></script>
-        <script src="js/features/image-editor.js?v=20261019-editor-drag-mode"></script>
+        <script src="js/features/image-editor.js?v=20261019-editor-transform-controls"></script>
     </body>
 </html>

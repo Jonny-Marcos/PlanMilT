@@ -11,11 +11,13 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-drag-mode/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-transform-controls/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
     assert.match(indexSource, /id="imageEditorHint"/);
+    assert.match(indexSource, /id="imageEditorAdjustmentMenu"[^>]*hidden/);
+    assert.match(indexSource, /id="imageEditorAdjustmentBack"[^>]*data-image-editor-back/);
     assert.match(indexSource, /Solte uma imagem aqui/);
     assert.match(indexSource, /js\/library\/fabric\.min\.js/);
     assert.match(redirectSource, /url=index\.html\?abrir-criador-tema/);
@@ -62,6 +64,9 @@ test('theme editor initializes its map once and supports opening and closing in 
 
         closest(selector) {
             if (selector === '[data-image-editor-action]' && this.dataset.imageEditorAction) return this;
+            if (selector === '[data-image-editor-back]' &&
+                (this.dataset.imageEditorBack !== undefined || this.id === 'imageEditorAdjustmentBack')) return this;
+            if (selector === '#imageEditorOpenAdjustments' && this.id === 'imageEditorOpenAdjustments') return this;
             return null;
         }
 
@@ -219,6 +224,11 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(map.initialZoom, 6);
     assert.equal(zoomControlElement.hidden, true);
     assert.equal(geocoderElement.hidden, true);
+    const mainMenu = document.getElementById('imageEditorMainMenu');
+    const adjustmentMenu = document.getElementById('imageEditorAdjustmentMenu');
+    const openAdjustmentsButton = document.getElementById('imageEditorOpenAdjustments');
+    assert.equal(mainMenu.hidden, false);
+    assert.equal(adjustmentMenu.hidden, true);
 
     const file = { type: 'image/png' };
     editor.click('drop', {
@@ -233,11 +243,26 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(image.left, 400);
     assert.equal(image.top, 300);
     assert.equal(image.scaleX, 0.64);
-    assert.equal(image.lockUniScaling, true);
+    assert.equal(image.lockUniScaling, false);
+    assert.equal(image.lockRotation, false);
     assert.equal(fabricCanvas.activeObject, image);
     assert.equal(fabricCanvas.width, 800);
     assert.equal(fabricCanvas.height, 600);
     assert.equal(editor.classes.has('is-drop-target'), false);
+
+    document.getElementById('imageEditorTools').click('click', {
+        target: openAdjustmentsButton
+    });
+    assert.equal(mainMenu.hidden, true);
+    assert.equal(adjustmentMenu.hidden, false);
+    assert.equal(openAdjustmentsButton.attributes['aria-expanded'], 'true');
+
+    document.getElementById('imageEditorTools').click('click', {
+        target: document.getElementById('imageEditorAdjustmentBack')
+    });
+    assert.equal(mainMenu.hidden, false);
+    assert.equal(adjustmentMenu.hidden, true);
+    assert.equal(openAdjustmentsButton.attributes['aria-expanded'], 'false');
 
     document.getElementById('imageEditorMode').click('click');
     assert.equal(map.dragging.enabled, true);

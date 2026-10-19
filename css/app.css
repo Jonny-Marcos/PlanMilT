@@ -1191,17 +1191,49 @@
             #imageEditorTools {
                 position: relative;
                 z-index: 1200;
-                display: flex;
-                flex-wrap: wrap;
                 align-items: center;
                 justify-content: flex-start;
-                gap: 8px;
                 max-width: min(760px, calc(100vw - 100px));
-                padding: 9px;
+                padding: 8px;
                 border: 1px solid #d3d8e0;
                 border-radius: 8px;
                 background: rgba(255, 255, 255, 0.96);
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            }
+
+            .image-editor-menu {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .image-editor-adjustment-menu[hidden],
+            .image-editor-menu[hidden] {
+                display: none;
+            }
+
+            .image-editor-adjustment-menu {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                align-items: center;
+                gap: 8px;
+                min-width: min(420px, calc(100vw - 140px));
+            }
+
+            .image-editor-adjustment-heading {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                grid-column: 1 / -1;
+                padding-bottom: 6px;
+                border-bottom: 1px solid #e1e5eb;
+                color: #35465d;
+            }
+
+            .image-editor-adjustment-heading strong {
+                font-size: 15px;
+                font-weight: 600;
             }
 
             #imageEditorTools .image-editor-button {
@@ -1231,40 +1263,10 @@
                 display: flex;
                 flex-direction: column;
                 gap: 4px;
-                min-width: 150px;
-                padding: 8px 12px;
+                min-width: 0;
+                padding: 6px 10px;
                 color: #333;
                 font-size: 13px;
-            }
-
-            .image-editor-adjustments {
-                position: relative;
-            }
-
-            .image-editor-adjustments summary {
-                display: flex;
-                align-items: center;
-                min-height: 38px;
-                padding: 8px 12px;
-                border: 1px solid #c5cad2;
-                border-radius: 6px;
-                background: #fff;
-                cursor: pointer;
-            }
-
-            .image-editor-adjustments[open] {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 4px;
-                padding: 4px;
-                border: 1px solid #d3d8e0;
-                border-radius: 8px;
-                background: #fff;
-            }
-
-            .image-editor-adjustments[open] summary {
-                border: 0;
             }
 
             .image-editor-save {
@@ -1331,11 +1333,18 @@
                 #imageEditorTools {
                     top: 52px;
                     max-width: calc(100vw - 16px);
-                    gap: 5px;
                     padding: 6px;
                 }
 
+                .image-editor-menu {
+                    gap: 5px;
+                }
+
+                .image-editor-adjustment-menu {
+                    min-width: min(300px, calc(100vw - 100px));
+                }
+
                 #imageEditorTools .image-editor-slider {
-                    min-width: 120px;
+                    min-width: 0;
                 }
             }

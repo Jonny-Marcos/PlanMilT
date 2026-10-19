@@ -24,7 +24,7 @@
             borderColor: '#333333',
             cornerColor: '#333333',
             cornerStrokeColor: '#ffffff',
-            cornerSize: 12,
+            cornerSize: 14,
             transparentCorners: false,
             rotatingPointOffset: 20,
             padding: 0
@@ -141,6 +141,7 @@
      */
     function openImageEditor() {
         editor.hidden = false;
+        showMainMenu();
         if (!state.map) {
             initializeEditor();
         } else {
@@ -154,6 +155,7 @@
      */
     function closeImageEditor() {
         editor.hidden = true;
+        showMainMenu();
         if (window.map) {
             requestAnimationFrame(() => window.map.invalidateSize());
         }
@@ -202,6 +204,24 @@
             const image = state.canvas.getObjects().find(object => object.type === 'image');
             if (image) state.canvas.setActiveObject(image);
         }
+    }
+
+    /**
+     * Mostra o menu principal e esconde os ajustes.
+     */
+    function showMainMenu() {
+        document.getElementById('imageEditorMainMenu').hidden = false;
+        document.getElementById('imageEditorAdjustmentMenu').hidden = true;
+        document.getElementById('imageEditorOpenAdjustments').setAttribute('aria-expanded', 'false');
+    }
+
+    /**
+     * Abre a tela de ajustes no lugar do menu principal.
+     */
+    function showAdjustmentMenu() {
+        document.getElementById('imageEditorMainMenu').hidden = true;
+        document.getElementById('imageEditorAdjustmentMenu').hidden = false;
+        document.getElementById('imageEditorOpenAdjustments').setAttribute('aria-expanded', 'true');
     }
 
     /**
@@ -262,8 +282,8 @@
                     originY: 'center',
                     left: state.width / 2,
                     top: state.height / 2,
-                    lockRotation: true,
-                    lockUniScaling: true
+                    lockRotation: false,
+                    lockUniScaling: false
                 });
 
                 state.canvas.clear();
@@ -443,6 +463,14 @@
         applyFilter('Contrast', { contrast: parseFloat(event.target.value) });
     });
     document.getElementById('imageEditorTools').addEventListener('click', event => {
+        if (event.target.closest('[data-image-editor-back]')) {
+            showMainMenu();
+            return;
+        }
+        if (event.target.closest('#imageEditorOpenAdjustments')) {
+            showAdjustmentMenu();
+            return;
+        }
         const action = event.target.closest('[data-image-editor-action]')?.dataset.imageEditorAction;
         const actions = {
             save: saveImage,
