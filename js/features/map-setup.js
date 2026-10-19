@@ -297,6 +297,9 @@ window.PlanMilT.mapSetup = Object.freeze({
              * @param {Object} settings - Preferências públicas carregadas do servidor.
              */
             function applyMapDefaults(settings) {
+                if (!settings || !Array.isArray(settings.defaultLayers)) {
+                    throw new Error('As camadas padrão do mapa não foram informadas.');
+                }
                 const defaultLayers = new Set(settings.defaultLayers);
                 Object.entries(layerRegistry).forEach(([layerName, layer]) => {
                     if (layerName === 'Sugestão de Planejamento') {
@@ -307,7 +310,8 @@ window.PlanMilT.mapSetup = Object.freeze({
                         map.removeLayer(layer);
                     }
                 });
-                if (Array.isArray(settings.center) && settings.center.length === 2 && settings.zoom !== null) {
+                if (Array.isArray(settings.center) && settings.center.length === 2
+                    && Number.isFinite(settings.zoom)) {
                     map.setView(settings.center, settings.zoom);
                 }
                 if (layerControl) layerControl._update();

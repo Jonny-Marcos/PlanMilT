@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 global.window = {};
@@ -155,4 +157,26 @@ test('map defaults control all selected base layers and the initial center/zoom'
     baseLayers.forEach(([, layer]) => assert.equal(layersOnMap.has(layer), true));
     assert.deepEqual(mapViews, [{ center: [-21.5699, -51.2457], zoom: 12 }]);
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
+});
+
+test('map defaults remove unselected layers from the visible map', () => {
+    const { layersOnMap, setup } = createMapSetup();
+    const selectedLayer = setup.layerRegistry['Google Satellite'];
+    const unselectedLayers = Object.entries(setup.layerRegistry)
+        .filter(([name]) => name !== 'Google Satellite' && name !== 'Sugestão de Planejamento')
+        .map(([, layer]) => layer);
+
+    setup.applyMapDefaults({
+        defaultLayers: ['Google Satellite'],
+        center: [-21.5699, -51.2457],
+        zoom: 12
+    });
+
+    assert.equal(layersOnMap.has(selectedLayer), true);
+    unselectedLayers.forEach(layer => assert.equal(layersOnMap.has(layer), false));
+});
+
+test('index.html busts the browser cache for map defaults changes', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
+    assert.match(html, /js\/features\/map-setup\.js\?v=20261019-map-defaults/);
 });
