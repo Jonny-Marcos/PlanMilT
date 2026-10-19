@@ -41,6 +41,14 @@
         state.canvas.wrapperEl.style.left = '0';
         state.canvas.wrapperEl.style.zIndex = '500';
         state.canvas.wrapperEl.style.pointerEvents = 'auto';
+        state.canvas.wrapperEl.style.overflow = 'visible';
+        state.canvas.upperCanvasEl.style.pointerEvents = 'auto';
+        state.canvas.upperCanvasEl.style.zIndex = '2';
+        state.canvas.upperCanvasEl.style.touchAction = 'none';
+        state.canvas.lowerCanvasEl.style.pointerEvents = 'none';
+        state.canvas.lowerCanvasEl.style.zIndex = '1';
+        state.canvas.skipTargetFind = false;
+        state.canvas.selection = false;
         state.width = mapElement.clientWidth;
         state.height = mapElement.clientHeight;
 
@@ -178,7 +186,7 @@
         hint.hidden = !hasImage;
         hint.textContent = isMapMode
             ? 'Arraste para navegar; volte a Posicionar imagem para editar.'
-            : 'Arraste a imagem para posicionar e use os cantos para redimensionar.';
+            : 'Arraste a imagem para mover; use os cantos para redimensionar ou esticar e a alça superior para girar.';
         state.canvas.selection = !isMapMode;
         state.canvas.wrapperEl.style.pointerEvents = isMapMode ? 'none' : 'auto';
         [state.map.zoomControl.getContainer(), state.geocoderControl.getContainer()]
@@ -282,13 +290,23 @@
                     originY: 'center',
                     left: state.width / 2,
                     top: state.height / 2,
+                    selectable: true,
+                    evented: true,
+                    hasControls: true,
+                    hasBorders: true,
+                    lockMovementX: false,
+                    lockMovementY: false,
+                    lockScalingX: false,
+                    lockScalingY: false,
                     lockRotation: false,
                     lockUniScaling: false
                 });
 
                 state.canvas.clear();
+                image.setCoords();
                 state.canvas.add(image);
                 state.canvas.setActiveObject(image);
+                state.canvas.calcOffset();
                 state.canvas.renderAll();
                 document.getElementById('imageEditorDropHint').hidden = true;
                 document.getElementById('imageEditorBrightness').value = '1';

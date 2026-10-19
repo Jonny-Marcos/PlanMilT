@@ -1182,12 +1182,6 @@
                 height: 100%;
             }
 
-            #imageEditorCanvas {
-                position: absolute;
-                inset: 0 auto auto 0;
-                z-index: 500;
-            }
-
             #imageEditorTools {
                 position: relative;
                 z-index: 1200;

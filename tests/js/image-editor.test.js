@@ -11,7 +11,7 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-transform-controls/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-canvas-hit-testing/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
@@ -19,6 +19,8 @@ test('theme editor is embedded in index and the former page redirects to it', ()
     assert.match(indexSource, /id="imageEditorAdjustmentMenu"[^>]*hidden/);
     assert.match(indexSource, /id="imageEditorAdjustmentBack"[^>]*data-image-editor-back/);
     assert.match(indexSource, /Solte uma imagem aqui/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, 'css/app.css'), 'utf8'),
+        /#imageEditorCanvas\s*\{[^}]*z-index/s);
     assert.match(indexSource, /js\/library\/fabric\.min\.js/);
     assert.match(redirectSource, /url=index\.html\?abrir-criador-tema/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/image-overlays.js'), 'utf8'),
@@ -154,6 +156,8 @@ test('theme editor initializes its map once and supports opening and closing in 
     function FabricCanvas(element, options) {
         fabricCanvas = this;
         this.wrapperEl = { style: {} };
+        this.upperCanvasEl = { style: {} };
+        this.lowerCanvasEl = { style: {} };
         this.objects = [];
         this.width = options.width;
         this.height = options.height;
@@ -171,6 +175,8 @@ test('theme editor initializes its map once and supports opening and closing in 
         this.getActiveObject = () => this.activeObject;
         this.discardActiveObject = () => { this.activeObject = null; };
         this.renderAll = () => {};
+        this.calcOffset = () => {};
+        this.requestRenderAll = () => {};
     }
     const fabric = {
         Object: { prototype: { set() {} } },
@@ -220,6 +226,11 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(editor.hidden, false);
     assert.equal(mapCreations, 1);
     assert.equal(map.dragging.enabled, false);
+    assert.equal(fabricCanvas.wrapperEl.style.zIndex, '500');
+    assert.equal(fabricCanvas.upperCanvasEl.style.pointerEvents, 'auto');
+    assert.equal(fabricCanvas.upperCanvasEl.style.zIndex, '2');
+    assert.equal(fabricCanvas.lowerCanvasEl.style.pointerEvents, 'none');
+    assert.equal(fabricCanvas.lowerCanvasEl.style.zIndex, '1');
     assert.deepEqual(map.initialCenter, [12, 34]);
     assert.equal(map.initialZoom, 6);
     assert.equal(zoomControlElement.hidden, true);
@@ -245,6 +256,13 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(image.scaleX, 0.64);
     assert.equal(image.lockUniScaling, false);
     assert.equal(image.lockRotation, false);
+    assert.equal(image.selectable, true);
+    assert.equal(image.evented, true);
+    assert.equal(image.hasControls, true);
+    assert.equal(image.lockScalingX, false);
+    assert.equal(image.lockScalingY, false);
+    assert.equal(image.lockMovementX, false);
+    assert.equal(image.lockMovementY, false);
     assert.equal(fabricCanvas.activeObject, image);
     assert.equal(fabricCanvas.width, 800);
     assert.equal(fabricCanvas.height, 600);
@@ -276,7 +294,8 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.equal(map.dragging.enabled, false);
     assert.equal(fabricCanvas.wrapperEl.style.pointerEvents, 'auto');
     assert.equal(fabricCanvas.activeObject, image);
-    assert.match(document.getElementById('imageEditorHint').textContent, /use os cantos para redimensionar/);
+    assert.match(document.getElementById('imageEditorHint').textContent, /cantos para redimensionar ou esticar/);
+    assert.match(document.getElementById('imageEditorHint').textContent, /alça superior para girar/);
 
     window.PlanMilT.openImageEditor();
     assert.equal(mapCreations, 1);
