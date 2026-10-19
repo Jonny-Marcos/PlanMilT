@@ -142,19 +142,20 @@ test('removing an overlay also removes it from the transparency selector', () =>
     assert.notEqual(layerSelector.value, 'Custom');
 });
 
-test('map defaults control all selected base layers and the initial center/zoom', () => {
+test('only OpenTopo is selected initially while the map shows the configured center/zoom', () => {
     const { layersOnMap, mapViews, setup } = createMapSetup();
     const baseLayers = Object.entries(setup.layerRegistry)
         .filter(([name]) => name !== 'Sugestão de Planejamento');
-    const defaults = {
-        defaultLayers: baseLayers.map(([name]) => name),
+
+    setup.applyMapDefaults({
+        defaultLayers: ['OpenTopo'],
         center: [-21.5699, -51.2457],
         zoom: 12
-    };
+    });
 
-    setup.applyMapDefaults(defaults);
-
-    baseLayers.forEach(([, layer]) => assert.equal(layersOnMap.has(layer), true));
+    baseLayers.forEach(([name, layer]) => {
+        assert.equal(layersOnMap.has(layer), name === 'OpenTopo');
+    });
     assert.deepEqual(mapViews, [{ center: [-21.5699, -51.2457], zoom: 12 }]);
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
 });
@@ -178,5 +179,5 @@ test('map defaults remove unselected layers from the visible map', () => {
 
 test('index.html busts the browser cache for map defaults changes', () => {
     const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
-    assert.match(html, /js\/features\/map-setup\.js\?v=20261019-map-defaults/);
+    assert.match(html, /js\/features\/map-setup\.js\?v=20261019-map-default-layer-selection/);
 });

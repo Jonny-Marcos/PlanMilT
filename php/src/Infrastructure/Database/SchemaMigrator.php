@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 6;
+    private const VERSION = 7;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -222,6 +222,31 @@ final class SchemaMigrator
                 );
                 $statement->execute([$defaults, 'map_defaults', $legacyDefaults]);
                 $database->exec('PRAGMA user_version = 6');
+            }
+
+            if ($version < 7) {
+                $previousDefaults = json_encode([
+                    'defaultLayers' => [
+                        'OpenTopo',
+                        'Google Satellite',
+                        'Infraestruturas',
+                        'Quadrículas - UTM',
+                        'BDGEx - CTM50',
+                    ],
+                    'center' => [-21.5699, -51.2457],
+                    'zoom' => 12,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $defaults = json_encode([
+                    'defaultLayers' => ['OpenTopo'],
+                    'center' => [-21.5699, -51.2457],
+                    'zoom' => 12,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $statement = $database->prepare(
+                    'UPDATE app_settings SET setting_value = ?, updated_at = datetime(\'now\') '
+                    . 'WHERE setting_key = ? AND setting_value = ?'
+                );
+                $statement->execute([$defaults, 'map_defaults', $previousDefaults]);
+                $database->exec('PRAGMA user_version = 7');
             }
 
             $database->commit();

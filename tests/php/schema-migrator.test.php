@@ -46,7 +46,7 @@ $database->exec("INSERT INTO task_sequences (name, password, sequence, date_crea
 
 SchemaMigrator::migrate($database);
 SchemaMigrator::migrate($database);
-$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 6, 'Schema version was not recorded.');
+$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 7, 'Schema version was not recorded.');
 
 $expectedTables = [
     'admin_login_attempts', 'admin_users', 'app_settings', 'drawings', 'images', 'map_layer_categories',
@@ -67,17 +67,37 @@ $mapDefaults = json_decode(
 );
 $assert(
     $mapDefaults === [
-        'defaultLayers' => [
-            'OpenTopo',
-            'Google Satellite',
-            'Infraestruturas',
-            'Quadrículas - UTM',
-            'BDGEx - CTM50',
-        ],
+        'defaultLayers' => ['OpenTopo'],
         'center' => [-21.5699, -51.2457],
         'zoom' => 12,
     ],
     'The map defaults setting was not initialized.'
+);
+$previousDefaults = json_encode([
+    'defaultLayers' => [
+        'OpenTopo',
+        'Google Satellite',
+        'Infraestruturas',
+        'Quadrículas - UTM',
+        'BDGEx - CTM50',
+    ],
+    'center' => [-21.5699, -51.2457],
+    'zoom' => 12,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+$database->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?')
+    ->execute([$previousDefaults, 'map_defaults']);
+$database->exec('PRAGMA user_version = 6');
+SchemaMigrator::migrate($database);
+$assert(
+    json_decode(
+        (string) $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn(),
+        true
+    ) === [
+        'defaultLayers' => ['OpenTopo'],
+        'center' => [-21.5699, -51.2457],
+        'zoom' => 12,
+    ],
+    'Version 7 did not set OpenTopo as the only initial layer.'
 );
 $customDefaults = json_encode([
     'defaultLayers' => ['BDGEx - CTM50'],
@@ -86,7 +106,7 @@ $customDefaults = json_encode([
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 $database->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?')
     ->execute([$customDefaults, 'map_defaults']);
-$database->exec('PRAGMA user_version = 5');
+$database->exec('PRAGMA user_version = 6');
 SchemaMigrator::migrate($database);
 $assert(
     $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn()
@@ -200,7 +220,7 @@ $previousPath = getenv('PLANMILT_DB_PATH');
 putenv('PLANMILT_DB_PATH=' . $factoryPath);
 try {
     $factoryConnection = ConnectionFactory::create();
-    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 6, 'ConnectionFactory did not apply migrations.');
+    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 7, 'ConnectionFactory did not apply migrations.');
     $indexes = $factoryConnection->query(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN "
         . "('idx_drawings_username_link', 'idx_task_sequences_name')"
