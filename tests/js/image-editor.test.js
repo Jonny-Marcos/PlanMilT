@@ -11,7 +11,8 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-controls/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-search-translate/);
+    assert.match(indexSource, /initializeImageEditorTranslation/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
@@ -169,6 +170,8 @@ test('theme editor initializes its map once and supports opening and closing in 
     };
     leaflet.tileLayer.wms = () => ({});
     const geocoderElement = new FakeElement();
+    geocoderElement.hidden = false;
+    geocoderElement.style.display = '';
     leaflet.Control.geocoder = () => ({
         on() { return this; },
         addTo() { return this; },
@@ -266,7 +269,18 @@ test('theme editor initializes its map once and supports opening and closing in 
     assert.deepEqual(map.initialCenter, [12, 34]);
     assert.equal(map.initialZoom, 6);
     assert.equal(zoomControlElement.hidden, true);
-    assert.equal(geocoderElement.hidden, true);
+    assert.equal(geocoderElement.hidden, false);
+    const translateTargets = [];
+    window.google = {
+        translate: {
+            TranslateElement: function (options, target) {
+                translateTargets.push({ options, target });
+            }
+        }
+    };
+    window.PlanMilT.initializeImageEditorTranslation();
+    window.PlanMilT.initializeImageEditorTranslation();
+    assert.deepEqual(translateTargets.map(item => item.target), ['image_editor_google_translate_element']);
     assert.ok(fabric.filterBackend instanceof Canvas2dFilterBackend);
     const mainMenu = document.getElementById('imageEditorMainMenu');
     const adjustmentMenu = document.getElementById('imageEditorAdjustmentMenu');

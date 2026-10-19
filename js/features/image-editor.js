@@ -14,6 +14,19 @@
     const editor = document.getElementById('imageEditor');
 
     /**
+     * Inicializa a tradução do editor quando a API do Google estiver disponível.
+     */
+    function initializeEditorTranslation() {
+        const translateElement = document.getElementById('image_editor_google_translate_element');
+        if (!translateElement || !window.google?.translate?.TranslateElement ||
+            translateElement.dataset.initialized) return;
+        new window.google.translate.TranslateElement({
+            pageLanguage: 'pt-br'
+        }, 'image_editor_google_translate_element');
+        translateElement.dataset.initialized = 'true';
+    }
+
+    /**
      * Inicializa o mapa, o canvas e os controles do editor uma única vez.
      */
     function initializeEditor() {
@@ -85,11 +98,7 @@
             }
         });
         state.map.addControl(new TranslateControl());
-        if (window.google?.translate?.TranslateElement) {
-            new window.google.translate.TranslateElement({
-                pageLanguage: 'pt-br'
-            }, 'image_editor_google_translate_element');
-        }
+        initializeEditorTranslation();
 
         state.geocoderControl = L.Control.geocoder({
             position: 'topright',
@@ -190,11 +199,9 @@
             : 'Arraste a imagem para mover; use os cantos para redimensionar ou esticar e a alça superior para girar.';
         state.canvas.selection = !isMapMode;
         state.canvas.wrapperEl.style.pointerEvents = isMapMode ? 'none' : 'auto';
-        [state.map.zoomControl.getContainer(), state.geocoderControl.getContainer()]
-            .forEach(control => {
-                control.hidden = !isMapMode;
-                control.style.display = isMapMode ? '' : 'none';
-            });
+        const zoomControl = state.map.zoomControl.getContainer();
+        zoomControl.hidden = !isMapMode;
+        zoomControl.style.display = isMapMode ? '' : 'none';
 
         ['dragging', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard', 'touchZoom']
             .forEach(interaction => {
@@ -560,6 +567,7 @@
 
     window.PlanMilT = window.PlanMilT || {};
     window.PlanMilT.openImageEditor = openImageEditor;
+    window.PlanMilT.initializeImageEditorTranslation = initializeEditorTranslation;
 
     if (new URLSearchParams(window.location.search).has('abrir-criador-tema')) {
         const url = new URL(window.location.href);
