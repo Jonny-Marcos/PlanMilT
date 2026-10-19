@@ -11,11 +11,14 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-canvas-hit-testing/);
+    assert.match(indexSource, /image-editor\.js\?v=20261019-editor-map-navigation/);
     assert.match(indexSource, /id="imageEditorDropHint"/);
     assert.match(indexSource, /id="imageEditorMode"/);
     assert.match(indexSource, /id="imageEditorModeLabel"/);
     assert.match(indexSource, /id="imageEditorHint"/);
+    assert.match(indexSource, /id="imageEditorNavigation"[^>]*aria-label="Controles de navegação do mapa"/);
+    assert.match(indexSource, /data-image-editor-pan="up"/);
+    assert.match(indexSource, /data-image-editor-zoom="in"/);
     assert.match(indexSource, /id="imageEditorAdjustmentMenu"[^>]*hidden/);
     assert.match(indexSource, /id="imageEditorAdjustmentBack"[^>]*data-image-editor-back/);
     assert.match(indexSource, /Solte uma imagem aqui/);
@@ -65,7 +68,10 @@ test('theme editor initializes its map once and supports opening and closing in 
         }
 
         closest(selector) {
+            if (selector === 'input, textarea, select, [contenteditable="true"]' && this.editable) return this;
             if (selector === '[data-image-editor-action]' && this.dataset.imageEditorAction) return this;
+            if (selector === '[data-image-editor-pan]' && this.dataset.imageEditorPan) return this;
+            if (selector === '[data-image-editor-zoom]' && this.dataset.imageEditorZoom) return this;
             if (selector === '[data-image-editor-back]' &&
                 (this.dataset.imageEditorBack !== undefined || this.id === 'imageEditorAdjustmentBack')) return this;
             if (selector === '#imageEditorOpenAdjustments' && this.id === 'imageEditorOpenAdjustments') return this;
@@ -90,6 +96,8 @@ test('theme editor initializes its map once and supports opening and closing in 
     };
     let mapCreations = 0;
     let mapInvalidations = 0;
+    const mapPans = [];
+    const mapZooms = [];
     const createInteraction = () => ({
         enabled: true,
         enable() { this.enabled = true; },
@@ -105,7 +113,9 @@ test('theme editor initializes its map once and supports opening and closing in 
         invalidateSize() { mapInvalidations += 1; },
         addLayer() {},
         addControl(control) { control.onAdd(); },
-        panBy() {},
+        panBy(offset) { mapPans.push(offset); },
+        zoomIn() { mapZooms.push('in'); },
+        zoomOut() { mapZooms.push('out'); },
         fitBounds() {},
         getBounds() { return {}; },
         dragging: createInteraction(),
@@ -199,10 +209,11 @@ test('theme editor initializes its map once and supports opening and closing in 
         }
     }
     const window = {
+        listeners: {},
         PlanMilT: {},
         location: { search: '', href: 'https://example.test/' },
         history: { replaceState() {} },
-        addEventListener() {},
+        addEventListener(type, callback) { this.listeners[type] = callback; },
         map: {
             getCenter: () => [12, 34],
             getZoom: () => 6,
@@ -240,6 +251,55 @@ test('theme editor initializes its map once and supports opening and closing in 
     const openAdjustmentsButton = document.getElementById('imageEditorOpenAdjustments');
     assert.equal(mainMenu.hidden, false);
     assert.equal(adjustmentMenu.hidden, true);
+
+    const navigation = document.getElementById('imageEditorNavigation');
+    navigation.click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorPan: 'left' } })
+    });
+    navigation.click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorZoom: 'in' } })
+    });
+    navigation.click('click', {
+        target: Object.assign(new FakeElement(), { dataset: { imageEditorZoom: 'out' } })
+    });
+    assert.equal(mapPans.length, 1);
+    assert.deepEqual(Array.from(mapPans[0]), [-120, 0]);
+    assert.deepEqual(mapZooms, ['in', 'out']);
+
+    let shortcutPrevented = false;
+    window.listeners.keydown({
+        code: 'Space',
+        key: ' ',
+        repeat: false,
+        target: new FakeElement(),
+        preventDefault() { shortcutPrevented = true; }
+    });
+    assert.equal(shortcutPrevented, true);
+    assert.equal(map.dragging.enabled, true);
+    window.listeners.keyup({ code: 'Space', key: ' ', target: new FakeElement() });
+    assert.equal(map.dragging.enabled, false);
+    const inputTarget = new FakeElement();
+    inputTarget.editable = true;
+    shortcutPrevented = false;
+    window.listeners.keydown({
+        code: 'Space',
+        key: ' ',
+        repeat: false,
+        target: inputTarget,
+        preventDefault() { shortcutPrevented = true; }
+    });
+    assert.equal(shortcutPrevented, false);
+    assert.equal(map.dragging.enabled, false);
+    window.listeners.keydown({
+        code: 'AltLeft',
+        key: 'Alt',
+        repeat: false,
+        target: new FakeElement(),
+        preventDefault() { shortcutPrevented = true; }
+    });
+    assert.equal(map.dragging.enabled, true);
+    window.listeners.keyup({ code: 'AltLeft', key: 'Alt', target: new FakeElement() });
+    assert.equal(map.dragging.enabled, false);
 
     const file = { type: 'image/png' };
     editor.click('drop', {

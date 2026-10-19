@@ -63,7 +63,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. Durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém apenas gráficos cuja simbologia acrescenta geometria própria; linhas, áreas básicas e círculos equivalentes às ferramentas nativas continuam disponíveis no Leaflet Draw.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
-- **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema”, envie uma imagem ou solte o arquivo diretamente no mapa. Arraste a imagem para posicioná-la, use os cantos para aumentar, diminuir ou esticar e a alça superior para girar. Use “Mover mapa” para navegar sem deslocar a imagem e “Salvar tema” para gravar o calco.
+- **Criador de tema:** No seletor “Carregar Imagem”, escolha “Criar tema”, envie uma imagem ou solte o arquivo diretamente no mapa. Arraste a imagem para posicioná-la, use os cantos para aumentar, diminuir ou esticar e a alça superior para girar. Use “Mover mapa”, segure Espaço ou Alt enquanto arrasta, ou use os controles direcionais e de zoom para navegar sem deslocar a imagem. “Salvar tema” grava o calco.
 - **Importação/Exportação:** Suporte para arquivos KMZ.
 - **Edição:** Modifique textos e propriedades dos elementos existentes.
 
@@ -147,7 +147,7 @@ There is no project-specific PHP configuration file; adjust upload and execution
 - **Drawing:** Add polygons, lines, circles, and markers directly to the map.
 - **Tactical graphics:** Use the “Gráfico tático” button to open a selector with search, section filters, and a preview of the selected symbol, following the layer catalog pattern. While drawing, symbology and designation follow the vertices and cursor in a temporary preview. The catalog keeps graphics whose symbology adds distinctive geometry; basic lines, areas, and circles equivalent to native tools remain available in Leaflet Draw.
 - **Customization:** Choose colors, icons, and styles for map elements.
-- **Theme creator:** Choose “Criar tema” in the image loader, upload or drop an image onto the map, then drag it to position, resize or stretch it from the corners, and rotate it using the top handle. Switch to “Mover mapa” to navigate without moving the image, and choose “Salvar tema” to store the overlay.
+- **Theme creator:** Choose “Criar tema” in the image loader, upload or drop an image onto the map, then drag it to position, resize or stretch it from the corners, and rotate it using the top handle. Switch to “Mover mapa”, hold Space or Alt while dragging, or use the directional and zoom controls to navigate without moving the image. Choose “Salvar tema” to store the overlay.
 - **Import/Export:** Support for KMZ files.
 - **Editing:** Modify text and properties of existing elements.
 

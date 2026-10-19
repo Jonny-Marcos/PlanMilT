@@ -1297,6 +1297,82 @@
                 display: none;
             }
 
+            .image-editor-navigation {
+                position: absolute;
+                bottom: 16px;
+                left: 16px;
+                z-index: 1200;
+                display: grid;
+                grid-template-columns: auto auto;
+                align-items: center;
+                gap: 8px;
+                max-width: calc(100vw - 32px);
+                padding: 8px;
+                border: 1px solid #d3d8e0;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            }
+
+            .image-editor-pan-controls {
+                display: grid;
+                grid-template-columns: repeat(3, 36px);
+                grid-template-rows: repeat(2, 36px);
+                gap: 3px;
+            }
+
+            .image-editor-pan-up {
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .image-editor-pan-left {
+                grid-column: 1;
+                grid-row: 2;
+            }
+
+            .image-editor-pan-down {
+                grid-column: 2;
+                grid-row: 2;
+            }
+
+            .image-editor-pan-right {
+                grid-column: 3;
+                grid-row: 2;
+            }
+
+            .image-editor-zoom-controls {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            .image-editor-nav-button {
+                display: grid;
+                width: 36px;
+                height: 36px;
+                padding: 0;
+                place-items: center;
+                border: 1px solid #c5cad2;
+                border-radius: 5px;
+                background: #fff;
+                color: #35465d;
+                cursor: pointer;
+            }
+
+            .image-editor-nav-button:hover {
+                border-color: #435f88;
+                background: #e6edf7;
+            }
+
+            .image-editor-navigation-hint {
+                grid-column: 1 / -1;
+                color: #58677b;
+                font-size: 11px;
+                text-align: center;
+                white-space: nowrap;
+            }
+
             .image-editor-overlay.is-drop-target::after {
                 position: absolute;
                 inset: 8px;
@@ -1340,5 +1416,17 @@
 
                 #imageEditorTools .image-editor-slider {
                     min-width: 0;
+                }
+
+                .image-editor-navigation {
+                    bottom: 62px;
+                    left: 8px;
+                    gap: 5px;
+                    padding: 5px;
+                }
+
+                .image-editor-navigation-hint {
+                    max-width: 130px;
+                    white-space: normal;
                 }
             }

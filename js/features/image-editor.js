@@ -215,6 +215,59 @@
     }
 
     /**
+     * Desloca o mapa em uma direção sem alterar a posição da imagem.
+     * @param {'up'|'down'|'left'|'right'} direction Direção do deslocamento.
+     */
+    function panMap(direction) {
+        const offsets = {
+            up: [0, -120],
+            down: [0, 120],
+            left: [-120, 0],
+            right: [120, 0]
+        };
+        const offset = offsets[direction];
+        if (offset) state.map.panBy(offset);
+    }
+
+    /**
+     * Aplica o zoom solicitado pelos controles do editor.
+     * @param {'in'|'out'} direction Aproximar ou afastar o mapa.
+     */
+    function zoomMap(direction) {
+        if (direction === 'in') state.map.zoomIn();
+        if (direction === 'out') state.map.zoomOut();
+    }
+
+    /**
+     * Ignora atalhos de navegação enquanto o usuário interage com campos editáveis.
+     * @param {EventTarget} target Elemento que recebeu o evento de teclado.
+     * @returns {boolean} Se o foco está em um campo editável.
+     */
+    function isEditableTarget(target) {
+        return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    }
+
+    /**
+     * Permite arrastar o mapa mantendo Espaço ou Alt pressionado.
+     * @param {KeyboardEvent} event Evento de teclado.
+     */
+    function handleMapShortcutDown(event) {
+        if (editor.hidden || event.repeat || isEditableTarget(event.target)) return;
+        if (event.code !== 'Space' && event.key !== 'Alt') return;
+        event.preventDefault();
+        setMode('map');
+    }
+
+    /**
+     * Retorna ao posicionamento da imagem quando Espaço ou Alt é solto.
+     * @param {KeyboardEvent} event Evento de teclado.
+     */
+    function handleMapShortcutUp(event) {
+        if (editor.hidden || (event.code !== 'Space' && event.key !== 'Alt')) return;
+        setMode('image');
+    }
+
+    /**
      * Mostra o menu principal e esconde os ajustes.
      */
     function showMainMenu() {
@@ -502,6 +555,15 @@
     document.getElementById('imageEditorMode').addEventListener('click', () => {
         setMode(state.mode === 'image' ? 'map' : 'image');
     });
+    document.getElementById('imageEditorNavigation').addEventListener('click', event => {
+        const panDirection = event.target.closest('[data-image-editor-pan]')?.dataset.imageEditorPan;
+        if (panDirection) {
+            panMap(panDirection);
+            return;
+        }
+        const zoomDirection = event.target.closest('[data-image-editor-zoom]')?.dataset.imageEditorZoom;
+        if (zoomDirection) zoomMap(zoomDirection);
+    });
     editor.addEventListener('dragover', event => {
         event.preventDefault();
         editor.classList.add('is-drop-target');
@@ -518,6 +580,11 @@
         if (file) loadImage(file);
     });
     window.addEventListener('resize', resizeEditor);
+    window.addEventListener('keydown', handleMapShortcutDown);
+    window.addEventListener('keyup', handleMapShortcutUp);
+    window.addEventListener('blur', () => {
+        if (!editor.hidden && state.mode === 'map') setMode('image');
+    });
 
     window.PlanMilT = window.PlanMilT || {};
     window.PlanMilT.openImageEditor = openImageEditor;

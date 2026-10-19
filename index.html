@@ -70,7 +70,7 @@
 
 
 
-        <link rel="stylesheet" href="css/app.css?v=20261019-editor-canvas-hit-testing">
+        <link rel="stylesheet" href="css/app.css?v=20261019-editor-map-navigation">
         <title>PlanMilT</title>
     </head>
     <body>
@@ -86,6 +86,31 @@
                 <i class="fas fa-arrow-left" aria-hidden="true"></i>
                 Voltar ao mapa
             </button>
+            <div id="imageEditorNavigation" class="image-editor-navigation" role="group" aria-label="Controles de navegação do mapa">
+                <div class="image-editor-pan-controls" role="group" aria-label="Mover o mapa">
+                    <button class="image-editor-nav-button image-editor-pan-up" type="button" title="Mover mapa para cima" aria-label="Mover mapa para cima" data-image-editor-pan="up">
+                        <i class="fas fa-chevron-up" aria-hidden="true"></i>
+                    </button>
+                    <button class="image-editor-nav-button image-editor-pan-left" type="button" title="Mover mapa para esquerda" aria-label="Mover mapa para esquerda" data-image-editor-pan="left">
+                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <button class="image-editor-nav-button image-editor-pan-down" type="button" title="Mover mapa para baixo" aria-label="Mover mapa para baixo" data-image-editor-pan="down">
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <button class="image-editor-nav-button image-editor-pan-right" type="button" title="Mover mapa para direita" aria-label="Mover mapa para direita" data-image-editor-pan="right">
+                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="image-editor-zoom-controls" role="group" aria-label="Aproximar ou afastar o mapa">
+                    <button class="image-editor-nav-button" type="button" title="Aproximar mapa" aria-label="Aproximar mapa" data-image-editor-zoom="in">
+                        <i class="fas fa-plus" aria-hidden="true"></i>
+                    </button>
+                    <button class="image-editor-nav-button" type="button" title="Afastar mapa" aria-label="Afastar mapa" data-image-editor-zoom="out">
+                        <i class="fas fa-minus" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <span class="image-editor-navigation-hint">Segure Espaço ou Alt para arrastar o mapa</span>
+            </div>
             <div id="imageEditorTools" class="toolbar-icons">
                 <div id="imageEditorMainMenu" class="image-editor-menu">
                     <input type="file" id="imageEditorFile" accept="image/*" hidden>
@@ -221,6 +246,6 @@
         <script src="js/features/task-sequence-controls.js"></script>
         <script src="js/features/layer-management.js?v=20261015-catalog-title-25"></script>
         <script src="js/features/help-and-planning.js"></script>
-        <script src="js/features/image-editor.js?v=20261019-editor-canvas-hit-testing"></script>
+        <script src="js/features/image-editor.js?v=20261019-editor-map-navigation"></script>
     </body>
 </html>
