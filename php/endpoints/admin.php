@@ -694,6 +694,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         }
     }
 
+    async function uploadElevationFiles() {
+        const input = document.getElementById('elevationFilesInput');
+        const files = Array.from(input.files || []);
+        if (files.length === 0) {
+            showNotice('Selecione pelo menos um arquivo HGT.', true);
+            return;
+        }
+        if (files.length > 10) {
+            showNotice('Selecione no máximo 10 arquivos por envio.', true);
+            return;
+        }
+        if (files.reduce((total, file) => total + file.size, 0) > 125829120) {
+            showNotice('O tamanho total dos arquivos não pode ultrapassar 120 MiB por envio.', true);
+            return;
+        }
+        const body = new FormData();
+        body.append('action', 'upload_files');
+        body.append('csrf', adminConfig.csrf);
+        files.forEach(file => body.append('files[]', file, file.name));
+        const button = document.getElementById('uploadElevationButton');
+        button.disabled = true;
+        try {
+            const response = await fetch('admin.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body
+            });
+            const result = await response.json();
+            if (!response.ok || result.error) throw new Error(result.error || 'Não foi possível enviar os arquivos.');
+            input.value = '';
+            showNotice(`${result.files.length} arquivo(s) de elevação enviado(s).`);
+            await loadRecords();
+        } catch (error) {
+            showNotice(error.message, true);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     async function deleteFile(name) {
         if (!confirm(`Excluir o tile ${name}? Os perfis de elevação dessa região deixarão de funcionar até o arquivo ser enviado novamente.`)) return;
         try {
@@ -702,45 +741,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             await loadRecords();
         } catch (error) {
             showNotice(error.message, true);
-        }
-
-        async function uploadElevationFiles() {
-            const input = document.getElementById('elevationFilesInput');
-            const files = Array.from(input.files || []);
-            if (files.length === 0) {
-                showNotice('Selecione pelo menos um arquivo HGT.', true);
-                return;
-            }
-            if (files.length > 10) {
-                showNotice('Selecione no máximo 10 arquivos por envio.', true);
-                return;
-            }
-            if (files.reduce((total, file) => total + file.size, 0) > 125829120) {
-                showNotice('O tamanho total dos arquivos não pode ultrapassar 120 MiB por envio.', true);
-                return;
-            }
-            const body = new FormData();
-            body.append('action', 'upload_files');
-            body.append('csrf', adminConfig.csrf);
-            files.forEach(file => body.append('files[]', file, file.name));
-            const button = document.getElementById('uploadElevationButton');
-            button.disabled = true;
-            try {
-                const response = await fetch('admin.php', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body
-                });
-                const result = await response.json();
-                if (!response.ok || result.error) throw new Error(result.error || 'Não foi possível enviar os arquivos.');
-                input.value = '';
-                showNotice(`${result.files.length} arquivo(s) de elevação enviado(s).`);
-                await loadRecords();
-            } catch (error) {
-                showNotice(error.message, true);
-            } finally {
-                button.disabled = false;
-            }
         }
     }
 

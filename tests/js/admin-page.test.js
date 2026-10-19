@@ -46,3 +46,15 @@ test('admin search supports field/match filters and elevation upload uses authen
     assert.match(endpoint, /move_uploaded_file\(/);
     assert.match(endpoint, /validateElevationUpload\(/);
 });
+
+test('admin upload handler is in scope and login/password panels are restored on startup', () => {
+    assert.ok(
+        endpoint.indexOf('async function uploadElevationFiles()') < endpoint.indexOf('async function deleteFile(name)'),
+        'The upload handler must be declared outside deleteFile before its listener is bound.'
+    );
+    assert.match(endpoint, /addEventListener\('click', uploadElevationFiles\)/);
+    assert.match(endpoint, /loginPanel\.hidden = adminConfig\.authenticated/);
+    assert.match(endpoint, /passwordPanel\.hidden = !adminConfig\.authenticated \|\| !adminConfig\.mustChangePassword/);
+    assert.match(endpoint, /adminPanel\.hidden = !adminConfig\.authenticated \|\| adminConfig\.mustChangePassword/);
+    assert.match(endpoint, /\n    updatePanels\(\);\n    updateSearchControls\(\);/);
+});
