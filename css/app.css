@@ -1193,45 +1193,122 @@
                 z-index: 1200;
                 display: flex;
                 flex-wrap: wrap;
+                align-items: center;
                 justify-content: flex-start;
                 gap: 8px;
-                max-width: calc(100vw - 80px);
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                background: rgba(255, 255, 255, 0.94);
+                max-width: min(760px, calc(100vw - 100px));
+                padding: 9px;
+                border: 1px solid #d3d8e0;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.96);
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             }
 
-            #imageEditorTools .toolbar-icon {
+            #imageEditorTools .image-editor-button {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 32px;
-                min-height: 32px;
-                padding: 4px;
-                border: 0;
-                background: transparent;
+                gap: 7px;
+                min-height: 38px;
+                padding: 8px 12px;
+                border: 1px solid #c5cad2;
+                border-radius: 6px;
+                background: #fff;
                 color: #333;
-                font-size: 18px;
+                font: inherit;
                 cursor: pointer;
+                white-space: nowrap;
             }
 
-            #imageEditorTools .toolbar-icon:hover {
-                color: #007bff;
+            #imageEditorTools .image-editor-button:hover,
+            #imageEditorTools .image-editor-mode-active {
+                border-color: #435f88;
+                background: #e6edf7;
+                color: #29466f;
             }
 
             #imageEditorTools .image-editor-slider {
                 display: flex;
                 flex-direction: column;
                 gap: 4px;
-                min-width: 120px;
-                font-size: 12px;
+                min-width: 150px;
+                padding: 8px 12px;
+                color: #333;
+                font-size: 13px;
             }
 
-            .image-editor-move-buttons {
+            .image-editor-adjustments {
+                position: relative;
+            }
+
+            .image-editor-adjustments summary {
                 display: flex;
                 align-items: center;
+                min-height: 38px;
+                padding: 8px 12px;
+                border: 1px solid #c5cad2;
+                border-radius: 6px;
+                background: #fff;
+                cursor: pointer;
+            }
+
+            .image-editor-adjustments[open] {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 4px;
+                padding: 4px;
+                border: 1px solid #d3d8e0;
+                border-radius: 8px;
+                background: #fff;
+            }
+
+            .image-editor-adjustments[open] summary {
+                border: 0;
+            }
+
+            .image-editor-save {
+                border-color: #435f88 !important;
+                background: #435f88 !important;
+                color: #fff !important;
+            }
+
+            .image-editor-drop-hint {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                z-index: 400;
+                max-width: min(440px, calc(100vw - 48px));
+                padding: 18px 24px;
+                transform: translate(-50%, -50%);
+                border: 2px dashed #8293aa;
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.9);
+                color: #35465d;
+                font-size: 17px;
+                text-align: center;
+                pointer-events: none;
+            }
+
+            .image-editor-hint {
+                max-width: 250px;
+                color: #58677b;
+                font-size: 12px;
+                line-height: 1.35;
+            }
+
+            .image-editor-drop-hint[hidden] {
+                display: none;
+            }
+
+            .image-editor-overlay.is-drop-target::after {
+                position: absolute;
+                inset: 8px;
+                z-index: 6500;
+                border: 3px dashed #435f88;
+                border-radius: 10px;
+                content: "";
+                pointer-events: none;
             }
 
             .image-editor-close {
@@ -1253,12 +1330,12 @@
             @media (max-width: 600px) {
                 #imageEditorTools {
                     top: 52px;
-                    max-width: calc(100vw - 20px);
-                    gap: 4px;
+                    max-width: calc(100vw - 16px);
+                    gap: 5px;
                     padding: 6px;
                 }
 
                 #imageEditorTools .image-editor-slider {
-                    min-width: 100px;
+                    min-width: 120px;
                 }
             }

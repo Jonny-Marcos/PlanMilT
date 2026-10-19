@@ -70,7 +70,7 @@
 
 
 
-        <link rel="stylesheet" href="css/app.css?v=20261019-integrated-editor">
+        <link rel="stylesheet" href="css/app.css?v=20261019-editor-drag-mode">
         <title>PlanMilT</title>
     </head>
     <body>
@@ -79,44 +79,43 @@
         <section id="imageEditor" class="image-editor-overlay" aria-label="Criador de tema" hidden>
             <div id="imageEditorMap" class="image-editor-map"></div>
             <canvas id="imageEditorCanvas"></canvas>
+            <div id="imageEditorDropHint" class="image-editor-drop-hint">
+                Solte uma imagem aqui ou escolha <strong>Enviar imagem</strong>
+            </div>
             <button id="closeImageEditor" class="image-editor-close" type="button" aria-label="Voltar ao mapa principal">
                 <i class="fas fa-arrow-left" aria-hidden="true"></i>
                 Voltar ao mapa
             </button>
             <div id="imageEditorTools" class="toolbar-icons">
-                <label class="image-editor-slider">
-                    <span>Contraste</span>
-                    <input type="range" id="imageEditorContrast" min="0" max="2" step="0.01" value="1">
-                </label>
-                <label class="image-editor-slider">
-                    <span>Brilho</span>
-                    <input type="range" id="imageEditorBrightness" min="0" max="2" step="0.01" value="1">
-                </label>
                 <input type="file" id="imageEditorFile" accept="image/*" hidden>
-                <label for="imageEditorFile" class="toolbar-icon" title="Carregar imagem">
+                <label for="imageEditorFile" class="image-editor-button">
                     <i class="fas fa-upload" aria-hidden="true"></i>
+                    Enviar imagem
                 </label>
-                <button class="toolbar-icon" type="button" title="Salvar imagem e localização" data-image-editor-action="save">
+                <button id="imageEditorMode" class="image-editor-button" type="button" aria-pressed="false">
+                    <i class="fas fa-arrows-alt" aria-hidden="true"></i>
+                    <span id="imageEditorModeLabel">Mover mapa</span>
+                </button>
+                <span id="imageEditorHint" class="image-editor-hint" hidden></span>
+                <details class="image-editor-adjustments">
+                    <summary>Ajustes</summary>
+                    <label class="image-editor-slider">
+                        <span>Contraste</span>
+                        <input type="range" id="imageEditorContrast" min="0" max="2" step="0.01" value="1">
+                    </label>
+                    <label class="image-editor-slider">
+                        <span>Brilho</span>
+                        <input type="range" id="imageEditorBrightness" min="0" max="2" step="0.01" value="1">
+                    </label>
+                    <button class="image-editor-button" type="button" data-image-editor-action="remove-background">Remover fundo</button>
+                    <button class="image-editor-button" type="button" data-image-editor-action="grayscale">Escala de cinza</button>
+                    <button class="image-editor-button" type="button" data-image-editor-action="reset">Redefinir ajustes</button>
+                    <button class="image-editor-button" type="button" data-image-editor-action="remove">Remover imagem</button>
+                </details>
+                <button class="image-editor-button image-editor-save" type="button" data-image-editor-action="save">
                     <i class="fas fa-save" aria-hidden="true"></i>
+                    Salvar tema
                 </button>
-                <button class="toolbar-icon" type="button" title="Remover fundo" data-image-editor-action="remove-background">
-                    <i class="fas fa-times-circle" aria-hidden="true"></i>
-                </button>
-                <button class="toolbar-icon" type="button" title="Tornar escala de cinza" data-image-editor-action="grayscale">
-                    <i class="fas fa-filter" aria-hidden="true"></i>
-                </button>
-                <button class="toolbar-icon" type="button" title="Resetar imagem" data-image-editor-action="reset">
-                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
-                </button>
-                <button class="toolbar-icon" type="button" title="Remover imagem" data-image-editor-action="remove">
-                    <i class="fas fa-trash-alt" aria-hidden="true"></i>
-                </button>
-                <div id="imageEditorMoveButtons" class="image-editor-move-buttons">
-                    <button class="toolbar-icon" type="button" title="Mover para cima" data-image-editor-move="up"><i class="fas fa-arrow-up" aria-hidden="true"></i></button>
-                    <button class="toolbar-icon" type="button" title="Mover para esquerda" data-image-editor-move="left"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
-                    <button class="toolbar-icon" type="button" title="Mover para baixo" data-image-editor-move="down"><i class="fas fa-arrow-down" aria-hidden="true"></i></button>
-                    <button class="toolbar-icon" type="button" title="Mover para direita" data-image-editor-move="right"><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
-                </div>
             </div>
         </section>
         <div id="elevation-profile-container" style="display: none; position: relative;">
@@ -209,6 +208,6 @@
         <script src="js/features/task-sequence-controls.js"></script>
         <script src="js/features/layer-management.js?v=20261015-catalog-title-25"></script>
         <script src="js/features/help-and-planning.js"></script>
-        <script src="js/features/image-editor.js?v=20261019-integrated-editor"></script>
+        <script src="js/features/image-editor.js?v=20261019-editor-drag-mode"></script>
     </body>
 </html>

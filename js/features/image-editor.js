@@ -5,7 +5,11 @@
 (function () {
     const state = {
         map: null,
-        canvas: null
+        canvas: null,
+        geocoderControl: null,
+        mode: 'image',
+        width: 0,
+        height: 0
     };
     const editor = document.getElementById('imageEditor');
 
@@ -28,20 +32,27 @@
 
         state.canvas = new fabric.Canvas(canvasElement, {
             selection: true,
-            width: mapElement.offsetWidth,
-            height: mapElement.offsetHeight
+            preserveObjectStacking: true,
+            width: mapElement.clientWidth,
+            height: mapElement.clientHeight
         });
         state.canvas.wrapperEl.style.position = 'absolute';
         state.canvas.wrapperEl.style.top = '0';
         state.canvas.wrapperEl.style.left = '0';
         state.canvas.wrapperEl.style.zIndex = '500';
+        state.canvas.wrapperEl.style.pointerEvents = 'auto';
+        state.width = mapElement.clientWidth;
+        state.height = mapElement.clientHeight;
 
+        const mainMap = window.map;
+        const initialCenter = mainMap ? mainMap.getCenter() : [-23.5505, -46.6333];
+        const initialZoom = mainMap ? mainMap.getZoom() : 10;
         state.map = L.map(mapElement, {
             attributionControl: false,
             zoomControl: true,
-            dragging: true,
+            dragging: false,
             zoom: 10
-        }).setView([-23.5505, -46.6333], 10);
+        }).setView(initialCenter, initialZoom);
 
         L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', {
             opacity: 1,
@@ -56,7 +67,7 @@
             options: { position: 'topright' },
             onAdd: () => {
                 const element = L.DomUtil.create('div', 'google-translate-control leaflet-bar');
-                element.id = 'google_translate_element';
+                element.id = 'image_editor_google_translate_element';
                 element.style.backgroundColor = 'white';
                 element.style.padding = '5px';
                 element.style.borderRadius = '5px';
@@ -65,16 +76,19 @@
             }
         });
         state.map.addControl(new TranslateControl());
-        if (window.google?.translate && typeof window.googleTranslateElementInit === 'function') {
-            window.googleTranslateElementInit();
+        if (window.google?.translate?.TranslateElement) {
+            new window.google.translate.TranslateElement({
+                pageLanguage: 'pt-br'
+            }, 'image_editor_google_translate_element');
         }
 
-        L.Control.geocoder({
+        state.geocoderControl = L.Control.geocoder({
             position: 'topright',
             placeholder: 'Buscar cidade...',
             errorMessage: 'Local não encontrado.',
             defaultMarkGeocode: false
-        }).on('markgeocode', event => state.map.fitBounds(event.geocode.bbox)).addTo(state.map);
+        }).on('markgeocode', event => state.map.fitBounds(event.geocode.bbox));
+        state.geocoderControl.addTo(state.map);
 
         const imageTools = new L.Control({ position: 'topleft' });
         imageTools.onAdd = () => {
@@ -86,6 +100,7 @@
 
         addMapLayers();
         state.map.invalidateSize();
+        setMode('image');
     }
 
     /**
@@ -129,7 +144,8 @@
         if (!state.map) {
             initializeEditor();
         } else {
-            requestAnimationFrame(() => state.map.invalidateSize());
+            setMode('image');
+            requestAnimationFrame(resizeEditor);
         }
     }
 
@@ -144,26 +160,85 @@
     }
 
     /**
-     * Move o mapa do editor em uma das quatro direções.
-     * @param {'up'|'down'|'left'|'right'} direction Direção do deslocamento.
+     * Alterna entre posicionar a imagem e navegar pelo mapa.
+     * @param {'image'|'map'} mode Modo de interação ativo.
      */
-    function moveMap(direction) {
-        const offsets = {
-            up: [0, -100],
-            down: [0, 100],
-            left: [-100, 0],
-            right: [100, 0]
-        };
-        if (offsets[direction]) {
-            state.map.panBy(offsets[direction]);
+    function setMode(mode) {
+        state.mode = mode;
+        const isMapMode = mode === 'map';
+        const modeButton = document.getElementById('imageEditorMode');
+        const hasImage = state.canvas.getObjects().some(object => object.type === 'image');
+        const hint = document.getElementById('imageEditorHint');
+        const modeLabel = document.getElementById('imageEditorModeLabel');
+        modeLabel.textContent = isMapMode ? 'Posicionar imagem' : 'Mover mapa';
+        modeButton.setAttribute('aria-pressed', String(isMapMode));
+        modeButton.classList.toggle('image-editor-mode-active', isMapMode);
+        hint.hidden = !hasImage;
+        hint.textContent = isMapMode
+            ? 'Arraste para navegar; volte a Posicionar imagem para editar.'
+            : 'Arraste a imagem para posicionar e use os cantos para redimensionar.';
+        state.canvas.selection = !isMapMode;
+        state.canvas.wrapperEl.style.pointerEvents = isMapMode ? 'none' : 'auto';
+        [state.map.zoomControl.getContainer(), state.geocoderControl.getContainer()]
+            .forEach(control => {
+                control.hidden = !isMapMode;
+                control.style.display = isMapMode ? '' : 'none';
+            });
+
+        ['dragging', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard', 'touchZoom']
+            .forEach(interaction => {
+                const handler = state.map[interaction];
+                if (!handler) return;
+                if (isMapMode) {
+                    handler.enable();
+                } else {
+                    handler.disable();
+                }
+            });
+        if (isMapMode) {
+            state.canvas.discardActiveObject();
+            state.canvas.renderAll();
+        } else {
+            const image = state.canvas.getObjects().find(object => object.type === 'image');
+            if (image) state.canvas.setActiveObject(image);
         }
     }
 
     /**
-     * Carrega um arquivo local no canvas e ajusta a área de edição ao seu tamanho.
+     * Mantém canvas e mapa alinhados quando o editor muda de tamanho.
+     */
+    function resizeEditor() {
+        if (editor.hidden || !state.map || !state.canvas) return;
+        const mapElement = document.getElementById('imageEditorMap');
+        const width = mapElement.clientWidth;
+        const height = mapElement.clientHeight;
+        const offsetX = (width - state.width) / 2;
+        const offsetY = (height - state.height) / 2;
+
+        state.canvas.getObjects().forEach(object => {
+            object.set({
+                left: object.left + offsetX,
+                top: object.top + offsetY
+            });
+            object.setCoords();
+        });
+        state.canvas.setDimensions({ width, height });
+        state.canvas.renderAll();
+        state.width = width;
+        state.height = height;
+        state.map.invalidateSize();
+    }
+
+    /**
+     * Carrega a imagem no centro do mapa sem alterar o tamanho da área de edição.
      * @param {File} file Imagem selecionada pelo usuário.
      */
     function loadImage(file) {
+        if (!file || !file.type.startsWith('image/')) {
+            Swal.fire('Arquivo inválido', 'Escolha um arquivo de imagem para criar o tema.', 'warning');
+            return;
+        }
+
         const reader = new FileReader();
         reader.onerror = () => {
             console.error('[PlanMilT][Editor] Falha ao ler o arquivo de imagem.');
@@ -171,35 +246,34 @@
         };
         reader.onload = event => {
             fabric.Image.fromURL(event.target.result, image => {
-                const imageTextureSize = Math.max(image.width, image.height);
-                if (imageTextureSize > fabric.textureSize) {
-                    fabric.textureSize = imageTextureSize;
+                if (!image || image.width <= 0 || image.height <= 0) {
+                    console.error('[PlanMilT][Editor] O arquivo selecionado não pôde ser decodificado como imagem.');
+                    Swal.fire('Erro!', 'Não foi possível abrir a imagem selecionada.', 'error');
+                    return;
                 }
-
-                const maxDimension = imageTextureSize * (Math.sqrt(2) / 2);
-                const canvasElement = document.getElementById('imageEditorCanvas');
-                const mapElement = document.getElementById('imageEditorMap');
-                canvasElement.width = maxDimension;
-                canvasElement.height = maxDimension;
-                state.canvas.setWidth(maxDimension);
-                state.canvas.setHeight(maxDimension);
-
-                const scale = Math.min(maxDimension / image.width, maxDimension / image.height);
+                const scale = Math.min(
+                    (state.width * 0.8) / image.width,
+                    (state.height * 0.8) / image.height
+                );
                 image.set({
                     scaleX: scale,
                     scaleY: scale,
                     originX: 'center',
                     originY: 'center',
-                    left: maxDimension / 2,
-                    top: maxDimension / 2
+                    left: state.width / 2,
+                    top: state.height / 2,
+                    lockRotation: true,
+                    lockUniScaling: true
                 });
 
                 state.canvas.clear();
                 state.canvas.add(image);
+                state.canvas.setActiveObject(image);
                 state.canvas.renderAll();
-                mapElement.style.width = `${maxDimension}px`;
-                mapElement.style.height = `${maxDimension}px`;
-                state.map.invalidateSize();
+                document.getElementById('imageEditorDropHint').hidden = true;
+                document.getElementById('imageEditorBrightness').value = '1';
+                document.getElementById('imageEditorContrast').value = '1';
+                setMode('image');
             }, { crossOrigin: 'anonymous' });
         };
         reader.readAsDataURL(file);
@@ -243,17 +317,6 @@
             Object.assign(filter, { threshold: 200, color: '#FFFFFF' });
         }
         activeObject.applyFilters();
-
-        const maxDimension = Math.max(activeObject.getScaledWidth(), activeObject.getScaledHeight());
-        const scaleReduction = maxDimension > 4000 ? 4000 / maxDimension : 1;
-        activeObject.set({
-            left: state.canvas.width / 2,
-            top: state.canvas.height / 2,
-            scaleX: activeObject.scaleX * scaleReduction,
-            scaleY: activeObject.scaleY * scaleReduction,
-            originX: 'center',
-            originY: 'center'
-        });
         state.canvas.renderAll();
     }
 
@@ -273,10 +336,12 @@
      */
     function removeImage() {
         const activeObject = state.canvas.getActiveObject();
-        if (!activeObject) return;
+        if (!activeObject || activeObject.type !== 'image') return;
         state.canvas.remove(activeObject);
         state.canvas.discardActiveObject();
         state.canvas.renderAll();
+        document.getElementById('imageEditorDropHint').hidden = false;
+        setMode('image');
     }
 
     /**
@@ -301,6 +366,10 @@
      * Solicita os dados da imagem e envia o calco com seus limites geográficos.
      */
     async function saveImage() {
+        if (!state.canvas.getObjects().some(object => object.type === 'image')) {
+            await Swal.fire('Imagem necessária', 'Envie uma imagem antes de salvar o tema.', 'warning');
+            return;
+        }
         state.canvas.renderAll();
         const imageDataUrl = state.canvas.toDataURL('image/png', 1);
         const mapBounds = state.map.getBounds();
@@ -365,6 +434,7 @@
     document.getElementById('closeImageEditor').addEventListener('click', closeImageEditor);
     document.getElementById('imageEditorFile').addEventListener('change', event => {
         if (event.target.files[0]) loadImage(event.target.files[0]);
+        event.target.value = '';
     });
     document.getElementById('imageEditorBrightness').addEventListener('input', event => {
         applyFilter('Brightness', { brightness: parseFloat(event.target.value) - 1 });
@@ -382,10 +452,26 @@
             remove: removeImage
         };
         if (action && actions[action]) actions[action]();
-
-        const direction = event.target.closest('[data-image-editor-move]')?.dataset.imageEditorMove;
-        if (direction) moveMap(direction);
     });
+    document.getElementById('imageEditorMode').addEventListener('click', () => {
+        setMode(state.mode === 'image' ? 'map' : 'image');
+    });
+    editor.addEventListener('dragover', event => {
+        event.preventDefault();
+        editor.classList.add('is-drop-target');
+    });
+    editor.addEventListener('dragleave', event => {
+        if (!editor.contains(event.relatedTarget)) {
+            editor.classList.remove('is-drop-target');
+        }
+    });
+    editor.addEventListener('drop', event => {
+        event.preventDefault();
+        editor.classList.remove('is-drop-target');
+        const file = event.dataTransfer?.files?.[0];
+        if (file) loadImage(file);
+    });
+    window.addEventListener('resize', resizeEditor);
 
     window.PlanMilT = window.PlanMilT || {};
     window.PlanMilT.openImageEditor = openImageEditor;
