@@ -6,14 +6,10 @@ window.PlanMilT = window.PlanMilT || {};
 
 // Mantém apenas gráficos com simbologia própria além das primitivas nativas do Leaflet.
 const tacticalGraphicUsefulNames = Object.freeze([
-    'Abatis',
     'AirCorridor',
     'Airfield',
     'Ambush',
     'AdvanceToContact',
-    'AntiTankDitchCompleted',
-    'AntiTankDitchReinforcedWithMines',
-    'AntiTankDitchUnderConstruction',
     'AreaDefense',
     'AssaultCrossing',
     'AttackByFire',
@@ -36,7 +32,6 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'CounterattackByFire',
     'Cover',
     'Defeat',
-    'DefendedAreaEllipse',
     'Delay',
     'Deny',
     'Demonstration',
@@ -46,16 +41,11 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'DirectionOfSupportingAttack',
     'Disengage',
     'Disrupt',
-    'Encirclement',
     'Envelopment',
     'Evacuate',
-    'ExplosivesPlannedStateOfReadiness',
-    'ExplosivesStateOfReadiness1Safe',
-    'ExplosivesStateOfReadiness2ArmedButPassable',
     'Exfiltrate',
     'Exploitation',
     'FerryCrossing',
-    'FieldsOfFire',
     'Fix',
     'FordDifficult',
     'FordEasy',
@@ -67,23 +57,15 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'InfiltrationLane',
     'Interdict',
     'Isolate',
-    'LaunchAreaEllipse',
     'Locate',
     'LowLevelTransitRoute',
     'MainAxisOfAdvance',
     'MainAxisOfAdvanceFeint',
-    'MinimumRiskRoute',
-    'MinimumSafeDistanceMultipleStrike',
-    'MinimumSafeDistanceZone',
     'MineCluster',
     'MobileDefense',
     'MovementToContact',
     'Neutralize',
     'Occupy',
-    'ObstacleBypassDifficult',
-    'ObstacleBypassEasy',
-    'ObstacleBypassImpossible',
-    'PassageLane',
     'Penetration',
     'Pursuit',
     'RadarSearchDoctrine',
@@ -93,15 +75,11 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'Retain',
     'Retirement',
     'RoadblockCompleteExecuted',
-    'SafeLane',
-    'SafeLaneOrGap',
     'Screen',
     'SearchArea',
     'Secure',
     'Seize',
     'ShipAreaOfInterestEllipse',
-    'SpecialCorridor',
-    'StandardUseArmyAircraftFlightRoute',
     'Suppress',
     'SupportingAxisOfAdvance',
     'SupportByFire',
@@ -110,22 +88,10 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'TacticalFix',
     'TacticalTurn',
     'Turn',
-    'TransitCorridor',
     'TurningMovement',
-    'UnmannedAircraftCorridor',
     'Withdraw',
     'WithdrawUnderPressure',
-    'WeaponSensorRangeFanCircular',
     'WeaponSensorRangeFanSector',
-    'WireDoubleApronFence',
-    'WireDoubleFence',
-    'WireDoubleStrandConcertina',
-    'WireHighWireFence',
-    'WireLowWireFence',
-    'WireSingleConcertina',
-    'WireSingleFence',
-    'WireTripleStrandConcertina',
-    'WireUnspecified',
 ]);
 
 const tacticalGraphicCommonNames = Object.freeze([
@@ -1151,6 +1117,8 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
             throw new Error(`Gráficos selecionados ausentes na biblioteca: ${missingUsefulNames.join(', ')}.`);
         }
 
+        const getCategoryKey = name => Object.keys(library.TacticalGraphicCategory)
+            .find(key => library.TacticalGraphicCategory[key] === library.GRAPHIC_CATEGORIES[name]);
         const toGraphic = name => ({
             name,
             label: this.translateName(library.getDisplayName(name), name)
@@ -1163,8 +1131,8 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
         const categories = new Map();
 
         tacticalGraphicUsefulNames.forEach(name => {
-            const categoryKey = Object.keys(library.TacticalGraphicCategory)
-                .find(key => library.TacticalGraphicCategory[key] === library.GRAPHIC_CATEGORIES[name]);
+            const categoryKey = getCategoryKey(name);
+            if (categoryKey === 'AirspaceCoordinatingMeasures' && name !== 'AirCorridor') return;
             const categoryLabel = tacticalGraphicCategoryTranslations[categoryKey];
 
             if (!categoryLabel) {

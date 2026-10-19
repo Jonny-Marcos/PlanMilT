@@ -439,6 +439,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             #tacticalGraphicPicker .tactical-graphic-result-preview svg{display:block;width:60px;height:36px;overflow:hidden}
             #tacticalGraphicPicker .tactical-graphic-empty{padding:24px;text-align:center;color:#596273}
             #tacticalGraphicPicker .tactical-graphic-selection{padding:8px 10px;border-radius:6px;background:#eef1f5;color:#36404f;font-size:13px;font-weight:600}
+            #tacticalGraphicPicker             #tacticalGraphicPicker .tactical-graphic-designation{margin-top:-6px}
         `;
 
         /**
@@ -453,6 +454,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             let searchInput;
             let resultsContainer;
             let selectionStatus;
+            let designationInput;
 
             const selection = await sweetAlert.fire({
                 title: 'Adicionar gráfico tático',
@@ -467,6 +469,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + '<input id="tacticalGraphicSearch" type="search" autocomplete="off" placeholder="Nome do gráfico"></label>'
                     + '<div id="tacticalGraphicResults" class="tactical-graphic-results" role="radiogroup" aria-label="Gráficos táticos"></div>'
                     + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
+                    + '<label class="tactical-graphic-field tactical-graphic-designation" for="tacticalGraphicDesignation"><span>Designação (opcional)</span>'
+                    + '<input id="tacticalGraphicDesignation" type="text" autocomplete="off" placeholder="Ex.: 1ª Cia"></label>'
                     + '</div>'
                     + '</div>',
                 showCancelButton: true,
@@ -479,6 +483,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     searchInput = popup.querySelector('#tacticalGraphicSearch');
                     resultsContainer = popup.querySelector('#tacticalGraphicResults');
                     selectionStatus = popup.querySelector('#tacticalGraphicSelection');
+                    designationInput = popup.querySelector('#tacticalGraphicDesignation');
                     popup.classList.add('tactical-graphic-modal');
 
                     const commonOption = document.createElement('option');
@@ -583,13 +588,17 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         sweetAlert.showValidationMessage('Selecione um gráfico tático.');
                         return false;
                     }
-                    return selectedName;
+                    return {
+                        name: selectedName,
+                        designation: designationInput.value.trim()
+                    };
                 }
             });
 
             if (!selection.isConfirmed || !selection.value) return;
 
-            const geometryType = library.baseGeometryFor(selection.value);
+            const { name, designation } = selection.value;
+            const geometryType = library.baseGeometryFor(name);
             const drawToolByGeometry = {
                 Point: leaflet.Draw.Marker,
                 LineString: leaflet.Draw.Polyline,
@@ -601,18 +610,6 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 throw new Error(`Geometria de desenho não suportada: ${geometryType || 'indefinida'}.`);
             }
 
-            const details = await sweetAlert.fire({
-                title: 'Designação do gráfico',
-                input: 'text',
-                inputPlaceholder: 'Opcional (por exemplo, 1ª Cia)',
-                showCancelButton: true,
-                confirmButtonText: 'Desenhar no mapa',
-                cancelButtonText: 'Cancelar'
-            });
-
-            if (!details.isConfirmed) return;
-
-            const name = selection.value;
             const displayName = catalog.translateName(library.getDisplayName(name), name);
             const color = getDefaultColor();
             const options = geometryType === 'Polygon' || geometryType === 'LineString'
@@ -623,7 +620,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 name,
                 displayName,
                 geometryType,
-                designation: typeof details.value === 'string' ? details.value.trim() : '',
+                designation,
                 color
             };
             drawingVertices = [];

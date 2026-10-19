@@ -84,7 +84,8 @@ function createHarness({
         'tacticalGraphicCategory',
         'tacticalGraphicSearch',
         'tacticalGraphicResults',
-        'tacticalGraphicSelection'
+        'tacticalGraphicSelection',
+        'tacticalGraphicDesignation'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -149,6 +150,7 @@ function createHarness({
             alerts.push(options);
             if (options.icon === 'error') return { isConfirmed: true };
             if (options.didOpen) {
+                popupElements.get('tacticalGraphicDesignation').value = designation;
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
@@ -311,6 +313,10 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.drawTools[0].enabled, true);
     assert.equal(harness.drawTools[0].options.shapeOptions.color, '#123456');
     assert.match(harness.alerts[0].html, /tacticalGraphicPicker/);
+    assert.match(harness.alerts[0].html, /Designação \(opcional\)/);
+    assert.match(harness.alerts[0].html, /tacticalGraphicSelection[\s\S]*tacticalGraphicDesignation/);
+    assert.equal(harness.popupElements.get('tacticalGraphicDesignation').value, '1ª Cia');
+    assert.equal(harness.alerts.length, 1);
     assert.equal(harness.popup.classList['tactical-graphic-modal'], true);
 
     const handled = harness.integration.handleCreated({

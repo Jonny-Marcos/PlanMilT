@@ -61,7 +61,7 @@ test('the curated catalog contains only distinct tactical graphics, grouped once
     const graphics = sections.slice(1).flatMap(section => section.graphics);
     const names = graphics.map(graphic => graphic.name);
 
-    assert.equal(names.length, 120);
+    assert.equal(names.length, 85);
     assert.equal(new Set(names).size, names.length);
     assert.ok(names.every(name => library.listTacticalGraphicNames().includes(name)));
     assert.ok(names.every(name => addsDistinctiveGeometry(library, name)));
@@ -95,7 +95,34 @@ test('redundant basic geometry is omitted and the ten common graphics remain cat
     assert.ok(!categorized.includes('LimitOfAdvance'));
     assert.ok(!categorized.includes('ObjectiveArea'));
     assert.ok(!categorized.includes('NoAttackZone'));
-    assert.ok(sections.some(section => section.label === 'Medidas de Coordenação do Apoio de Fogo'));
+    assert.ok(!categorized.some(name => [
+        'Abatis',
+        'AntiTankDitchCompleted',
+        'AntiTankDitchReinforcedWithMines',
+        'AntiTankDitchUnderConstruction',
+        'DefendedAreaEllipse',
+        'Encirclement',
+        'ExplosivesPlannedStateOfReadiness',
+        'ExplosivesStateOfReadiness1Safe',
+        'ExplosivesStateOfReadiness2ArmedButPassable',
+        'FieldsOfFire',
+        'LaunchAreaEllipse',
+        'MinimumSafeDistanceMultipleStrike',
+        'MinimumSafeDistanceZone',
+        'ObstacleBypassDifficult',
+        'ObstacleBypassEasy',
+        'ObstacleBypassImpossible',
+        'PassageLane',
+        'SafeLane',
+        'SafeLaneOrGap',
+        'WeaponSensorRangeFanCircular'
+    ].includes(name)));
+    assert.ok(!categorized.some(name => name.startsWith('Wire')));
+    assert.deepEqual(
+        sections.find(section => section.name === 'AirspaceCoordinatingMeasures').graphics.map(graphic => graphic.name),
+        ['AirCorridor']
+    );
+    assert.ok(!sections.some(section => section.label === 'Medidas de Coordenação do Apoio de Fogo'));
     assert.ok(sections[0].graphics.some(graphic => graphic.label === 'Eixo principal de progressão'));
 });
 
