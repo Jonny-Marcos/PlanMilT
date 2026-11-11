@@ -88,6 +88,11 @@
                 justify-content: space-between;
             }
 
+            .map-toolbar .toolbar-icons {
+                flex-wrap: wrap;
+                max-width: 100%;
+            }
+
             .toolbar-icon {
                 margin: 0 10px;
                 cursor: pointer;
@@ -109,31 +114,53 @@
             }
 
             .toggle-controls {
-                position: fixed;
-                right: max(10px, env(safe-area-inset-right));
-                bottom: max(26px, env(safe-area-inset-bottom));
-                z-index: 1001;
                 display: inline-flex;
                 align-items: center;
-                gap: 8px;
+                justify-content: center;
+                width: 44px;
                 min-height: 44px;
-                padding: 10px 14px;
-                border: 1px solid #31547c;
+                padding: 0;
+                border: 0;
                 border-radius: 6px;
-                background: #31547c;
-                color: #fff;
-                font: 600 14px/1.2 Arial, sans-serif;
+                background: transparent;
+                color: #333;
                 cursor: pointer;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
             }
 
             .toggle-controls:hover {
-                background: #243f5e;
+                background: #e6edf7;
+                color: #31547c;
             }
 
             .toggle-controls:focus-visible {
-                outline: 3px solid #ffcc33;
-                outline-offset: 3px;
+                outline: 2px solid #31547c;
+                outline-offset: -2px;
+            }
+
+            .map-toolbar .toggle-controls i {
+                margin: 0;
+                font-size: 16px;
+            }
+
+            .toggle-controls span {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            .map-toolbar.controls-hidden {
+                width: auto;
+            }
+
+            .map-toolbar.controls-hidden > :not(.toolbar-icons),
+            .map-toolbar.controls-hidden .toolbar-icons > :not(.toggle-controls) {
+                display: none;
             }
 
             #close-btn {

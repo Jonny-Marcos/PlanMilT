@@ -42,6 +42,10 @@
 <i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>
 <i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
 <i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
+<button id="toggleControlsBtn" class="toggle-controls" type="button" aria-pressed="true" title="Mostrar controles">
+    <i id="toggleControlsIcon" class="fas fa-eye" aria-hidden="true"></i>
+    <span id="toggleControlsLabel">Mostrar controles</span>
+</button>
 <input type="file" id="fileInput" accept=".kmz" style="display: none;">
             </div>
 <div class="toolbar-item color-picker-label">

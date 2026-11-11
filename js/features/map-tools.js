@@ -64,7 +64,7 @@
                  */
                 function setControlsHidden(hidden) {
                     controlsHidden = hidden;
-                    toolbar.style.display = hidden ? 'none' : 'flex';
+                    toolbar.classList.toggle('controls-hidden', hidden);
                     document.querySelectorAll('.leaflet-draw-toolbar').forEach(function(drawToolbar) {
                         drawToolbar.style.display = hidden ? 'none' : 'block';
                     });
