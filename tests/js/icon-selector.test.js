@@ -94,3 +94,22 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     assert.equal(selectorContent.style.display, 'none');
     assert.equal(toggleButton.textContent, 'Ícone selecionado: ');
 });
+
+test('a generated calunga can be selected without removing existing icons', async () => {
+    const container = new FakeElement('div');
+    const preview = new FakeElement('img');
+    const leaflet = { icon: options => ({ options }) };
+    window.PlanMilT.militarySymbols = { createIcon: (data, L) => L.icon({ iconUrl: data.iconUrl }) };
+    const selector = window.PlanMilT.iconSelector.attach({
+        container, preview, leaflet,
+        apiClient: { getJson: async () => ['symbols/friend/alpha.svg'] }
+    });
+    await selector.load();
+    const symbol = { iconUrl: 'data:image/svg+xml,generated', config: { sidc: 'test' } };
+    selector.selectMilitarySymbol(symbol);
+    assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
+    assert.equal(preview.src, symbol.iconUrl);
+    container.children[1].children[0].children[0].click();
+    container.children[1].children[1].children[0].children[0].click();
+    assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
+});

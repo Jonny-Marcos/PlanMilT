@@ -32,7 +32,13 @@
             drawnItems.on('click', function(e) {
                 var layer = e.layer;
                 var latlng = e.latlng; // Certifique-se de obter as coordenadas do clique
-                if (layer.feature && layer.feature.properties && layer.feature.properties.text) {
+                if (layer.feature && layer.feature.properties && layer.feature.properties.militarySymbol) {
+                    window.PlanMilT.militarySymbols.edit(layer, L).catch(error => {
+                        console.error('[PlanMilT][Calungas] Falha ao editar símbolo.', error);
+                        Swal.fire('Erro', 'Não foi possível editar esta calunga.', 'error');
+                    });
+                }
+                else if (layer.feature && layer.feature.properties && layer.feature.properties.text) {
                     editText(layer, latlng);
                 }
                 else {
@@ -203,9 +209,26 @@
                 iconNodes.forEach(function(iconNode) {
                     var iconPath = iconNode.textContent.trim();
                     if (!iconCache[iconPath] && zip.file(iconPath)) {
-                        zip.file(iconPath).async("base64").then(function(imageData) {
+                        zip.file(iconPath).async("base64").then(async function(imageData) {
                             var imgSrc = "data:image/png;base64," + imageData;
                             iconCache[iconPath] = imgSrc;
+                            let iconSize = [40, 40];
+                            let iconAnchor = [20, 20];
+                            if (/^files\/planmilt-symbol-\d+\.png$/.test(iconPath)) {
+                                const image = document.createElement('img');
+                                await new Promise((resolve, reject) => {
+                                    image.onload = resolve;
+                                    image.onerror = reject;
+                                    image.src = imgSrc;
+                                });
+                                iconSize = [image.naturalWidth, image.naturalHeight];
+                                const hotspot = iconNode.parentElement.parentElement.querySelector('hotSpot');
+                                if (hotspot && hotspot.getAttribute('xunits') === 'fraction' && hotspot.getAttribute('yunits') === 'fraction') {
+                                    const x = Number(hotspot.getAttribute('x'));
+                                    const y = Number(hotspot.getAttribute('y'));
+                                    if (Number.isFinite(x) && Number.isFinite(y)) iconAnchor = [x * iconSize[0], (1 - y) * iconSize[1]];
+                                }
+                            }
 
                             placemarks.forEach(function(placemark) {
                                 var styleUrl = placemark.querySelector('styleUrl');
@@ -215,8 +238,8 @@
 
                                     var customIcon = L.icon({
                                         iconUrl: imgSrc,
-                                        iconSize: [40, 40],
-                                        iconAnchor: [20, 20],
+                                        iconSize,
+                                        iconAnchor,
                                         popupAnchor: [0, -20]
                                     });
 
@@ -226,6 +249,9 @@
                             });
                         }).catch(function(error) {
                             console.error('Falha ao ler imagem do KMZ:', error);
+                            if (/^files\/planmilt-symbol-\d+\.png$/.test(iconPath)) {
+                                Swal.fire('Erro', 'Não foi possível carregar uma calunga do KMZ.', 'error');
+                            }
                         });
                     }
                 });

@@ -102,6 +102,83 @@ test('icon styles are included for icon features', () => {
     assert.match(kml, /<StyleMap id="m_files\/alpha\.png">/);
 });
 
+test('exports multiple embedded military symbols as distinct PNG files referenced by KML', async () => {
+    let handler;
+    let archive;
+    let downloaded = false;
+    const previousDocument = global.document;
+    const previousCreate = URL.createObjectURL;
+    const icons = ['data:image/svg+xml;utf8,%3Csvg%20id%3D%221%22%2F%3E', 'data:image/svg+xml;utf8,%3Csvg%20id%3D%222%22%2F%3E'];
+    const features = icons.map(iconUrl => ({ type: 'Feature',
+        properties: { iconUrl, militarySymbol: { iconSize: [100, 50], iconAnchor: [75, 20] } },
+        geometry: { type: 'Point', coordinates: [-50, -20] } }));
+    const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
+    window.PlanMilT.coverageImage = { getGroup: () => group([]) };
+    global.document = {
+        createElement(tag) {
+            if (tag === 'img') return { width: 80, height: 40, set src(value) { this.url = value; queueMicrotask(() => this.onload()); } };
+            if (tag === 'canvas') return { getContext: () => ({ drawImage() {} }), toBlob(callback) { callback({ png: true }); } };
+            return { click() { downloaded = true; }, set innerHTML(value) { this.textContent = value; } };
+        }
+    };
+    URL.createObjectURL = () => 'blob:test';
+    try {
+        window.PlanMilT.kmzExport.attach({
+            map: {}, drawnItems: group(features.map(feature => ({ toGeoJSON: () => feature }))), layerRegistry: {},
+            button: { addEventListener(name, callback) { handler = callback; } },
+            zipArchive: class {
+                constructor() { archive = this; this.files = {}; }
+                file(name, data) { this.files[name] = data; }
+                async generateAsync() { return {}; }
+            },
+            sweetAlert: { fire: async () => ({ isConfirmed: false }) },
+            captureCanvas: () => { throw new Error('unexpected capture'); }
+        });
+        await handler();
+        assert.equal(downloaded, true);
+        assert.ok(archive.files['files/planmilt-symbol-1.png']);
+        assert.ok(archive.files['files/planmilt-symbol-2.png']);
+        assert.match(archive.files['doc.kml'], /#m_files\/planmilt-symbol-1\.png/);
+        assert.match(archive.files['doc.kml'], /#m_files\/planmilt-symbol-2\.png/);
+        assert.match(archive.files['doc.kml'], /<hotSpot x="0\.75" y="0\.6"/);
+        assert.doesNotMatch(archive.files['doc.kml'], /data:image/);
+    } finally {
+        global.document = previousDocument;
+        URL.createObjectURL = previousCreate;
+    }
+});
+
+test('KMZ export reports failure instead of downloading when a generated symbol cannot be converted', async () => {
+    let handler;
+    let downloaded = false;
+    const alerts = [];
+    const previousDocument = global.document;
+    const feature = { type: 'Feature', properties: { iconUrl: 'data:image/svg+xml,bad' }, geometry: { type: 'Point', coordinates: [0, 0] } };
+    const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
+    window.PlanMilT.coverageImage = { getGroup: () => group([]) };
+    global.document = { createElement(tag) {
+        if (tag === 'img') return { set src(value) { queueMicrotask(() => this.onerror(new Error('invalid image'))); } };
+        return { click() { downloaded = true; }, set innerHTML(value) { this.textContent = value; } };
+    } };
+    const oldError = console.error;
+    console.error = () => {};
+    try {
+        window.PlanMilT.kmzExport.attach({
+            map: {}, drawnItems: group([{ toGeoJSON: () => feature }]), layerRegistry: {},
+            button: { addEventListener(name, callback) { handler = callback; } },
+            zipArchive: class { file() {} async generateAsync() { throw new Error('must not generate'); } },
+            sweetAlert: { fire: async (...args) => { alerts.push(args); return { isConfirmed: false }; } },
+            captureCanvas: () => {}
+        });
+        await handler();
+        assert.equal(downloaded, false);
+        assert.match(alerts.at(-1)[1], /Não foi possível preparar/);
+    } finally {
+        global.document = previousDocument;
+        console.error = oldError;
+    }
+});
+
 test('attach registers the export button handler and exposes the converter', () => {
     let registeredHandler;
     const exporter = createExporter({

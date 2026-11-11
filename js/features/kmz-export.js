@@ -7,6 +7,16 @@ window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.kmzExport = Object.freeze({
     /**
+     * Define nomes locais estáveis para ícones incorporados ao KMZ.
+     * @param {string} iconUrl - Endereço original ou imagem embutida.
+     * @param {Array<string>} icons - Lista ordenada de ícones da exportação.
+     * @returns {string} Caminho relativo no arquivo KMZ.
+     */
+    iconPath(iconUrl, icons) {
+        if (iconUrl.startsWith('data:')) return `files/planmilt-symbol-${icons.indexOf(iconUrl) + 1}.png`;
+        return `files/${iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}`;
+    },
+    /**
      * Conecta o botão de exportação e prepara a conversão e o download KMZ.
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
      * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
@@ -124,20 +134,24 @@ window.PlanMilT.kmzExport = Object.freeze({
                         var uniqueIcons = [...new Set(geoJsonData.features.map(f => f.properties.iconUrl).filter(Boolean))];
 
                         await Promise.all(uniqueIcons.map(async (iconUrl) => {
+                            let objectUrl;
                             try {
-                                const response = await window.PlanMilT.apiClient.request(iconUrl);
-                                if (!response.ok) {
-                                    throw new Error(`Falha ao carregar o ícone (HTTP ${response.status}).`);
+                                let imageUrl = iconUrl;
+                                if (!iconUrl.startsWith('data:')) {
+                                    const response = await window.PlanMilT.apiClient.request(iconUrl);
+                                    if (!response.ok) {
+                                        throw new Error(`Falha ao carregar o ícone (HTTP ${response.status}).`);
+                                    }
+                                    objectUrl = URL.createObjectURL(await response.blob());
+                                    imageUrl = objectUrl;
                                 }
-                                const iconBlob = await response.blob();
-                                const iconName = iconUrl.split('/').pop().replace(/\.\w+$/, '.png');
 
                                 // Converte a imagem para PNG
                                 const img = document.createElement('img');
-                                img.src = URL.createObjectURL(iconBlob);
                                 await new Promise((resolve, reject) => {
                                     img.onload = () => resolve();
                                     img.onerror = (err) => reject(err);
+                                    img.src = imageUrl;
                                 });
 
                                 const canvas = document.createElement('canvas');
@@ -147,9 +161,13 @@ window.PlanMilT.kmzExport = Object.freeze({
                                 ctx.drawImage(img, 0, 0);
 
                                 const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                                zip.file(`files/${iconName}`, pngBlob);
+                                if (!pngBlob) throw new Error('Não foi possível converter o ícone para PNG.');
+                                zip.file(window.PlanMilT.kmzExport.iconPath(iconUrl, uniqueIcons), pngBlob);
                             } catch (error) {
                                 console.error('Erro ao processar o ícone:', error);
+                                if (iconUrl.startsWith('data:')) throw error;
+                            } finally {
+                                if (objectUrl) URL.revokeObjectURL(objectUrl);
                             }
                         }));
 
@@ -382,6 +400,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                  * @param {Object} options - Opções adicionais que personalizam a operação.
                  */
                 function geojsontokml(geojson, options) {
+                    const uniqueIcons = [...new Set(geojson.features.map(feature => feature.properties.iconUrl).filter(Boolean))];
                     const kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
@@ -421,7 +440,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                         const geometryType = feature.geometry.type;
                         const coordinates = feature.geometry.coordinates;
                         const properties = feature.properties;
-                        const iconUrl = properties.iconUrl ? `files/${properties.iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}` : '';
+                        const iconUrl = properties.iconUrl ? window.PlanMilT.kmzExport.iconPath(properties.iconUrl, uniqueIcons) : '';
                         const styleUrl = iconUrl ? `<styleUrl>#m_${iconUrl}</styleUrl>` : '';
                         const color = properties.color ? adjustColorOpacity(properties.color, 1.0) : 'ff000000';
                         const fillColor = properties.color ? adjustColorOpacity(properties.color, 0.6) : '99000000';
@@ -551,16 +570,24 @@ ${styleUrl}
                      * @param {Array<*>} features - Feições GeoJSON a converter ou estilizar.
                      */
                     function createStyles(features) {
-                        const uniqueIcons = [...new Set(features.map(f => f.properties.iconUrl).filter(Boolean))];
-                        return uniqueIcons.map(iconUrl => {
-                            const localUrl = `files/${iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}`;
+                        const styleIcons = [...new Set(features.map(f => f.properties.iconUrl).filter(Boolean))];
+                        return styleIcons.map(iconUrl => {
+                            const localUrl = window.PlanMilT.kmzExport.iconPath(iconUrl, uniqueIcons);
+                            const symbolFeature = features.find(feature => feature.properties.iconUrl === iconUrl && feature.properties.militarySymbol);
+                            const symbol = symbolFeature && symbolFeature.properties.militarySymbol;
+                            const size = symbol && symbol.iconSize;
+                            const anchor = symbol && symbol.iconAnchor;
+                            const hotspot = Array.isArray(size) && Array.isArray(anchor) && size.length === 2 && anchor.length === 2 &&
+                                size.every(value => Number.isFinite(value) && value > 0) && anchor.every(Number.isFinite)
+                                ? `<hotSpot x="${anchor[0] / size[0]}" y="${1 - anchor[1] / size[1]}" xunits="fraction" yunits="fraction"/>`
+                                : '<hotSpot x="0.5" y="0.5" xunits="fraction" yunits="fraction"/>';
                             return `
 <Style id="${localUrl}">
 <IconStyle>
 <Icon>
 <href>${localUrl}</href>
             </Icon>
-<hotSpot x="0.5" y="0.5" xunits="fraction" yunits="fraction"/>
+${hotspot}
             </IconStyle>
 <ListStyle>
 <ItemIcon>

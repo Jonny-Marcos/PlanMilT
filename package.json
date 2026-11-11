@@ -2,10 +2,13 @@
   "private": true,
   "scripts": {
     "build:tactical-graphics": "node tools/build-tactical-graphics.mjs",
+    "build:military-symbols": "node tools/build-military-symbols.mjs",
     "test:js": "node --test tests/js/*.test.js"
   },
   "devDependencies": {
     "@zaes/tactical-graphics": "4.5.1",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "milsymbol": "3.0.5",
+    "milstandard-e": "0.2.14"
   }
 }

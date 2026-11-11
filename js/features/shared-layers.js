@@ -113,7 +113,7 @@
                                 }
                                 // Trata ícones personalizados para pontos, garantindo que não são círculos
                                 else if (feature.geometry.type === 'Point' && feature.properties.iconUrl && feature.properties.shape !== 'circle') {
-                                    var customIcon = L.icon({
+                                    var customIcon = feature.properties.militarySymbol ? window.PlanMilT.militarySymbols.createIcon(feature.properties.militarySymbol, L) : L.icon({
                                         iconUrl: feature.properties.iconUrl,
                                         iconSize: [40, 40],
                                         iconAnchor: [15, 15]
@@ -287,7 +287,6 @@
                     }
                 }
             });
-
 
 
 

@@ -169,8 +169,9 @@ test('radio-link task renders reusable presets and preserves its selected values
 test('task icon selectors show only markers in the chosen layer and refresh when the layer changes', () => {
     const friend = 'symbols/friend/alpha.svg';
     const enemy = 'symbols/enemy/bravo.svg';
+    const calunga = 'data:image/svg+xml;utf8,%3Csvg%3E';
     const layerCounts = {
-        drawnItems: { [friend]: 2, [enemy]: 1 },
+        drawnItems: { [friend]: 2, [enemy]: 1, [calunga]: 1 },
         planningSuggestions: { [friend]: 3 },
         empty: {}
     };
@@ -219,7 +220,8 @@ test('task icon selectors show only markers in the chosen layer and refresh when
     assert.equal(group1.value, enemy);
     assert.equal(group2.value, friend);
     assert.match(group1.innerHTML, /1 disponível/);
-    assert.match(status.textContent, /2 tipos de ícone encontrados/);
+    assert.match(status.textContent, /3 tipos de ícone encontrados/);
+    assert.match(group1.innerHTML, /Calunga 3 \(1 disponível\)/);
 
     layerSelect.value = 'planningSuggestions';
     listeners.change();

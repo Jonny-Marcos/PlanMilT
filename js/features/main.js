@@ -30,6 +30,7 @@
             </div>
             </div>
 <img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
+<button id="createMilitarySymbol" type="button" title="Criar e selecionar calunga">Criar calunga</button>
             </div>
 <div class="toolbar-icons">
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
@@ -137,6 +138,17 @@
                 apiClient: window.PlanMilT.apiClient
             });
             iconSelector.load().catch(error => console.error('Erro ao carregar ícones:', error));
+            document.getElementById('createMilitarySymbol').addEventListener('click', async () => {
+                try {
+                    const symbol = await window.PlanMilT.militarySymbols.open();
+                    if (!symbol) return;
+                    iconSelector.selectMilitarySymbol(symbol);
+                    Swal.fire('Calunga selecionada', 'Use a ferramenta de marcador no mapa e escolha “Ícone” para inseri-la.', 'info');
+                } catch (error) {
+                    console.error('[PlanMilT][Calungas] Falha ao abrir criador.', error);
+                    Swal.fire('Erro', 'Não foi possível abrir o criador de calungas.', 'error');
+                }
+            });
 
             // Adicione o controle de busca ao mapa
             L.Control.geocoder({
@@ -481,6 +493,9 @@
                                 },
                                 geometry: layer.toGeoJSON().geometry
                             };
+                            if (selectedIcon.militarySymbol) {
+                                layer.feature.properties.militarySymbol = selectedIcon.militarySymbol;
+                            }
                         } else {
                             // Exibe um alerta ao usuário informando que nenhum ícone foi selecionado
                             Swal.fire({

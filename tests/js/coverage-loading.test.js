@@ -127,3 +127,39 @@ test('direct recent loading does not record invalid or failed responses', async 
     assert.deepEqual(recent, []);
     assert.equal(alerts.length, 2);
 });
+
+for (const editable of [true, false]) {
+    test(`restores military symbol metadata and sizing ${editable ? 'for editing' : 'as overlay'}`, async () => {
+        const data = { iconUrl: 'data:image/svg+xml,test', config: { sidc: '13031000141211000000', options: {} },
+            iconSize: [90, 50], iconAnchor: [60, 25] };
+        const feature = { type: 'Feature', properties: { iconUrl: data.iconUrl, militarySymbol: data },
+            geometry: { type: 'Point', coordinates: [-50, -20] } };
+        const restored = [];
+        let icon;
+        const context = {
+            document: { getElementById: () => ({ addEventListener() {} }) },
+            window: { location: { href: 'https://example.test/' }, PlanMilT: {
+                apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) },
+                welcome: { record: () => true },
+                coverageImage: { clear() {} },
+                militarySymbols: { createIcon(actual) { assert.equal(actual, data); return { data: actual }; } }
+            } },
+            Swal: { fire: async () => ({ isConfirmed: editable }) },
+            L: { geoJson(input, options) {
+                if (!input) return { addTo() { return this; }, addLayer(layer) { restored.push(layer); } };
+                const layer = { feature, setIcon(value) { icon = value; } };
+                options.onEachFeature(feature, layer);
+                return { addTo() { return this; } };
+            } },
+            map: { fitBounds() {} },
+            drawnItems: { clearLayers() {}, addLayer(layer) { restored.push(layer); }, getLayers: () => [], getBounds: () => ({}) },
+            addNewOverlayLayer() {}, isValidGeoJson: () => true,
+            console: { info() {}, error(error) { throw new Error(error); } }
+        };
+        vm.runInNewContext(source, context);
+        await context.window.PlanMilT.drawingLoading.load('teste');
+        assert.equal(restored.length, 1);
+        assert.equal(icon.data, data);
+        assert.equal(restored[0].feature.properties.militarySymbol.config.sidc, data.config.sidc);
+    });
+}

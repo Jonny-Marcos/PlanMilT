@@ -173,9 +173,10 @@ ${preset.label}
                             const selectedValues = previousValues.filter(value => availableValues.includes(value));
                             if (selectedValues.length === 0 && icons.length > 0) selectedValues.push(icons[0][0]);
                             select.innerHTML = icons.length > 0
-                                ? icons.map(([icon, count]) => {
+                                ? icons.map(([icon, count], index) => {
                                     const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
-                                    const label = `${icon.split('/')[2]}/${fileName} (${count} ${count === 1 ? 'disponível' : 'disponíveis'})`;
+                                    const name = icon.startsWith('data:image/') ? `Calunga ${index + 1}` : `${icon.split('/')[2]}/${fileName}`;
+                                    const label = `${name} (${count} ${count === 1 ? 'disponível' : 'disponíveis'})`;
                                     return `<option value="${escapeHtml(icon)}" ${selectedValues.includes(icon) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
                                 }).join('')
                                 : '<option value="">Nenhum ícone encontrado nesta camada</option>';

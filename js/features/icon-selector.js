@@ -136,6 +136,19 @@ window.PlanMilT.iconSelector = Object.freeze({
              */
             getSelectedIcon() {
                 return icons[selectedIconKey] || null;
+            },
+            /**
+             * Seleciona uma calunga criada sem alterar o catálogo de ícones existente.
+             * @param {Object} data - Imagem e metadados do símbolo.
+             */
+            selectMilitarySymbol(data) {
+                selectedIconKey = '__military_symbol__';
+                icons[selectedIconKey] = window.PlanMilT.militarySymbols.createIcon(data, leaflet);
+                icons[selectedIconKey].militarySymbol = data;
+                preview.src = data.iconUrl;
+                preview.style.display = 'inline';
+                preview.style.width = '40px';
+                preview.style.height = '40px';
             }
         });
     }

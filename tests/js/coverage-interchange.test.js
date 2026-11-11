@@ -62,6 +62,37 @@ test('shared planning restores raster coverages to its overlay', async () => {
     assert.equal(added[0].image, true);
 });
 
+test('shared planning restores the military symbol icon and its original dimensions', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
+    let load;
+    let icon;
+    const symbol = { iconUrl: 'data:image/svg+xml,test', iconSize: [90, 50], iconAnchor: [60, 25] };
+    const feature = { type: 'Feature', properties: { iconUrl: symbol.iconUrl, militarySymbol: symbol },
+        geometry: { type: 'Point', coordinates: [-50, -20] } };
+    const context = {
+        URL, URLSearchParams,
+        document: {
+            addEventListener(name, callback) { if (name === 'DOMContentLoaded') load = callback; },
+            getElementById: () => ({ addEventListener() {} }),
+            querySelector: () => ({}), querySelectorAll: () => []
+        },
+        window: { location: { href: 'https://example.test/?camada=teste' }, PlanMilT: {
+            apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) },
+            militarySymbols: { createIcon(data) { assert.equal(data, symbol); return { data }; } }
+        } },
+        L: { geoJson(data, options) {
+            if (!data) return { addTo() { return this; }, addLayer() {} };
+            options.onEachFeature(feature, { setIcon(value) { icon = value; } });
+            return {};
+        } },
+        map: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
+        console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
+    };
+    vm.runInNewContext(source, context);
+    await load();
+    assert.equal(icon.data, symbol);
+});
+
 test('KMZ coverage import reprojects the geographic PNG and restores coverage metadata', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/kmz-import.js'), 'utf8');
     const values = { south: '-22', west: '-52', north: '-21', east: '-51' };
@@ -115,4 +146,47 @@ test('KMZ coverage import reprojects the geographic PNG and restores coverage me
     assert.equal(data.image, 'data:image/png;base64,AQ==');
     assert.equal(data.resolutionKm, 0.5);
     assert.equal(data.mode, 'radio');
+});
+
+test('KMZ imports a military symbol with its image dimensions and geographic anchor', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/kmz-import.js'), 'utf8');
+    let restored;
+    const hotspot = { getAttribute(name) { return { x: '0.75', y: '0.6', xunits: 'fraction', yunits: 'fraction' }[name]; } };
+    const iconNode = { textContent: 'files/planmilt-symbol-1.png', parentElement: { parentElement: { querySelector: () => hotspot } } };
+    const placemark = { querySelector(selector) {
+        if (selector === 'styleUrl') return { textContent: '#m_files/planmilt-symbol-1.png' };
+        if (selector === 'coordinates') return { textContent: '-50,-20,0' };
+        return null;
+    } };
+    const context = {
+        document: {
+            getElementById: () => ({ addEventListener() {} }),
+            createElement() { return { naturalWidth: 100, naturalHeight: 50, set src(value) { queueMicrotask(() => this.onload()); } }; }
+        },
+        drawnItems: { on() {} },
+        L: {
+            Hash: class {},
+            latLng: (lat, lng) => [lat, lng],
+            icon: options => options,
+            marker: (position, options) => ({ addTo(layer) { restored = { position, options, layer }; } })
+        },
+        map: { attributionControl: { setPrefix() {} } },
+        Autolinker: class {},
+        DOMParser: class { parseFromString() { return { querySelectorAll(selector) {
+            return selector === 'IconStyle > Icon > href' ? [iconNode] : [placemark];
+        } }; } },
+        window: { PlanMilT: {} }, console,
+        Swal: { fire() { throw new Error('unexpected error'); } },
+        queueMicrotask
+    };
+    vm.runInNewContext(source, context);
+    const layer = { getLayers: () => [] };
+    context.processImagesFromKML('', { file: () => ({ async: async () => 'AQ==' }) }, layer);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(restored.position, [-20, -50]);
+    assert.equal(restored.options.icon.iconSize[0], 100);
+    assert.equal(restored.options.icon.iconSize[1], 50);
+    assert.equal(restored.options.icon.iconAnchor[0], 75);
+    assert.equal(restored.options.icon.iconAnchor[1], 20);
+    assert.equal(restored.layer, layer);
 });

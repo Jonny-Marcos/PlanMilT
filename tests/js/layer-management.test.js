@@ -23,15 +23,18 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /app\.css\?v=20261111-toolbar-toggle/);
     assert.match(documentSource, /radio-planning\.js\?v=20261115-rx-power/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261111-propagation-scenarios/);
+    assert.match(documentSource, /task-parameters\.js\?v=20261119-calungas/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['drawing-storage', 'drawing-loading', 'shared-layers', 'elevation-tools']) {
+    for (const script of ['drawing-storage', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    for (const script of ['welcome', 'help-and-planning']) {
+    for (const script of ['military-symbols', 'icon-selector', 'kmz-export', 'main', 'kmz-import', 'shared-layers', 'drawing-loading', 'layer-management', 'help-and-planning']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
+    }
+    for (const script of ['welcome']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261118-help`));
     }
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
@@ -40,7 +43,6 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /tactical-graphics\.js\?v=20260617-tactical-graphic-picker/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);
-    assert.match(documentSource, /layer-management\.js\?v=20261015-catalog-title-25/);
     assert.match(source, /Carregando dados/);
     assert.match(source, /<summary>Busca avançada<\/summary>/);
     assert.match(source, /layerCatalogAdvancedService/);
