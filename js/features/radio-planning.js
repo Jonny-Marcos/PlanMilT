@@ -516,13 +516,37 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 // 2. CÁLCULO DE COBERTURA (HEATMAP RF E ÓTICO)
                 // ==========================================
                 /**
+                 * Apresenta a etapa atual da predição de cobertura.
+                 * @param {string} message - Descrição da etapa.
+                 */
+                function showCoverageProgress(message) {
+                    Swal.fire({
+                        title: 'Predição de área de cobertura',
+                        html: '<p id="coverageProgressMessage"></p><progress id="coverageProgress" max="72" aria-label="Radiais analisadas"></progress><p id="coverageProgressEstimate" aria-live="polite"></p>',
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => { document.getElementById('coverageProgressMessage').textContent = message; }
+                    });
+                }
+
+                /**
+                 * Libera o navegador para atualizar a interface durante o cálculo.
+                 * @returns {Promise<void>} Espera até a próxima tarefa do navegador.
+                 */
+                function yieldCoverageProgress() {
+                    return new Promise(resolve => setTimeout(resolve, 0));
+                }
+
+                /**
                  * Calcula a cobertura RF a partir do centro e dos parâmetros da simulação.
                  * @param {Object} center - Centro geográfico da forma ou simulação.
                  * @param {Object} p - Parâmetros de configuração da simulação.
                  */
                 async function calcularCobertura(center, p) {
-                    Swal.fire({ title: 'Realizando predição de enlace... Aguarde.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    showCoverageProgress('Preparando os pontos de análise…');
                     try {
+                        await yieldCoverageProgress();
                         let radiais = 72;
                         let resolucaoKm = 0.05;
                         let maxPassos = Math.ceil(p.radius / resolucaoKm);
@@ -535,11 +559,23 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 let dest = turf.destination([center.lng, center.lat], dist, angle, {units: 'kilometers'});
                                 pointReqArray.push({ latitude: dest.geometry.coordinates[1], longitude: dest.geometry.coordinates[0], distKm: dist, angle: angle, radialId: r });
                             }
+                            if (r % 4 === 3) await yieldCoverageProgress();
                         }
 
-                        const data = await requestElevation(pointReqArray);
+                        document.getElementById('coverageProgressMessage').textContent = 'Consultando a elevação do terreno; tempo restante indisponível nesta etapa…';
+                        await yieldCoverageProgress();
+                        const data = await requestElevation(pointReqArray, true, () => {
+                            showCoverageProgress('Consultando novamente a elevação do terreno; tempo restante indisponível nesta etapa…');
+                        });
                         if (!data || data.length !== pointReqArray.length) throw new Error("Dados topográficos insuficientes.");
 
+                        showCoverageProgress('Calculando a cobertura do terreno…');
+                        const progressBar = document.getElementById('coverageProgress');
+                        const progressMessage = document.getElementById('coverageProgressMessage');
+                        const progressEstimate = document.getElementById('coverageProgressEstimate');
+                        const calculationStart = Date.now();
+                        progressBar.value = 0;
+                        await yieldCoverageProgress();
                         let validCells = []; 
                         let K = 1.333;
                         let halfAngle = (360 / radiais) / 2;
@@ -637,9 +673,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                                 validCells.push(turf.polygon([[p1, p2, p3, p4, p1]], { rxPower: p.isOptical ? 'Visível' : rxPower.toFixed(2), color: cellColor }));
                             }
+                            const completed = r + 1;
+                            progressBar.value = completed;
+                            progressMessage.textContent = `Analisando radiais: ${completed} de ${radiais} (${Math.round(completed / radiais * 100)}%).`;
+                            if (completed < radiais) {
+                                const remainingSeconds = Math.ceil((Date.now() - calculationStart) / 1000 / completed * (radiais - completed));
+                                progressEstimate.textContent = `Tempo estimado para as radiais: ${remainingSeconds} s. A exibição do resultado ainda será processada.`;
+                            } else {
+                                progressEstimate.textContent = 'Preparando a exibição do resultado…';
+                            }
+                            await yieldCoverageProgress();
                         }
-
-                        Swal.close();
 
                         if (validCells.length > 0) {
                             let coverageGeoJSON = turf.featureCollection(validCells);
@@ -665,6 +709,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                              
                             rfGeneratedLayers.push(coverageLayer);
                             rfGeneratedLayers.push(txMarker);
+                            Swal.close();
 
                         } else {
                             Swal.fire('Área Bloqueada', 'O relevo bloqueia completamente a linha de visada nas configurações informadas.', 'error');
@@ -683,8 +728,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 /**
                  * Solicita os dados de elevação para os pontos especificados.
                  * @param {Array<*>} pointsArray - Valor de entrada usado durante esta operação.
+                 * @param {boolean} [allowUpload=true] - Permite solicitar arquivos ausentes.
+                 * @param {Function} [onResume] - Atualiza a interface antes de repetir a consulta.
+                 * @returns {Promise<Array<Object>>} Elevações dos pontos consultados.
                  */
-                async function requestElevation(pointsArray, allowUpload = true) {
+                async function requestElevation(pointsArray, allowUpload = true, onResume) {
                     const response = await window.PlanMilT.apiClient.request('elevation-profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -695,7 +743,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     if (data && data.error === 'Arquivos de elevação faltando' && Array.isArray(data.missingTiles)) {
                         const missingTiles = [...new Set(data.missingTiles)];
                         const uploaded = allowUpload && await uploadMissingElevationTiles(missingTiles);
-                        if (uploaded) return requestElevation(pointsArray, false);
+                        if (uploaded) {
+                            if (onResume) onResume();
+                            return requestElevation(pointsArray, false, onResume);
+                        }
 
                         const error = new Error('Arquivos de elevação faltando.');
                         error.missingTiles = missingTiles;

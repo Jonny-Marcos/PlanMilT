@@ -20,6 +20,13 @@
                 showError: message => alert(message)
             });
 
+            window.PlanMilT.mapPointInfo.attach({
+                map,
+                leaflet: L,
+                projection: proj4,
+                apiClient: window.PlanMilT.apiClient
+            });
+
 
 
 

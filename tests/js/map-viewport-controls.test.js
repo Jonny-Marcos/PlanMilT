@@ -45,14 +45,14 @@ function createControls(width) {
     const context = {
         window: {
             innerWidth: width,
-            PlanMilT: { geolocation: { attach() {} }, kmzExport: { attach() {} } }
+            PlanMilT: { geolocation: { attach() {} }, kmzExport: { attach() {} }, mapPointInfo: { attach() {} } }
         },
         document: {
             getElementById(id) { return byId[id]; },
             querySelector(selector) { return bySelector[selector]; },
             querySelectorAll() { return drawToolbars; }
         },
-        map: {}, drawnItems: {}, layerRegistry: {}, L: {}, JSZip: {}, Swal: {},
+        map: {}, drawnItems: {}, layerRegistry: {}, L: {}, JSZip: {}, Swal: {}, proj4() {},
         html2canvas() {},
         freehandControl: { getContainer: () => controls[2] },
         tacticalGraphicsControl: { getContainer: () => controls[3] },
@@ -109,5 +109,5 @@ test('map fills the viewport and the toggle remains inside the compact toolbar',
     assert.doesNotMatch(html, /id="toggleControlsBtn"/);
     assert.match(html, /css\/app\.css\?v=20261111-toolbar-toggle/);
     assert.match(html, /js\/features\/main\.js\?v=20261111-toolbar-toggle/);
-    assert.match(html, /js\/features\/map-tools\.js\?v=20261111-toolbar-toggle/);
+    assert.match(html, /js\/features\/map-tools\.js\?v=20261111-point-info/);
 });

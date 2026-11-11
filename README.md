@@ -63,6 +63,8 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 
 ### Interface do Usuário
 - **Mapa:** Ocupa a área disponível da janela, sem ocultar as barras do navegador. Use o ícone de olho na barra de ferramentas para ocultar ou mostrar os controles; em telas pequenas eles começam ocultos, mas o ícone permanece disponível.
+- **Dados do ponto:** Clique com o botão direito no mapa ou mantenha o toque pressionado no celular para consultar coordenadas WGS84 em graus decimais, graus/minutos/segundos e UTM, além da elevação dos arquivos SRTM locais. A opção Street View abre o Google Maps em outra aba e envia a coordenada selecionada ao Google; a disponibilidade de imagens depende da cobertura do serviço.
+- **Predição de cobertura:** A análise manual mostra o andamento das radiais e uma estimativa do tempo dessa etapa. A consulta inicial de elevação e a exibição final não possuem estimativa de duração.
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. A designação é opcional e pode ser digitada no próprio seletor, abaixo de “Selecionado:”; durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém gráficos com simbologia própria, omite os símbolos simples indicados como substituíveis pelas ferramentas nativas e, nas medidas de coordenação do espaço aéreo, mantém somente “Corredor aéreo”.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
