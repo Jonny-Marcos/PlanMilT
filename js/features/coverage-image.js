@@ -181,10 +181,7 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
             console.error('[PlanMilT][Cobertura] Falha ao exibir a imagem.');
             window.Swal.fire('Erro', 'Não foi possível exibir a imagem de cobertura.', 'error');
         });
-        const legend = data.mode === 'optical'
-            ? 'Amarelo: visada disponível.'
-            : 'Margem sobre a sensibilidade: verde ≥ 35 dB; verde-claro ≥ 25 dB; amarelo ≥ 15 dB; laranja ≥ 5 dB; vermelho &lt; 5 dB.';
-        overlay.bindPopup(`<b>Cobertura estimada</b><br>${legend}<br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.${onRemove ? '<br><button type="button" data-coverage-remove>Remover cobertura</button>' : ''}`);
+        overlay.bindPopup(`<b>Cobertura estimada</b><br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.${onRemove ? '<br><button type="button" data-coverage-remove>Remover cobertura</button>' : ''}`);
         if (onRemove) {
             overlay.on('popupopen', event => {
                 event.popup.getElement().querySelector('[data-coverage-remove]').addEventListener('click', () => onRemove(overlay));

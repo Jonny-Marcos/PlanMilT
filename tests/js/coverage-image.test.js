@@ -88,7 +88,7 @@ test('real Turf coordinates preserve local 100 km bounds and reject a crossing',
     assert.throws(() => coverage.createRaster({ center: { lat: 0, lng: 179.9 }, radius: 100, turf: realTurf, document }), /antimeridiano/);
 });
 
-test('image overlays retain legend and serialize without entering vector editing', () => {
+test('image overlays omit the legend while retaining resolution, removal and serialization', () => {
     const layers = [];
     const group = {
         addTo() { return this; },
@@ -110,11 +110,22 @@ test('image overlays retain legend and serialize without entering vector editing
         bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5
     } } };
     const layer = coverage.add(feature, leaflet);
-    assert.match(layer.popup, /sensibilidade/);
+    assert.doesNotMatch(layer.popup, /sensibilidade|verde|amarelo|vermelho/i);
     assert.match(layer.popup, /0\.500 km/);
+    assert.match(layer.popup, /Remover cobertura/);
     assert.equal(layer.image, feature.properties.coverageImage.mapImage);
     assert.deepEqual(window.PlanMilT.geoJsonSerialization.toFeatureCollection(group).features, [feature]);
-    coverage.remove(layer);
+    let removeClick;
+    layer.popupopen({ popup: { getElement: () => ({ querySelector: () => ({
+        addEventListener(name, callback) { assert.equal(name, 'click'); removeClick = callback; }
+    }) }) } });
+    removeClick();
     assert.equal(layers.length, 0);
+    const optical = coverage.fromFeature({
+        ...feature,
+        properties: { coverageImage: { ...feature.properties.coverageImage, mode: 'optical' } }
+    }, leaflet);
+    assert.doesNotMatch(optical.popup, /amarelo|visada|Remover cobertura/i);
+    assert.match(optical.popup, /0\.500 km/);
     assert.throws(() => coverage.fromFeature({ properties: { coverageImage: {} } }, leaflet), /inválida/);
 });

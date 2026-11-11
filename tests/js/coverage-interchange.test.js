@@ -35,7 +35,7 @@ test('shared planning restores raster coverages to its overlay', async () => {
     assert.equal(added[0].image, true);
 });
 
-test('KMZ coverage import reprojects the geographic PNG and restores the legend metadata', async () => {
+test('KMZ coverage import reprojects the geographic PNG and restores coverage metadata', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/kmz-import.js'), 'utf8');
     const values = { south: '-22', west: '-52', north: '-21', east: '-51' };
     const box = { querySelector: key => ({ textContent: values[key] }) };
