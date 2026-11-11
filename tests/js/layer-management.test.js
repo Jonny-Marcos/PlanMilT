@@ -28,8 +28,11 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['welcome', 'drawing-storage', 'drawing-loading', 'shared-layers', 'elevation-tools', 'help-and-planning']) {
+    for (const script of ['drawing-storage', 'drawing-loading', 'shared-layers', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
+    }
+    for (const script of ['welcome', 'help-and-planning']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261118-help`));
     }
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
         assert.ok(documentSource.indexOf('js/features/welcome.js') < documentSource.indexOf(`js/features/${consumer}.js`));

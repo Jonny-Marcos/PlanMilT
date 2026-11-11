@@ -7,79 +7,78 @@
                  */
                 function showButtonGuide() {
                     Swal.fire({
-                        title: 'Ajuda - Guia de Botões',
-                        html: `
-<div id="helpTabs" style="display: flex; justify-content: center; margin-bottom: 10px;">
-<button class="swal2-styled" id="btnGeneral" style="margin: 0 10px;">Geral</button>
-<button class="swal2-styled" id="btnDraw" style="margin: 0 10px;">Desenho</button>
-<button class="swal2-styled" id="btnLayers" style="margin: 0 10px;">Camadas</button>
-<button class="swal2-styled" id="btnLeafletControls" style="margin: 0 10px;">Leaflet Controls</button>
-            </div>
-<div id="generalHelp" class="help-section">
-<p><i class="fas fa-file-export"></i> <b>Exportar para KMZ:</b> Exporte o conteúdo do mapa para um arquivo KMZ.</p>
-<p><i class="fas fa-file-import"></i> <b>Importar KMZ:</b> Importe arquivos KMZ para visualização no mapa.</p>
-<p><i class="fas fa-map-marker-alt"></i> <b>Localização:</b> Mostra/esconde sua localização atual.</p>
-<p><i class="fas fa-save"></i> <b>Salvar Desenhos:</b> Salve os desenhos feitos no mapa.</p>
-<p><i class="fas fa-download"></i> <b>Carregar Desenhos:</b> Carregue desenhos salvos anteriormente.</p>
-<p><i class="fas fa-images"></i> <b>Carregar Imagens:</b> Carregue imagens no mapa como camadas de sobreposição.</p>
-<p><i class="fas fa-share-alt"></i> <b>Compartilhar Link:</b> Gere e compartilhe um link com as camadas atuais.</p>
-<p><i class="fas fa-network-wired"></i> <b>Planejamento Automático:</b> Inicia o processo de planejamento automático no mapa.</p>
-            </div>
-<div id="drawHelp" class="help-section" style="display:none;">
-<p><i class="fas fa-minus"></i> <b>Desenhar Linha:</b> Ferramenta para desenhar linhas no mapa.</p>
-<p><i class="fas fa-draw-polygon"></i> <b>Desenhar Polígono:</b> Ferramenta para desenhar polígonos no mapa.</p>
-<p><i class="fas fa-square"></i> <b>Desenhar Quadrado:</b> Ferramenta para desenhar quadrados no mapa.</p>
-<p><i class="fas fa-circle"></i> <b>Desenhar Círculo:</b> Ferramenta para desenhar círculos no mapa.</p>
-<p><i class="fas fa-map-marker-alt"></i> <b>Adicionar Marcador:</b> Ferramenta para colocar um marcador no mapa.</p>
-<p><i class="fas fa-pencil-alt"></i> <b>Editar Elementos:</b> Ferramenta para mover elementos desenhados no mapa.</p>
-<p><i class="fas fa-trash"></i> <b>Excluir Elementos:</b> Ferramenta para excluir elementos desenhados no mapa.</p>
-            </div>
-
-<div id="layersHelp" class="help-section" style="display:none;">
-<p><i class="fas fa-plus"></i> <b>Adicionar Camada:</b> Adicione uma camada ao mapa.</p>
-<p><i class="fas fa-minus"></i> <b>Remover Camada:</b> Remova uma camada do mapa.</p>
-<p><i class="fas fa-save"></i> <b>Salvar Sugestão de Planejamento:</b> Salve a camada de sugestão de planejamento.</p>
-<p><i class="fas fa-sync-alt"></i> <b>Inserir Camada Atualizável:</b> Insira uma camada que será atualizada automaticamente.</p>
-<p><i class="fas fa-layer-group"></i> <b>Controles de Camadas:</b> Use os controles de camadas à direita para ativar/desativar camadas no mapa.</p>
-            </div>
-<div id="leafletControlsHelp" class="help-section" style="display:none;">
-<p><i class="fas fa-ruler"></i> <b>Medir Distância/Área:</b> Ferramenta de medição de distâncias e áreas.</p>
-<p><i class="fas fa-print"></i> <b>Imprimir Mapa:</b> Imprime o mapa atual com a escala selecionada.</p>
-<p><i class="fas fa-search-plus"></i> <b>Zoom In:</b> Aumenta o zoom no mapa.</p>
-<p><i class="fas fa-search-minus"></i> <b>Zoom Out:</b> Diminui o zoom no mapa.</p>
-            </div>
-`,
+                        title: 'Ajuda do PlanMilT',
+                        customClass: { popup: 'planmilt-help-modal' },
+                        html: `<style>
+.swal2-popup.planmilt-help-modal { width:min(820px,calc(100vw - 28px))!important; padding:20px!important; }
+#planmiltHelp { text-align:left; font:14px/1.5 sans-serif; color:#27364a; }
+#planmiltHelp .help-intro { margin:0 0 12px; }
+#planmiltHelp .help-sections { max-height:45vh; overflow-y:auto; border:1px solid #d3d8e0; border-radius:6px; }
+#planmiltHelp details { border-bottom:1px solid #d3d8e0; }
+#planmiltHelp details:last-child { border-bottom:0; }
+#planmiltHelp summary { cursor:pointer; padding:12px; font-weight:600; background:#f4f6f9; }
+#planmiltHelp summary:focus-visible, #planmiltHelp button:focus-visible, #planmiltHelp input:focus-visible { outline:3px solid #435f88; outline-offset:2px; }
+#planmiltHelp details > div { padding:2px 12px 8px; }
+#planmiltHelp p { margin:8px 0; }
+#planmiltHelp .help-settings { margin-top:14px; padding:12px; background:#eef1f5; border-radius:6px; }
+#planmiltHelp label { display:flex; align-items:center; gap:8px; }
+#planmiltHelp label input { width:auto; margin:0; }
+#planmiltHelp button { min-height:40px; margin:10px 0 0; padding:8px 12px; border:1px solid #435f88; border-radius:6px; background:#fff; color:#27364a; cursor:pointer; }
+#planmiltHelp #helpStorageError { color:#a00000; }
+</style>
+<div id="planmiltHelp">
+<p class="help-intro">Escolha um assunto para conhecer as ferramentas e seus usos.</p>
+<div class="help-sections">
+<details open><summary>Começar e navegar no mapa</summary><div>
+<p><b>Mostrar ou ocultar controles:</b> use o ícone de olho na barra de ferramentas. Em telas pequenas, os controles começam ocultos.</p>
+<p><b>Localização, zoom e busca:</b> mostre sua localização, aproxime ou afaste o mapa e pesquise lugares. Use os controles de medição e impressão para medir distâncias ou áreas e imprimir o mapa.</p>
+<p><b>Dados do ponto:</b> clique com o botão direito ou mantenha o toque pressionado para consultar coordenadas e elevação. O link opcional do Street View abre o Google Maps e envia a coordenada selecionada ao Google.</p>
+</div></details>
+<details><summary>Desenhos e simbologia</summary><div>
+<p>Desenhe linhas, polígonos, retângulos, círculos, marcadores e texto; use as ferramentas de edição e exclusão para modificá-los. A ferramenta de desenho livre permite traçar à mão.</p>
+<p><b>Simbologia militar:</b> use o controle de escudo para pesquisar gráficos táticos por seção, ver a prévia e informar uma designação opcional antes de desenhar.</p>
+</div></details>
+<details><summary>Salvar, carregar e compartilhar</summary><div>
+<p><b>Salvar desenhos:</b> informe usuário e senha. Para carregar, informe o usuário e escolha edição ou camada não editável.</p>
+<p><b>Recentes:</b> a tela de boas-vindas lista até dez planejamentos salvos ou carregados neste navegador. Não guarda senha nem cópia dos desenhos; limpar os dados do navegador pode apagar a lista.</p>
+<p><b>KMZ e compartilhamento:</b> importe ou exporte arquivos KMZ e gere links para compartilhar camadas. Novas coberturas são incluídas no KMZ como imagens.</p>
+</div></details>
+<details><summary>Camadas e temas</summary><div>
+<p>Use Adicionar Camadas para explorar recomendações e buscar camadas WMS; use Remover Camadas ou o controle de camadas para organizá-las. É possível inserir uma camada atualizável e salvar a Sugestão de Planejamento.</p>
+<p><b>Imagens e temas:</b> em Carregar Imagens, escolha Criar tema para posicionar, redimensionar e girar uma imagem. Use Mover mapa para navegar sem deslocá-la; temas protegidos exigem senha para edição.</p>
+</div></details>
+<details><summary>Elevação e rádio</summary><div>
+<p>Quando um arquivo de elevação estiver faltando, o PlanMilT tenta baixá-lo automaticamente e oferece envio manual se houver falha. O provedor recebe a região aproximada solicitada.</p>
+<p><b>Predição de Enlace:</b> analise enlaces ou áreas de cobertura RF e ótica. Na área de cobertura, a resolução angular usa 32, 72 ou 180 radiais; a barra de progresso acompanha o cálculo das radiais.</p>
+<p>Na cobertura RF, escolha Penetração/Difração alta, média ou baixa. Clique em uma nova cobertura RF para consultar a potência recebida aproximada; coberturas antigas podem não ter esse dado. A visada ótica não usa esse ajuste.</p>
+<p>Os resultados são estimativas e não garantem cobertura real; valide-os em campo.</p>
+</div></details>
+<details><summary>Planejamento automático</summary><div>
+<p>Em Planejamento Automático, monte e execute sequências de tarefas para gerar sugestões no mapa, analisar enlaces e propor repetidoras. Enquadre a região de interesse antes das análises RF ou óticas.</p>
+<p>Para guardar a camada de sugestões, use Salvar Sugestão de Planejamento nos controles de camadas.</p>
+</div></details>
+</div>
+<div class="help-settings">
+<label><input id="helpWelcomeShow" type="checkbox"> Aparecer mensagem de boas-vindas ao abrir</label>
+<p id="helpStorageError" role="status"></p>
+<button id="helpOpenWelcome" type="button">Abrir boas-vindas e recentes</button>
+</div>
+</div>`,
                         confirmButtonText: 'Fechar',
                         didOpen: () => {
-                            // Função para trocar as abas ao clicar
-                            document.getElementById('btnGeneral').addEventListener('click', function() {
-                                toggleSections('generalHelp');
-                            });
-                            document.getElementById('btnDraw').addEventListener('click', function() {
-                                toggleSections('drawHelp');
-                            });
-                            document.getElementById('btnLayers').addEventListener('click', function() {
-                                toggleSections('layersHelp');
-                            });
-                            document.getElementById('btnLeafletControls').addEventListener('click', function() {
-                                toggleSections('leafletControlsHelp');
+                            window.PlanMilT.welcome.bindPreference(
+                                document.getElementById('helpWelcomeShow'),
+                                document.getElementById('helpStorageError')
+                            );
+                            document.getElementById('helpOpenWelcome').addEventListener('click', () => {
+                                Swal.close();
+                                window.PlanMilT.welcome.show();
                             });
                         }
                     });
-
-                    // Função para mostrar/esconder seções de ajuda
-                    /**
-                     * Exibe a seção de ajuda escolhida e oculta as demais.
-                     * @param {string} sectionId - Identificador da seção a exibir.
-                     */
-                    function toggleSections(sectionId) {
-                        const sections = document.querySelectorAll('.help-section');
-                        sections.forEach(section => section.style.display = 'none');
-                        document.getElementById(sectionId).style.display = 'block';
-                    }
                 }
 
-                document.getElementById('helpButton').addEventListener('click', () => window.PlanMilT.welcome.show());
+                document.getElementById('helpButton').addEventListener('click', showButtonGuide);
                 window.PlanMilT.showButtonGuide = showButtonGuide;
                 document.addEventListener('DOMContentLoaded', async () => {
                     try {

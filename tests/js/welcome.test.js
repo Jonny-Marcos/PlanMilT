@@ -19,7 +19,7 @@ function setup(initial, options = {}) {
         addEventListener(type, handler) { this.listeners[type] = handler; },
         appendChild(child) { this.children.push(child); }
     });
-    for (const id of ['welcomeRecent', 'welcomeHide', 'welcomeStorageError']) elements[id] = element();
+    for (const id of ['welcomeRecent', 'welcomeShow', 'welcomeStorageError', 'welcomeTip']) elements[id] = element();
     const localStorage = {
         getItem(key) { if (options.failRead) throw new Error('indisponível'); return values.get(key) || null; },
         setItem(key, value) { if (options.failWrite) throw new Error('quota'); values.set(key, value); }
@@ -58,14 +58,14 @@ test('recent list is deduplicated, bounded and contains no credentials or drawin
 test('welcome preference can be disabled and re-enabled from the manual screen', () => {
     const fixture = setup();
     fixture.welcome.show(true);
-    fixture.elements.welcomeHide.checked = true;
-    fixture.elements.welcomeHide.listeners.change();
+    fixture.elements.welcomeShow.checked = false;
+    fixture.elements.welcomeShow.listeners.change();
     assert.equal(JSON.parse(fixture.values.get(key)).hidden, true);
     fixture.welcome.show(true);
     assert.equal(fixture.calls.length, 1);
     fixture.welcome.show();
-    fixture.elements.welcomeHide.checked = false;
-    fixture.elements.welcomeHide.listeners.change();
+    fixture.elements.welcomeShow.checked = true;
+    fixture.elements.welcomeShow.listeners.change();
     fixture.welcome.show(true);
     assert.equal(fixture.calls.length, 3);
 });
@@ -99,8 +99,33 @@ test('storage failures and invalid stored data are reported without disrupting o
         assert.equal(fixture.welcome.record('teste'), false);
         assert.ok(fixture.errors.length);
         fixture.welcome.show();
-        fixture.elements.welcomeHide.checked = true;
-        fixture.elements.welcomeHide.listeners.change();
+        fixture.elements.welcomeShow.checked = false;
+        fixture.elements.welcomeShow.listeners.change();
         assert.match(fixture.elements.welcomeStorageError.textContent, /Não foi possível/);
+    }
+});
+
+test('welcome selects a tip for each opening without adding it to local storage', () => {
+    const fixture = setup();
+    fixture.welcome.show();
+    const tip = fixture.elements.welcomeTip.textContent;
+    assert.ok(tip.length > 10);
+    assert.equal(fixture.values.size, 0);
+    fixture.welcome.show();
+    assert.ok(fixture.elements.welcomeTip.textContent.length > 10);
+});
+
+test('tips are chosen from different positions using random values', () => {
+    const fixture = setup();
+    const originalRandom = Math.random;
+    try {
+        Math.random = () => 0;
+        fixture.welcome.show();
+        const first = fixture.elements.welcomeTip.textContent;
+        Math.random = () => 0.999;
+        fixture.welcome.show();
+        assert.notEqual(fixture.elements.welcomeTip.textContent, first);
+    } finally {
+        Math.random = originalRandom;
     }
 });

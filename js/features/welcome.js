@@ -8,6 +8,17 @@ window.PlanMilT = window.PlanMilT || {};
 window.PlanMilT.welcome = (() => {
     const key = `planmilt.welcome.v1:${new URL('.', window.location.href).pathname}`;
     const limit = 10;
+    const tips = [
+        'Use o ícone de olho para mostrar ou ocultar os controles do mapa.',
+        'Clique com o botão direito ou mantenha o toque no mapa para consultar coordenadas e elevação.',
+        'Na predição de cobertura, escolha menos radiais para obter um resultado mais rápido.',
+        'Clique em uma cobertura RF recente para consultar a potência recebida aproximada.',
+        'O KMZ exportado inclui as imagens das coberturas salvas no planejamento.',
+        'No seletor de imagens, escolha Criar tema para posicionar e ajustar uma imagem no mapa.',
+        'Use Simbologia militar para pesquisar gráficos táticos e visualizar o símbolo antes de desenhar.',
+        'Antes de executar análises RF ou óticas, enquadre no mapa a região de interesse.',
+        'Se faltar um arquivo de elevação, o PlanMilT tenta baixá-lo e oferece envio manual em caso de falha.'
+    ];
 
     /**
      * Lê as preferências locais sem impedir o uso do mapa em caso de falha.
@@ -58,6 +69,26 @@ window.PlanMilT.welcome = (() => {
     }
 
     /**
+     * Sincroniza o controle de abertura automática com a preferência local.
+     * @param {HTMLInputElement} checkbox - Controle para habilitar a tela inicial.
+     * @param {HTMLElement} errorText - Área para comunicar falhas de armazenamento.
+     */
+    function bindPreference(checkbox, errorText) {
+        const state = read();
+        checkbox.checked = !state.hidden;
+        if (state.unavailable) errorText.textContent = 'Não foi possível acessar as preferências locais deste navegador.';
+        checkbox.addEventListener('change', () => {
+            const current = read();
+            if (current.unavailable || !write({ hidden: !checkbox.checked, recent: current.recent })) {
+                checkbox.checked = !current.hidden;
+                errorText.textContent = 'Não foi possível salvar a preferência neste navegador.';
+            } else {
+                errorText.textContent = '';
+            }
+        });
+    }
+
+    /**
      * Exibe a tela inicial ou a reabre a partir do botão de ajuda.
      * @param {boolean} [automatic=false] - Respeita a preferência apenas na abertura automática.
      */
@@ -73,18 +104,21 @@ window.PlanMilT.welcome = (() => {
                 #welcomePanel label { display: flex; align-items: center; gap: .5em; }
                 #welcomePanel label input { width: auto; }
                 #welcomeStorageError { color: #a00000; }
+                #welcomePanel .welcome-tip { background: #eef4fa; border-left: 3px solid #435f88; padding: 10px 12px; }
             </style><div id="welcomePanel">
                 <p>Planeje, desenhe e salve suas atividades no mapa.</p>
+                <p class="welcome-tip"><strong>Dica:</strong> <span id="welcomeTip"></span></p>
                 <h3>Planejamentos recentes</h3>
                 <p>Salvos ou carregados neste navegador. A lista pode ser apagada ao limpar os dados do navegador; não contém senhas nem desenhos.</p>
                 <div id="welcomeRecent"></div>
-                <label><input id="welcomeHide" type="checkbox"> Não mostrar automaticamente novamente</label>
+                <label><input id="welcomeShow" type="checkbox"> Aparecer mensagem de boas-vindas ao abrir</label>
                 <p id="welcomeStorageError" role="status"></p>
             </div>`,
             showCancelButton: true,
             confirmButtonText: 'Começar',
-            cancelButtonText: 'Guia de botões',
+            cancelButtonText: 'Ajuda',
             didOpen: () => {
+                document.getElementById('welcomeTip').textContent = tips[Math.floor(Math.random() * tips.length)];
                 const list = document.getElementById('welcomeRecent');
                 if (!state.recent.length) {
                     list.textContent = 'Nenhum planejamento recente neste navegador.';
@@ -101,19 +135,7 @@ window.PlanMilT.welcome = (() => {
                         list.appendChild(button);
                     });
                 }
-                const checkbox = document.getElementById('welcomeHide');
-                checkbox.checked = state.hidden;
-                const errorText = document.getElementById('welcomeStorageError');
-                if (state.unavailable) errorText.textContent = 'Não foi possível acessar as preferências locais deste navegador.';
-                checkbox.addEventListener('change', () => {
-                    const current = read();
-                    if (current.unavailable || !write({ hidden: checkbox.checked, recent: current.recent })) {
-                        checkbox.checked = current.hidden;
-                        errorText.textContent = 'Não foi possível salvar a preferência neste navegador.';
-                    } else {
-                        errorText.textContent = '';
-                    }
-                });
+                bindPreference(document.getElementById('welcomeShow'), document.getElementById('welcomeStorageError'));
             }
         }).then(result => {
             if (result.dismiss === Swal.DismissReason.cancel) {
@@ -122,5 +144,5 @@ window.PlanMilT.welcome = (() => {
         });
     }
 
-    return Object.freeze({ record, show });
+    return Object.freeze({ record, show, bindPreference });
 })();
