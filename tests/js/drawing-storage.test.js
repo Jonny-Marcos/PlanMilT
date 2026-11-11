@@ -11,11 +11,15 @@ function setup(serializer) {
     let request;
     const alerts = [];
     const drawnItems = { getLayer: () => null };
+    const coverageGroup = {};
     const context = {
         drawnItems,
         document: { getElementById: () => ({ addEventListener(name, callback) { click = callback; } }) },
         sessionStorage: { getItem: () => '', setItem() {} },
-        window: { location: { href: 'https://example.test/' }, PlanMilT: { geoJsonSerialization: { toFeatureCollection: serializer } } },
+        window: { location: { href: 'https://example.test/' }, PlanMilT: {
+            coverageImage: { getGroup: () => coverageGroup },
+            geoJsonSerialization: { toFeatureCollection: group => serializer(group, coverageGroup) }
+        } },
         Swal: {
             fire(...args) {
                 alerts.push(args);
@@ -31,13 +35,25 @@ function setup(serializer) {
 
 test('save sends the serialized collection and displays actionable server-size errors', async () => {
     const feature = { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [0, 0] } };
-    const fixture = setup(() => ({ type: 'FeatureCollection', features: [feature] }));
+    const fixture = setup((group, coverageGroup) => ({ type: 'FeatureCollection', features: group === coverageGroup ? [] : [feature] }));
     fixture.click();
     await new Promise(resolve => setImmediate(resolve));
     const request = fixture.getRequest();
     assert.deepEqual(JSON.parse(request.data.leaflet).features, [feature]);
     request.error({ status: 413 }, 'error', 'too large');
     assert.match(fixture.alerts.at(-1)[1], /post_max_size/);
+});
+
+test('save includes raster coverage even when there are no vector drawings', async () => {
+    const feature = { type: 'Feature', geometry: null, properties: { coverageImage: {
+        image: 'data:image/png;base64,AQ==', mapImage: 'data:image/png;base64,Ag==',
+        bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5
+    } } };
+    const fixture = setup((group, coverageGroup) => ({ type: 'FeatureCollection', features: group === coverageGroup ? [feature] : [] }));
+    fixture.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(JSON.parse(fixture.getRequest().data.leaflet).features, [feature]);
+    assert.equal(fixture.alerts.length, 1);
 });
 
 test('serialization failures are reported without sending a request', async () => {

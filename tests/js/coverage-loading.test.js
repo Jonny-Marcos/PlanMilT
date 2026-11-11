@@ -36,7 +36,10 @@ for (const editable of [true, false]) {
             document: { getElementById: () => ({ addEventListener(name, callback) { click = callback; } }) },
             window: {
                 location: { href: 'https://example.test/' },
-                PlanMilT: { apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) } }
+                PlanMilT: {
+                    coverageImage: { clear() {}, fromFeature() { throw new Error('unexpected raster'); } },
+                    apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) }
+                }
             },
             Swal: { fire: async () => ++prompt === 1 ? { value: 'teste' } : { isConfirmed: editable } },
             L, map, drawnItems,
@@ -52,5 +55,44 @@ for (const editable of [true, false]) {
         assert.equal(styles[0].fillColor, '#ff9900');
         assert.equal(styles[0].fillOpacity, 0.6);
         assert.equal(feature.properties.rxPower, '-92.50');
+    });
+}
+
+for (const editable of [true, false]) {
+    test(`restores raster coverage ${editable ? 'to the editable planning' : 'in a separate overlay'}`, async () => {
+        let click;
+        const raster = { type: 'Feature', geometry: null, properties: { coverageImage: { image: 'data:image/png;base64,AA==' } } };
+        const restored = [];
+        let cleared = false;
+        let prompt = 0;
+        const context = {
+            document: { getElementById: () => ({ addEventListener(name, callback) { click = callback; } }) },
+            window: {
+                location: { href: 'https://example.test/' },
+                PlanMilT: {
+                    apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [raster] }) }) },
+                    coverageImage: {
+                        fromFeature(feature) { assert.equal(feature, raster); return { raster: true }; },
+                        clear() { cleared = true; },
+                        add(feature) { restored.push(feature); },
+                        getGroup() { return { getBounds: () => ({}) }; }
+                    }
+                }
+            },
+            Swal: { fire: async () => ++prompt === 1 ? { value: 'teste' } : { isConfirmed: editable } },
+            L: { geoJson(data) {
+                if (!data) return { addTo() { return this; }, addLayer(layer) { restored.push(layer); }, getBounds() { return {}; } };
+                assert.equal(data.features.length, 0);
+                return { addTo() { return this; } };
+            } },
+            map: { fitBounds() {} },
+            drawnItems: { clearLayers() {}, getLayers: () => [] },
+            addNewOverlayLayer() {}, isValidGeoJson: () => true,
+            console: { info() {}, error(error) { throw new Error(error); } }
+        };
+        vm.runInNewContext(source, context);
+        await click();
+        assert.equal(restored.length, 1);
+        assert.equal(cleared, editable);
     });
 }

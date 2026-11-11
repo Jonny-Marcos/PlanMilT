@@ -108,6 +108,9 @@
                         let drawnData;
                         try {
                             drawnData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
+                            for (const feature of window.PlanMilT.geoJsonSerialization.toFeatureCollection(window.PlanMilT.coverageImage.getGroup()).features) {
+                                drawnData.features.push(feature);
+                            }
                         } catch (error) {
                             console.error('[PlanMilT][Desenhos] Falha ao preparar o salvamento.', error);
                             Swal.fire('Erro!', 'Não foi possível preparar os desenhos para salvamento.', 'error');

@@ -64,9 +64,12 @@
 
                         // Prepara uma nova camada GeoJSON para adicionar ao mapa
                         var newLayer = L.geoJson(null).addTo(map);
+                        const coverageFeatures = geoJsonData.features.filter(feature => feature.properties && feature.properties.coverageImage);
+                        const vectorData = { type: 'FeatureCollection', features: geoJsonData.features.filter(feature => !(feature.properties && feature.properties.coverageImage)) };
+                        coverageFeatures.forEach(feature => newLayer.addLayer(window.PlanMilT.coverageImage.fromFeature(feature, L)));
 
                         // Processa e adiciona os dados GeoJSON à nova camada
-                        L.geoJson(geoJsonData, {
+                        L.geoJson(vectorData, {
                             onEachFeature: function(feature, layer) {
                                 if (feature.geometry.type === 'Point' && Object.keys(feature.properties).length === 0) {
                                     // Configura um ícone transparente e sem tamanho para o layer
@@ -126,6 +129,7 @@
                     }
                 } catch (error) {
                     console.error("Falha ao carregar desenhos:", error);
+                    Swal.fire('Erro', 'Não foi possível carregar a camada compartilhada.', 'error');
                 }
             });
 
@@ -275,8 +279,6 @@
                     }
                 }
             });
-
-
 
 
 

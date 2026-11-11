@@ -76,6 +76,14 @@ test('drawing endpoint persists a large collection and rejects oversized request
         });
         assert.equal(wrongType.status, 400);
         assert.equal(await (await load()).text(), drawing);
+        const raster = JSON.stringify({ type: 'FeatureCollection', features: [{
+            type: 'Feature', geometry: null, properties: { coverageImage: {
+                image: 'data:image/png;base64,AQ==', mapImage: 'data:image/png;base64,Ag==',
+                bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5
+            } }
+        }] });
+        assert.equal((await save(raster)).status, 200);
+        assert.equal(await (await load()).text(), raster);
     } finally {
         server.kill('SIGTERM');
         await new Promise(resolve => server.once('exit', resolve));

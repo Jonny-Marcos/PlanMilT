@@ -8,6 +8,7 @@
             var planejamentoLayer = mapSetup.planejamentoLayer;
             var addNewOverlayLayer = mapSetup.addNewOverlayLayer;
             var removeOverlayLayer = mapSetup.removeOverlayLayer;
+            window.PlanMilT.coverageImage.attach(map, L, layerControl);
             window.PlanMilT.apiClient.getJson('php/endpoints/map-settings.php')
                 .then(settings => mapSetup.applyMapDefaults(settings))
                 .catch(error => console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error));

@@ -3,6 +3,7 @@ const test = require('node:test');
 
 global.window = {};
 require('../../js/features/coverage-propagation.js');
+require('../../js/features/coverage-image.js');
 
 const buttonListeners = new Map();
 const mapListeners = new Map();
@@ -208,11 +209,24 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const progressValues = [];
         const messages = [];
         const requestUrls = [];
-        let renderedFeatures;
+        let requestedPoints;
+        const renderedCells = [];
+        const removedLayers = [];
+        let savedImage;
         let finish;
         const finished = new Promise(resolve => { finish = resolve; });
         const originalDocument = global.document;
         const originalClient = window.PlanMilT.apiClient;
+        const originalCoverage = window.PlanMilT.coverageImage;
+        window.PlanMilT.coverageImage = {
+            resolution: originalCoverage.resolution,
+            createRaster: () => ({
+                draw(points, color, opacity) { renderedCells.push({ points, color, opacity }); },
+                finish: () => ({ image: 'data:image/png;base64,AA==', mapImage: 'data:image/png;base64,AA==', bounds: [[-1, -1], [1, 1]] })
+            }),
+            add(feature) { savedImage = feature; return {}; },
+            remove(layer) { removedLayers.push(layer); }
+        };
         global.document = {
             getElementById(id) {
                 if (!elements.has(id)) elements.set(id, {
@@ -228,7 +242,8 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         });
         const map = {
             on(name, callback) { listeners.set(`map:${name}`, callback); },
-            getContainer: () => ({ style: {} })
+            getContainer: () => ({ style: {} }),
+            hasLayer: () => false
         };
         const marker = {
             addTo() { return this; },
@@ -238,10 +253,6 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             layerGroup: () => ({ addTo() { return this; }, clearLayers() {} }),
             marker: () => marker,
             divIcon: () => ({}),
-            geoJSON: collection => {
-                renderedFeatures = collection.features;
-                return { addTo() { return this; } };
-            }
         };
         const turf = {
             destination(center, distance, angle) {
@@ -253,8 +264,9 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const Swal = {
             fire(options) {
                 if (options.title && options.title.includes('Predição de Alcance')) {
+                    options.didOpen();
                     return Promise.resolve({ value: {
-                        mode: 'coverage', radius: 0.1, freq: 0, isOptical: true,
+                        mode: 'coverage', radius: 100, freq: 0, isOptical: true,
                         txHeight: 1.5, rxHeight: 1.5
                     } });
                 }
@@ -282,14 +294,15 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
                 return {
                     ok: true,
                     async json() {
-                        return JSON.parse(options.body).points.map(() => ({ elevation: 100 }));
+                        requestedPoints = JSON.parse(options.body).points;
+                        return requestedPoints.map(() => ({ elevation: 100 }));
                     }
                 };
             }
         };
         try {
             window.PlanMilT.radioPlanning.attach({
-                map, leaflet, turf, drawnItems: {}, sweetAlert: Swal, chartConstructor: class {}
+                map, leaflet, turf, drawnItems: { hasLayer: () => false }, sweetAlert: Swal, chartConstructor: class {}
             });
             await listeners.get('linkPredictionBtn:click').call({ style: {} });
             listeners.get('map:click')({ latlng: { lat: 0, lng: 0 } });
@@ -309,12 +322,21 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             assert.ok(messages.some(message => /Tempo estimado para as radiais/.test(message)));
             assert.ok(messages.some(message => /Preparando a exibição/.test(message)));
             assert.deepEqual(requestUrls, ['elevation-profile.php', 'elevation-upload.php', 'elevation-profile.php']);
-            assert.ok(renderedFeatures.length > 0);
-            assert.equal(renderedFeatures[0].properties.fillColor, '#ffff00');
-            assert.equal(renderedFeatures[0].properties.fillOpacity, 0.45);
+            assert.equal(requestedPoints.length, 14472);
+            assert.ok(requestedPoints.every(point => point.longitude <= 100));
+            assert.ok(requestedPoints.every(point => Object.keys(point).length === 2));
+            assert.ok(renderedCells.length > 0);
+            assert.equal(renderedCells[0].color, '#ffff00');
+            assert.equal(renderedCells[0].opacity, 0.45);
+            assert.equal(savedImage.geometry, null);
+            assert.equal(savedImage.properties.coverageImage.mode, 'optical');
+            listeners.get('btnClearRFLayers:click')();
+            listeners.get('btnClearRFLayers:click')();
+            assert.equal(removedLayers.length, 2);
         } finally {
             global.document = originalDocument;
             window.PlanMilT.apiClient = originalClient;
+            window.PlanMilT.coverageImage = originalCoverage;
         }
     });
 

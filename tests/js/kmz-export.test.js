@@ -12,6 +12,7 @@ global.document = {
     }
 };
 require('../../js/features/kmz-export.js');
+require('../../js/features/geojson-serialization.js');
 
 function createExporter(button = { addEventListener() {} }) {
     return window.PlanMilT.kmzExport.attach({
@@ -109,7 +110,53 @@ test('attach registers the export button handler and exposes the converter', () 
             registeredHandler = handler;
         }
     });
-
     assert.equal(typeof registeredHandler, 'function');
     assert.equal(typeof exporter.geojsontokml, 'function');
+});
+
+test('exports multiple raster-only coverages as PNG GroundOverlays without optional map capture', async () => {
+        let handler;
+        let archive;
+        let clicked = false;
+        const previousDocument = global.document;
+        const previousCreate = URL.createObjectURL;
+        const feature = (image, bounds) => ({ type: 'Feature', geometry: null, properties: { coverageImage: {
+            image, mapImage: 'data:image/png;base64,Aw==', bounds, resolutionKm: 0.5, mode: 'radio'
+        } } });
+        const images = [
+            feature('data:image/png;base64,AQ==', [[-22, -52], [-21, -51]]),
+            feature('data:image/png;base64,Ag==', [[-20, -50], [-19, -49]])
+        ];
+        const group = children => ({
+            eachLayer(callback) { children.forEach(callback); },
+            toGeoJSON() { throw new Error('não usar serialização recursiva'); }
+        });
+        window.PlanMilT.coverageImage = { getGroup: () => group(images.map(item => ({ toGeoJSON: () => item }))) };
+        global.document = { createElement: () => ({ click() { clicked = true; } }) };
+        URL.createObjectURL = () => 'blob:test';
+        try {
+            window.PlanMilT.kmzExport.attach({
+                map: {}, drawnItems: group([]), layerRegistry: {},
+                button: { addEventListener(name, callback) { handler = callback; } },
+                zipArchive: class {
+                    constructor() { archive = this; this.files = {}; }
+                    file(name, data, options) { this.files[name] = { data, options }; }
+                    async generateAsync() { return {}; }
+                },
+                sweetAlert: { fire: async () => ({ isConfirmed: false }) },
+                captureCanvas: () => { throw new Error('captura não deve ser usada'); }
+            });
+            await handler();
+            assert.equal(clicked, true);
+            assert.deepEqual(archive.files['coverage/coverage-1.png'], { data: 'AQ==', options: { base64: true } });
+            assert.equal(archive.files['coverage/coverage-2.png'].data, 'Ag==');
+            const kml = archive.files['doc.kml'].data;
+            assert.equal((kml.match(/<GroundOverlay>/g) || []).length, 2);
+            assert.match(kml, /<south>-22<\/south><east>-51<\/east><west>-52<\/west>/);
+            assert.match(kml, /planmilt-coverage/);
+            assert.match(kml, /sensibilidade/);
+        } finally {
+            global.document = previousDocument;
+            URL.createObjectURL = previousCreate;
+        }
 });

@@ -29,6 +29,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                 try {
                     // Obtém os dados dos desenhos existentes
                     var geoJsonData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
+                    const coverageFeatures = window.PlanMilT.geoJsonSerialization.toFeatureCollection(window.PlanMilT.coverageImage.getGroup()).features;
 
                     // Verifica se a camada "Sugestão de Planejamento" existe no layerRegistry
                     if (layerRegistry.hasOwnProperty("Sugestão de Planejamento")) {
@@ -74,7 +75,7 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                         // Expressão regular para encontrar todos os Placemark
                         const placemarkRegex = /<Placemark>[\s\S]*?<\/Placemark>/g;
-                        const allPlacemarks = kmlData.match(placemarkRegex);
+                        const allPlacemarks = kmlData.match(placemarkRegex) || [];
 
                         // Filtrar os Placemarks que pertencem à "Sugestão de Planejamento"
                         const folderPlacemarks = allPlacemarks.filter(placemark => placemark.includes('<name>Conexão TAR</name>') || placemark.includes('<name>NA Sugerido</name>')|| placemark.includes('<name>Enlace Sugerido</name>')|| placemark.includes('<name>EIR Sugerido</name>')|| placemark.includes('<name>CN Sugerido</name>') || placemark.includes('<name>TAR Sugerido</name>') || placemark.includes('<name>Cobertura TAR</name>'));
@@ -92,6 +93,17 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                         // Continua com a criação do ZIP e download
                         var zip = new JSZip();
+                        coverageFeatures.forEach((feature, index) => {
+                            const data = feature.properties.coverageImage;
+                            const filename = `coverage/coverage-${index + 1}.png`;
+                            zip.file(filename, data.image.slice('data:image/png;base64,'.length), { base64: true });
+                            const [[south, west], [north, east]] = data.bounds;
+                            const description = data.mode === 'optical'
+                                ? 'Amarelo: visada disponível.'
+                                : 'Margem sobre a sensibilidade: verde ≥ 35 dB; verde-claro ≥ 25 dB; amarelo ≥ 15 dB; laranja ≥ 5 dB; vermelho &lt; 5 dB.';
+                            const overlay = `<GroundOverlay><name>Cobertura estimada</name><description>${description} Resolução radial: ${data.resolutionKm.toPrecision(3)} km.</description><ExtendedData><Data name="planmilt-coverage"><value>1</value></Data><Data name="planmilt-mode"><value>${data.mode}</value></Data><Data name="planmilt-resolution-km"><value>${data.resolutionKm}</value></Data></ExtendedData><Icon><href>${filename}</href></Icon><LatLonBox><north>${north}</north><south>${south}</south><east>${east}</east><west>${west}</west></LatLonBox></GroundOverlay>`;
+                            kmlData = kmlData.replace('</Document>', `${overlay}\n</Document>`);
+                        });
                         zip.file("doc.kml", kmlData);
 
                         // Pergunta ao usuário se ele deseja adicionar imagens da camada atual
@@ -154,9 +166,11 @@ window.PlanMilT.kmzExport = Object.freeze({
                             });
                         } catch (error) {
                             console.error("Erro ao gerar o KMZ:", error);
+                            Swal.fire('Erro', 'Não foi possível gerar o arquivo KMZ.', 'error');
                         }
                     } catch (error) {
                         console.error("Erro na função exportDrawingsToKMZ:", error);
+                        Swal.fire('Erro', 'Não foi possível preparar a exportação KMZ.', 'error');
                     }
                 }
 

@@ -54,6 +54,11 @@
                         cancelButtonText: 'Camada não-editável'
                     });
 
+                    const coverageFeatures = geoJsonData.features.filter(feature => feature.properties && feature.properties.coverageImage);
+                    const vectorData = { type: 'FeatureCollection', features: geoJsonData.features.filter(feature => !(feature.properties && feature.properties.coverageImage)) };
+                    const coverageLayers = coverageFeatures.map(feature => window.PlanMilT.coverageImage.fromFeature(feature, L));
+                    let loadedOverlay;
+
                     // Definição do cache de padrões
                     var patternCache = {};
 
@@ -101,8 +106,10 @@
                         // Carrega como camada não-editável
                         const newLayerName = usuario;
                         const newLayer = L.geoJson(null).addTo(map);
+                        loadedOverlay = newLayer;
+                        coverageLayers.forEach(layer => newLayer.addLayer(layer));
 
-                        L.geoJson(geoJsonData, {
+                        L.geoJson(vectorData, {
                             onEachFeature: function(feature, layer) {
                                 if (feature.geometry.type === 'Point' && Object.keys(feature.properties).length === 0) {
                                     var emptyIcon = L.divIcon({ html: '', className: 'empty-icon', iconSize: [0, 0] });
@@ -172,8 +179,10 @@
                     } else {
                         // Carrega para edição
                         drawnItems.clearLayers();
+                        window.PlanMilT.coverageImage.clear();
+                        coverageFeatures.forEach(feature => window.PlanMilT.coverageImage.add(feature, L));
 
-                        L.geoJson(geoJsonData, {
+                        L.geoJson(vectorData, {
                             onEachFeature: function(feature, layer) {
                                 if (feature.geometry.type === 'Point' && Object.keys(feature.properties).length === 0) {
                                     var emptyIcon = L.divIcon({ html: '', className: 'empty-icon', iconSize: [0, 0] });
@@ -239,7 +248,13 @@
                         }).addTo(map);
                     }
 
-                    if (drawnItems.getLayers().length) {
+                    if (escolha && coverageFeatures.length) {
+                        const bounds = window.PlanMilT.coverageImage.getGroup().getBounds();
+                        if (drawnItems.getLayers().length) bounds.extend(drawnItems.getBounds());
+                        map.fitBounds(bounds);
+                    } else if (!escolha && coverageFeatures.length) {
+                        map.fitBounds(loadedOverlay.getBounds());
+                    } else if (drawnItems.getLayers().length) {
                         map.fitBounds(drawnItems.getBounds());
                     }
 

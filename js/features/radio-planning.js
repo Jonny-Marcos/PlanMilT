@@ -179,8 +179,9 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     rfGeneratedLayers.forEach(layer => {
                                         if (map.hasLayer(layer)) map.removeLayer(layer);
                                         if (drawnItems.hasLayer(layer)) drawnItems.removeLayer(layer);
+                                        window.PlanMilT.coverageImage.remove(layer);
                                     });
-                                    rfGeneratedLayers = [];
+                                    rfGeneratedLayers.length = 0;
                                     Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Camadas apagadas!', showConfirmButton: false, timer: 3000 });
                                 } else {
                                     Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Nada para limpar.', showConfirmButton: false, timer: 2000 });
@@ -568,15 +569,21 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     showCoverageProgress('Preparando os pontos de análise…');
                     try {
                         await yieldCoverageProgress();
-                        let radiais = 72;
-                        let resolucaoKm = 0.05;
-                        let maxPassos = Math.ceil(p.radius / resolucaoKm);
+                        const { radialCount: radiais, resolutionKm: resolucaoKm, steps: maxPassos } = window.PlanMilT.coverageImage.resolution(p.radius);
+                        let raster;
+                        try {
+                            raster = window.PlanMilT.coverageImage.createRaster({ center, radius: p.radius, turf, document });
+                        } catch (error) {
+                            error.userMessage = error.message;
+                            throw error;
+                        }
+                        document.getElementById('coverageProgressMessage').textContent = `Preparando os pontos de análise (resolução radial: ${resolucaoKm.toPrecision(3)} km)…`;
                         let pointReqArray = [];
                         
                         for (let r = 0; r < radiais; r++) {
                             let angle = (360 / radiais) * r;
                             for (let i = 0; i <= maxPassos; i++) {
-                                let dist = i * resolucaoKm;
+                                let dist = Math.min(i * resolucaoKm, p.radius);
                                 let dest = turf.destination([center.lng, center.lat], dist, angle, {units: 'kilometers'});
                                 pointReqArray.push({ latitude: dest.geometry.coordinates[1], longitude: dest.geometry.coordinates[0], distKm: dist, angle: angle, radialId: r });
                             }
@@ -597,35 +604,16 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         const calculationStart = Date.now();
                         progressBar.value = 0;
                         await yieldCoverageProgress();
-                        let validCells = []; 
+                        let validCells = 0;
                         let halfAngle = (360 / radiais) / 2;
                         let halfDist = resolucaoKm / 2;
                         
-                        /**
-                         * Determina a cor de apresentação segundo o nível e a sensibilidade do sinal.
-                         * @param {number} rx - Nível de potência recebida em dBm.
-                         * @param {number} sens - Sensibilidade mínima do receptor em dBm.
-                         */
-                        function getSignalColor(rx, sens) {
-                            let margin = rx - sens;
-                            if (margin >= 35) return '#00ff00'; 
-                            if (margin >= 25) return '#99ff33'; 
-                            if (margin >= 15) return '#ffff00'; 
-                            if (margin >= 5)  return '#ff9900'; 
-                            return '#ff0000';                   
-                        }
-
                         for (let r = 0; r < radiais; r++) {
-                            let radialIndices = [];
-                            for(let k = 0; k < pointReqArray.length; k++){
-                                if(pointReqArray[k].radialId === r) radialIndices.push(k);
-                            }
-
-                            let startIdx = radialIndices[0];
+                            const startIdx = r * (maxPassos + 1);
                             const profile = [{ distKm: 0, elevation: data[startIdx].elevation }];
 
-                            for (let i = 1; i < radialIndices.length; i++) {
-                                let idx = radialIndices[i];
+                            for (let i = 1; i <= maxPassos; i++) {
+                                let idx = startIdx + i;
                                 let d1 = pointReqArray[idx].distKm;
                                 
                                 if (d1 === 0) continue; 
@@ -636,8 +624,8 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 const rxPower = result.rxPower;
 
                                 let currentPoint = pointReqArray[idx];
-                                let dist1 = Math.max(0, currentPoint.distKm - halfDist);
-                                let dist2 = currentPoint.distKm + halfDist;
+                                let dist1 = i === 1 ? 0 : currentPoint.distKm - halfDist;
+                                let dist2 = Math.min(p.radius, currentPoint.distKm + halfDist);
                                 let angle1 = currentPoint.angle - halfAngle;
                                 let angle2 = currentPoint.angle + halfAngle;
 
@@ -646,14 +634,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 let p3 = turf.destination([center.lng, center.lat], dist2, angle2, {units: 'kilometers'}).geometry.coordinates;
                                 let p4 = turf.destination([center.lng, center.lat], dist1, angle2, {units: 'kilometers'}).geometry.coordinates;
 
-                                let cellColor = p.isOptical ? '#ffff00' : getSignalColor(rxPower, p.rxSens);
+                                let cellColor = p.isOptical ? '#ffff00' : window.PlanMilT.coverageImage.signalColor(rxPower, p.rxSens);
 
-                                validCells.push(turf.polygon([[p1, p2, p3, p4, p1]], {
-                                    rxPower: p.isOptical ? 'Visível' : rxPower.toFixed(2),
-                                    color: cellColor,
-                                    fillColor: cellColor,
-                                    fillOpacity: p.isOptical ? 0.45 : 0.6
-                                }));
+                                raster.draw([p1, p2, p3, p4], cellColor, p.isOptical ? 0.45 : 0.6);
+                                validCells++;
                             }
                             const completed = r + 1;
                             progressBar.value = completed;
@@ -667,23 +651,19 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             await yieldCoverageProgress();
                         }
 
-                        if (validCells.length > 0) {
-                            let coverageGeoJSON = turf.featureCollection(validCells);
-                            
-                            let coverageLayer = L.geoJSON(coverageGeoJSON, {
-                                style: function(feature) {
-                                    return {
-                                        color: feature.properties.color,
-                                        weight: 0.2, 
-                                        fillColor: feature.properties.color,
-                                        fillOpacity: p.isOptical ? 0.45 : 0.6 // Visada ótica fica um pouco mais transparente (Amarelo)
-                                    };
-                                },
-                                onEachFeature: function(feature, layer) {
-                                    let balao = p.isOptical ? `<b>Área Visível (LOS)</b>` : `<b>Sinal Estimado:</b> ${feature.properties.rxPower} dBm`;
-                                    layer.bindPopup(balao);
-                                }
-                            }).addTo(drawnItems);
+                        if (validCells > 0) {
+                            const result = raster.finish();
+                            const coverageLayer = window.PlanMilT.coverageImage.add({
+                                type: 'Feature',
+                                geometry: null,
+                                properties: { coverageImage: {
+                                    image: result.image,
+                                    mapImage: result.mapImage,
+                                    bounds: result.bounds,
+                                    resolutionKm: resolucaoKm,
+                                    mode: p.isOptical ? 'optical' : 'radio'
+                                } }
+                            }, L);
                             
                             let txMarker = L.marker(center) 
                              .bindPopup(`<b>Base/Origem</b><br>Modo: ${p.isOptical ? 'Ótico (Visual)' : 'RF'}${p.isOptical ? '' : `<br>Faixa: ${window.PlanMilT.coveragePropagation.bandForFrequency(p.freq).name}<br>Penetração/Difração: ${{ high: 'Alta (Otimista)', medium: 'Média (Equilibrada)', low: 'Baixa (Pessimista)' }[p.penetration || 'medium']}`}`)
@@ -718,7 +698,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     const response = await window.PlanMilT.apiClient.request('elevation-profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ points: pointsArray })
+                        body: JSON.stringify({ points: pointsArray.map(({ latitude, longitude }) => ({ latitude, longitude })) })
                     });
                     const data = await response.json();
 

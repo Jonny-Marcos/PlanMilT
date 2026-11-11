@@ -292,7 +292,7 @@
                 overlayNodes.forEach(function(overlayNode) {
                     var iconPath = overlayNode.querySelector('Icon > href').textContent.trim();
                     if (zip.file(iconPath)) {
-                        zip.file(iconPath).async("base64").then(function(imageData) {
+                        zip.file(iconPath).async("base64").then(async function(imageData) {
                             var imgSrc = "data:image/png;base64," + imageData;
 
                             var latLonBox = overlayNode.querySelector('LatLonBox');
@@ -301,10 +301,28 @@
                                 [parseFloat(latLonBox.querySelector('north').textContent), parseFloat(latLonBox.querySelector('east').textContent)]
                             ];
 
-                            var overlay = L.imageOverlay(imgSrc, bounds);
+                            let overlay;
+                            if (overlayNode.querySelector('ExtendedData Data[name="planmilt-coverage"]')) {
+                                const image = document.createElement('img');
+                                await new Promise((resolve, reject) => {
+                                    image.onload = resolve;
+                                    image.onerror = () => reject(new Error('Imagem de cobertura inválida no KMZ.'));
+                                    image.src = imgSrc;
+                                });
+                                const mapImage = window.PlanMilT.coverageImage.projectGeographic(image, bounds, document);
+                                const mode = overlayNode.querySelector('ExtendedData Data[name="planmilt-mode"] value').textContent;
+                                const resolutionKm = Number(overlayNode.querySelector('ExtendedData Data[name="planmilt-resolution-km"] value').textContent);
+                                overlay = window.PlanMilT.coverageImage.fromFeature({
+                                    type: 'Feature', geometry: null,
+                                    properties: { coverageImage: { image: imgSrc, mapImage, bounds, mode, resolutionKm } }
+                                }, L);
+                            } else {
+                                overlay = L.imageOverlay(imgSrc, bounds);
+                            }
                             overlay.addTo(importLayer);
                         }).catch(function(error) {
                             console.error('Falha ao ler sobreposição do KMZ:', error);
+                            Swal.fire('Erro', 'Não foi possível carregar uma sobreposição do KMZ.', 'error');
                         });
                     }
                 });
