@@ -103,6 +103,14 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 </div>
                                 <div class="row" id="colRadius">
                                     <div class="col"><label>Raio Máx de Varredura (km)</label><input id="rfRadius" type="number" step="0.1" value="5"></div>
+                                    <div class="col">
+                                        <label for="rfResolution">Resolução (Precisão)</label>
+                                        <select id="rfResolution">
+                                            <option value="32">Pequena (Rápida) — 32 radiais</option>
+                                            <option value="72" selected>Média (Padrão) — 72 radiais</option>
+                                            <option value="180">Alta (Lenta) — 180 radiais</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div id="rfPenetrationField">
                                     <label for="rfPenetration">Penetração/Difração (cobertura RF)</label>
@@ -199,10 +207,15 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 rxHeight: parseFloat(document.getElementById('rfRxHeight').value),
                                 rxSens: parseFloat(document.getElementById('rfRxSens').value),
                                 radius: parseFloat(document.getElementById('rfRadius').value),
+                                radialCount: Number(document.getElementById('rfResolution').value),
                                 isOptical: (document.getElementById('rfPreset').value === 'optical'),
                                 penetration: document.getElementById('rfPenetration').value
                             };
                             if (values.mode === 'coverage') {
+                                if (![32, 72, 180].includes(values.radialCount)) {
+                                    Swal.showValidationMessage('Selecione uma resolução de cobertura válida.');
+                                    return false;
+                                }
                                 if (!Number.isFinite(values.radius) || values.radius <= 0 ||
                                     !Number.isFinite(values.txHeight) || values.txHeight < 0 ||
                                     !Number.isFinite(values.rxHeight) || values.rxHeight < 0) {
@@ -540,11 +553,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 /**
                  * Apresenta a etapa atual da predição de cobertura.
                  * @param {string} message - Descrição da etapa.
+                 * @param {number} radialCount - Quantidade de radiais.
                  */
-                function showCoverageProgress(message) {
+                function showCoverageProgress(message, radialCount) {
                     Swal.fire({
                         title: 'Predição de área de cobertura',
-                        html: '<p id="coverageProgressMessage"></p><progress id="coverageProgress" max="72" aria-label="Radiais analisadas"></progress><p id="coverageProgressEstimate" aria-live="polite"></p>',
+                        html: `<p id="coverageProgressMessage"></p><progress id="coverageProgress" max="${radialCount}" aria-label="Radiais analisadas"></progress><p id="coverageProgressEstimate" aria-live="polite"></p>`,
                         showConfirmButton: false,
                         allowOutsideClick: false,
                         allowEscapeKey: false,
@@ -566,10 +580,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} p - Parâmetros de configuração da simulação.
                  */
                 async function calcularCobertura(center, p) {
-                    showCoverageProgress('Preparando os pontos de análise…');
                     try {
+                        const { radialCount: radiais, resolutionKm: resolucaoKm, steps: maxPassos } = window.PlanMilT.coverageImage.resolution(p.radius, p.radialCount);
+                        showCoverageProgress('Preparando os pontos de análise…', radiais);
                         await yieldCoverageProgress();
-                        const { radialCount: radiais, resolutionKm: resolucaoKm, steps: maxPassos } = window.PlanMilT.coverageImage.resolution(p.radius);
                         let raster;
                         try {
                             raster = window.PlanMilT.coverageImage.createRaster({ center, radius: p.radius, turf, document });
@@ -593,11 +607,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         document.getElementById('coverageProgressMessage').textContent = 'Consultando a elevação do terreno; tempo restante indisponível nesta etapa…';
                         await yieldCoverageProgress();
                         const data = await requestElevation(pointReqArray, true, () => {
-                            showCoverageProgress('Consultando novamente a elevação do terreno; tempo restante indisponível nesta etapa…');
+                            showCoverageProgress('Consultando novamente a elevação do terreno; tempo restante indisponível nesta etapa…', radiais);
                         });
                         if (!data || data.length !== pointReqArray.length) throw new Error("Dados topográficos insuficientes.");
 
-                        showCoverageProgress('Calculando a cobertura do terreno…');
+                        showCoverageProgress('Calculando a cobertura do terreno…', radiais);
                         const progressBar = document.getElementById('coverageProgress');
                         const progressMessage = document.getElementById('coverageProgressMessage');
                         const progressEstimate = document.getElementById('coverageProgressEstimate');

@@ -44,7 +44,14 @@ test('adaptive sampling caps a 100 km coverage at 14,472 points and never exceed
     assert.equal(resolutionKm, 0.5);
     assert.equal(steps * resolutionKm, 100);
     assert.deepEqual(coverage.resolution(1), { radialCount: 72, steps: 20, resolutionKm: 0.05 });
+    for (const [count, points] of [[32, 6432], [72, 14472], [180, 36180]]) {
+        const result = coverage.resolution(100, count);
+        assert.equal(result.radialCount, count);
+        assert.equal(result.radialCount * (result.steps + 1), points);
+        assert.equal(result.resolutionKm, 0.5);
+    }
     assert.throws(() => coverage.resolution(0), /raio/);
+    assert.throws(() => coverage.resolution(100, 999), /resolução/);
 });
 
 test('radio legend colors match all sensitivity-margin thresholds', () => {

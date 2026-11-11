@@ -66,6 +66,7 @@ test('manual coverage form offers the three scenarios and validates supported fr
         rfRxHeight: { value: '1.5' },
         rfRxSens: { value: '-105' },
         rfRadius: { value: '5' },
+        rfResolution: { value: '72' },
         rfPenetration: { value: 'low' },
         rfPenetrationField: { style: {} },
         rfSpecificOptions: { style: {} },
@@ -99,19 +100,33 @@ test('manual coverage form offers the three scenarios and validates supported fr
         assert.match(form.html, /Alta \(Otimista\)/);
         assert.match(form.html, /Média \(Equilibrada\)/);
         assert.match(form.html, /Baixa \(Pessimista\)/);
+        assert.match(form.html, /Pequena \(Rápida\).*32 radiais/);
+        assert.match(form.html, /value="72" selected>Média \(Padrão\).*72 radiais/);
+        assert.match(form.html, /Alta \(Lenta\).*180 radiais/);
         form.didOpen();
         assert.equal(fields.rfPenetrationField.style.display, 'block');
         fields.rfMode.value = 'ptp';
         fields.rfMode.change({ target: fields.rfMode });
         assert.equal(fields.rfPenetrationField.style.display, 'none');
+        assert.equal(fields.colRadius.style.display, 'none');
         fields.rfMode.value = 'coverage';
         fields.rfPreset.value = 'optical';
         fields.rfPreset.change({ target: fields.rfPreset });
         assert.equal(fields.rfPenetrationField.style.display, 'none');
+        fields.rfMode.change({ target: fields.rfMode });
+        assert.equal(fields.colRadius.style.display, 'block');
         fields.rfPreset.value = 'custom';
         fields.rfPreset.change({ target: fields.rfPreset });
         assert.equal(fields.rfPenetrationField.style.display, 'block');
         assert.equal(form.preConfirm().penetration, 'low');
+        for (const count of [32, 72, 180]) {
+            fields.rfResolution.value = String(count);
+            assert.equal(form.preConfirm().radialCount, count);
+        }
+        fields.rfResolution.value = '999';
+        assert.equal(form.preConfirm(), false);
+        assert.match(warning, /resolução/);
+        fields.rfResolution.value = '72';
         fields.rfFreq.value = '2';
         assert.equal(form.preConfirm(), false);
         assert.match(warning, /frequência/);
@@ -203,10 +218,12 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         chartConstructor: class {}
     });
 
-    await test('manual coverage reports real radial progress and an estimate before rendering', async () => {
+    for (const radialCount of [32, 72, 180]) {
+    await test(`manual coverage computes and reports progress for ${radialCount} radials`, async () => {
         const listeners = new Map();
         const elements = new Map();
         const progressValues = [];
+        const progressMaxima = [];
         const messages = [];
         const requestUrls = [];
         let requestedPoints;
@@ -271,11 +288,12 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
                 if (options.title && options.title.includes('Predição de Alcance')) {
                     options.didOpen();
                     return Promise.resolve({ value: {
-                        mode: 'coverage', radius: 100, freq: 0, isOptical: true,
+                        mode: 'coverage', radius: 100, freq: 0, isOptical: true, radialCount,
                         txHeight: 1.5, rxHeight: 1.5
                     } });
                 }
                 if (options.title === 'Predição de área de cobertura') {
+                    progressMaxima.push(Number(options.html.match(/max="(\d+)"/)[1]));
                     elements.set('coverageProgressMessage', makeText());
                     elements.set('coverageProgressEstimate', makeText());
                     elements.set('coverageProgress', { set value(value) { progressValues.push(value); } });
@@ -320,14 +338,16 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             } finally {
                 clearTimeout(timeout);
             }
-            assert.deepEqual(progressValues, Array.from({ length: 73 }, (_, index) => index));
+            assert.deepEqual(progressValues, Array.from({ length: radialCount + 1 }, (_, index) => index));
+            assert.ok(progressMaxima.length >= 2 && progressMaxima.every(max => max === radialCount));
             assert.ok(messages.some(message => /tempo restante indisponível/.test(message)));
             assert.ok(messages.some(message => /Consultando novamente/.test(message)));
-            assert.ok(messages.some(message => /Analisando radiais: 72 de 72 \(100%\)/.test(message)));
+            assert.ok(messages.includes(`Analisando radiais: ${radialCount} de ${radialCount} (100%).`));
             assert.ok(messages.some(message => /Tempo estimado para as radiais/.test(message)));
             assert.ok(messages.some(message => /Preparando a exibição/.test(message)));
             assert.deepEqual(requestUrls, ['elevation-profile.php', 'elevation-upload.php', 'elevation-profile.php']);
-            assert.equal(requestedPoints.length, 14472);
+            assert.equal(requestedPoints.length, radialCount * 201);
+            assert.equal(new Set(Array.from({ length: radialCount }, (_, index) => requestedPoints[index * 201].latitude)).size, radialCount);
             assert.ok(requestedPoints.every(point => point.longitude <= 100));
             assert.ok(requestedPoints.every(point => Object.keys(point).length === 2));
             assert.ok(renderedCells.length > 0);
@@ -345,6 +365,7 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             window.PlanMilT.coverageImage = originalCoverage;
         }
     });
+    }
 
     await assert.rejects(
         radioPlanning.analyzeLink(
