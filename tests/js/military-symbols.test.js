@@ -7,6 +7,7 @@ const ms = require('milsymbol');
 const catalog = require('milstandard-e');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/military-symbols.js'), 'utf8');
+const translationsSource = fs.readFileSync(path.join(__dirname, '../../js/features/military-symbol-translations.js'), 'utf8');
 
 test('local browser bundles expose the documented generator and catalogue without npm at runtime', () => {
     const root = path.join(__dirname, '../../js/library');
@@ -17,7 +18,7 @@ test('local browser bundles expose the documented generator and catalogue withou
     assert.ok(context.milstd2525.ms2525e['10'].mainIcon.length > 200);
 });
 
-function setup() {
+function setup(symbolCatalog = catalog) {
     const values = new Map();
     const elements = {};
     let active;
@@ -35,7 +36,7 @@ function setup() {
         createElement() { return new Element(); }
     };
     document.getElementById('symbolName');
-    const window = { location: { href: 'https://example.test/plan/' }, ms, milstd2525: catalog };
+    const window = { location: { href: 'https://example.test/plan/' }, ms, milstd2525: symbolCatalog };
     const Swal = {
         fire(options) { active = options; options.didOpen(); return new Promise(resolve => { active.finish = resolve; }); },
         showValidationMessage(message) { active.validation = message; }
@@ -44,7 +45,9 @@ function setup() {
         getItem(key) { if (failStorage) throw new Error('bloqueado'); return values.get(key) || null; },
         setItem(key, value) { if (failStorage) throw new Error('bloqueado'); values.set(key, value); }
     };
-    vm.runInNewContext(source, { window, document, Swal, localStorage, URL, console: { error() {} } });
+    const context = { window, document, Swal, localStorage, URL, console: { error() {} } };
+    vm.runInNewContext(translationsSource, context);
+    vm.runInNewContext(source, context);
     return { symbols: window.PlanMilT.militarySymbols, elements, values, active: () => active, failStorage() { failStorage = true; } };
 }
 
@@ -56,6 +59,81 @@ test('real library renders valid SIDC and rejects invalid symbols', () => {
     assert.equal(data.config.options.uniqueDesignation, '1 Btl');
     assert.throws(() => symbols.render({ sidc: '123', options: {} }), /SIDC/);
     assert.throws(() => symbols.render({ sidc: '13031000141211000000', options: { uniqueDesignation: 'a'.repeat(51) } }), /50/);
+});
+
+test('all catalog terms have nonempty local translations', () => {
+    const context = { window: {} };
+    vm.runInNewContext(translationsSource, context);
+    const translations = context.window.PlanMilT.militarySymbolTranslations;
+    for (const [code, group] of Object.entries(catalog.ms2525e)) {
+        const terms = [code === 'common' ? '' : group.name];
+        for (const entry of group.mainIcon) terms.push(entry.Entity, entry['Entity Type'], entry['Entity Subtype']);
+        for (const entry of [...group.modifier1, ...group.modifier2]) terms.push(entry['First Modifier'], entry['Second Modifier']);
+        for (const term of terms.filter(value => value && value.trim())) {
+            const translated = translations[term.trim()];
+            assert.ok(typeof translated === 'string' && translated.trim(), `Sem tradução: ${term}`);
+            assert.doesNotMatch(translated, /⁇|�/, `Tradução inválida: ${term}`);
+        }
+    }
+});
+
+test('editor searches translated and original names without changing symbol codes', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    assert.ok(e.symbolSet.options.some(option => option.value === '10' && /Unidade terrestre/i.test(option.textContent)));
+    e.symbolSearch.value = 'infantaria';
+    e.symbolSearch.dispatch('input');
+    assert.ok(e.symbolEntity.options.some(option => option.value === '121100' && /infantaria/i.test(option.textContent)));
+    e.symbolSearch.value = 'infantry';
+    e.symbolSearch.dispatch('input');
+    assert.ok(e.symbolEntity.options.some(option => option.value === '121100'));
+    e.symbolSearch.value = 'COMUNICACOES';
+    e.symbolSearch.dispatch('input');
+    assert.ok(e.symbolEntity.options.some(option => /comunicações/i.test(option.textContent)));
+    e.symbolSearch.value = '121100';
+    e.symbolSearch.dispatch('input');
+    assert.ok(e.symbolEntity.options.some(option => option.value === '121100'));
+    assert.equal(e.symbolSidc.value, '13031000141211000000');
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('editor explicitly marks new catalog terms without a translation', async () => {
+    const group = catalog.ms2525e['10'];
+    const symbolCatalog = { ms2525e: { ...catalog.ms2525e, '10': {
+        ...group, mainIcon: [...group.mainIcon, { Code: '999999', Entity: 'Untranslated Test Term' }]
+    } } };
+    const fixture = setup(symbolCatalog);
+    const pending = fixture.symbols.open();
+    assert.ok(fixture.elements.symbolEntity.options.some(option =>
+        option.value === '999999' && option.textContent.includes('Untranslated Test Term (sem tradução)')));
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('translated options retain every original entity and modifier code', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    for (const [code, group] of Object.entries(catalog.ms2525e)) {
+        if (code === 'common') continue;
+        e.symbolSet.value = code;
+        e.symbolSet.dispatch('change');
+        const entityCodes = group.mainIcon.filter(item => /^\d{6}$/.test(item.Code)).map(item => item.Code);
+        assert.deepEqual(e.symbolEntity.options.map(option => option.value), entityCodes, `Tipos da categoria ${code}`);
+        for (const [id, key] of [['symbolModifier1', 'modifier1'], ['symbolModifier2', 'modifier2']]) {
+            const codes = ['000'];
+            for (const item of [...group[key], ...catalog.ms2525e.common[key]]) {
+                if (/^\d{2,3}$/.test(item.Code) && !codes.includes(item.Code.padStart(3, '0'))) {
+                    codes.push(item.Code.padStart(3, '0'));
+                }
+            }
+            assert.deepEqual(e[id].options.map(option => option.value), codes, `${id} da categoria ${code}`);
+        }
+    }
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
 });
 
 test('editor exposes complete category and modifier catalog, validates and stores reusable templates', async () => {

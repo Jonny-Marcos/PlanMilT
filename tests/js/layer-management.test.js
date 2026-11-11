@@ -31,9 +31,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['drawing-storage', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    for (const script of ['military-symbols', 'icon-selector', 'kmz-export', 'main', 'kmz-import', 'shared-layers', 'drawing-loading', 'layer-management', 'help-and-planning']) {
+    for (const script of ['icon-selector', 'kmz-export', 'main', 'kmz-import', 'shared-layers', 'drawing-loading', 'layer-management', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
     }
+    assert.ok(documentSource.includes('js/features/military-symbol-translations.js?v=20261120-traducoes'));
+    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261120-traducoes'));
+    assert.ok(documentSource.indexOf('military-symbol-translations.js') < documentSource.indexOf('military-symbols.js'));
     for (const script of ['welcome']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261118-help`));
     }

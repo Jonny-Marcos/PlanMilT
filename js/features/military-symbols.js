@@ -1,7 +1,7 @@
 /**
  * @fileoverview Cria símbolos militares APP-6/MIL-STD, conserva modelos locais e edita marcadores.
  * @exports window.PlanMilT.militarySymbols
- * @requires milsymbol, milstandard-e, Leaflet e SweetAlert2
+ * @requires milsymbol, milstandard-e, traduções locais, Leaflet e SweetAlert2
  */
 window.PlanMilT = window.PlanMilT || {};
 
@@ -20,6 +20,28 @@ window.PlanMilT.militarySymbols = (() => {
         signatureEquipment: 'Assinatura do equipamento', platformType: 'Tipo de plataforma'
     };
     const defaultConfig = { sidc: '13031000141211000000', options: {} };
+
+    /**
+     * Retorna a tradução do catálogo ou sinaliza um termo ainda não traduzido.
+     * @param {string} term - Nome técnico original.
+     * @returns {string} Nome em português ou aviso com o original.
+     */
+    function translateTerm(term) {
+        const original = String(term || '').trim();
+        if (!original) return '';
+        return Object.prototype.hasOwnProperty.call(window.PlanMilT.militarySymbolTranslations, original)
+            ? window.PlanMilT.militarySymbolTranslations[original]
+            : `${original} (sem tradução)`;
+    }
+
+    /**
+     * Normaliza a busca sem distinguir maiúsculas ou acentos.
+     * @param {string} text - Texto a normalizar.
+     * @returns {string} Texto normalizado.
+     */
+    function searchText(text) {
+        return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
 
     /**
      * Valida e normaliza os dados editáveis antes de desenhar ou guardar.
@@ -131,10 +153,10 @@ window.PlanMilT.militarySymbols = (() => {
 #militarySymbolEditor [role=status]{color:#a00000}
 @media(max-width:600px){#militarySymbolEditor .symbol-grid{grid-template-columns:1fr}}
 </style><div id="militarySymbolEditor">
-<p>Personalize um símbolo MIL-STD-2525E/APP-6. Os nomes técnicos do catálogo estão em inglês; não há garantia de equivalência à doutrina brasileira.</p>
+<p>Personalize um símbolo MIL-STD-2525E/APP-6. As traduções do catálogo são aproximadas e devem ser revisadas; não há garantia de equivalência à doutrina brasileira.</p>
 <div class="symbol-grid">
 <div><label for="symbolSet">Categoria</label><select id="symbolSet"></select></div>
-<div><label for="symbolSearch">Buscar tipo (inglês)</label><input id="symbolSearch" type="search" placeholder="Ex.: infantry"></div>
+<div><label for="symbolSearch">Buscar tipo</label><input id="symbolSearch" type="search" placeholder="Ex.: infantaria"></div>
 <div><label for="symbolEntity">Tipo de símbolo</label><select id="symbolEntity"></select></div>
 <div><label for="symbolAffiliation">Afiliação</label><select id="symbolAffiliation"><option value="3">Amigo</option><option value="6">Inimigo</option><option value="4">Neutro</option><option value="1">Desconhecido</option></select></div>
 <div><label for="symbolEchelon">Escalão / mobilidade (código)</label><select id="symbolEchelon">
@@ -142,8 +164,8 @@ window.PlanMilT.militarySymbols = (() => {
 </select></div>
 <div><label for="symbolStatus">Situação</label><select id="symbolStatus"><option value="0">Presente</option><option value="1">Planejado</option><option value="2">Operacional</option><option value="3">Danificado</option><option value="4">Destruído</option><option value="5">Capacidade máxima</option></select></div>
 <div><label for="symbolHeadquarters">Comando / força-tarefa / dissimulação</label><select id="symbolHeadquarters"><option value="0">Nenhum</option><option value="1">Dissimulação</option><option value="2">Comando</option><option value="3">Comando em dissimulação</option><option value="4">Força-tarefa</option><option value="5">Força-tarefa em dissimulação</option><option value="6">Comando de força-tarefa</option><option value="7">Comando de força-tarefa em dissimulação</option></select></div>
-<div><label for="symbolModifier1">Modificador 1 (inglês)</label><select id="symbolModifier1"></select></div>
-<div><label for="symbolModifier2">Modificador 2 (inglês)</label><select id="symbolModifier2"></select></div>
+<div><label for="symbolModifier1">Modificador 1</label><select id="symbolModifier1"></select></div>
+<div><label for="symbolModifier2">Modificador 2</label><select id="symbolModifier2"></select></div>
 </div>
 <details><summary>SIDC e informações adicionais</summary>
 <p>O SIDC numérico permite usar outras combinações suportadas pela biblioteca. Ao mudar os seletores, os respectivos campos do SIDC serão atualizados.</p>
@@ -194,10 +216,12 @@ window.PlanMilT.militarySymbols = (() => {
                 function fillCatalog() {
                     const catalog = sets[set.value];
                     entity.replaceChildren();
-                    const query = get('symbolSearch').value.toLowerCase().trim();
+                    const query = searchText(get('symbolSearch').value.trim());
                     for (const entry of catalog.mainIcon) {
-                        const name = [entry.Entity, entry['Entity Type'], entry['Entity Subtype']].filter(Boolean).join(' / ');
-                        if (/^\d{6}$/.test(entry.Code) && (!query || `${name} ${entry.Code}`.toLowerCase().includes(query))) {
+                        const terms = [entry.Entity, entry['Entity Type'], entry['Entity Subtype']].filter(value => value && value.trim());
+                        const original = terms.join(' / ');
+                        const name = terms.map(translateTerm).join(' / ');
+                        if (/^\d{6}$/.test(entry.Code) && (!query || searchText(`${name} ${original} ${entry.Code}`).includes(query))) {
                             addOption(entity, entry.Code, `${name} (${entry.Code})`);
                         }
                     }
@@ -211,7 +235,7 @@ window.PlanMilT.militarySymbols = (() => {
                             if (/^\d{2,3}$/.test(item.Code) && !seen.has(item.Code.padStart(3, '0'))) {
                                 const code = item.Code.padStart(3, '0');
                                 seen.add(code);
-                                addOption(select, code, `${item[label]} (${item.Code})`);
+                                addOption(select, code, `${translateTerm(item[label])} (${item.Code})`);
                             }
                         }
                         const first = id === 'symbolModifier1';
@@ -258,7 +282,7 @@ window.PlanMilT.militarySymbols = (() => {
                     for (const entry of library) addOption(librarySelect, entry.id, entry.name);
                 }
                 for (const [code, catalog] of Object.entries(sets)) {
-                    if (code !== 'common') addOption(set, code, `${catalog.name} (${code})`);
+                    if (code !== 'common') addOption(set, code, `${translateTerm(catalog.name)} (${code})`);
                 }
                 fillLibrary();
                 fillFromConfig(current);
