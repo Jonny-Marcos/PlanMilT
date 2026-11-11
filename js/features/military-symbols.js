@@ -1,12 +1,12 @@
 /**
- * @fileoverview Cria símbolos militares APP-6/MIL-STD, conserva modelos locais e edita marcadores.
+ * @fileoverview Cria símbolos militares brasileiros, conserva modelos locais e edita marcadores.
  * @exports window.PlanMilT.militarySymbols
- * @requires milsymbol, milstandard-e, traduções locais, Leaflet e SweetAlert2
+ * @requires gerador e catálogo brasileiros locais, Leaflet e SweetAlert2
  */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.militarySymbols = (() => {
-    const storageKey = `planmilt.military-symbols.v1:${new URL('.', window.location.href).pathname}`;
+    const storageKey = `planmilt.military-symbols.br.v1:${new URL('.', window.location.href).pathname}`;
     const fields = ['uniqueDesignation', 'higherFormation', 'additionalInformation', 'staffComments', 'quantity',
         'type', 'location', 'dtg', 'altitudeDepth', 'speed', 'reinforcedReduced', 'specialDesignator',
         'specialHeadquarters', 'combatEffectiveness', 'evaluationRating', 'iffSif', 'signatureEquipment', 'platformType'];
@@ -19,20 +19,7 @@ window.PlanMilT.militarySymbols = (() => {
         combatEffectiveness: 'Efetividade de combate', evaluationRating: 'Avaliação', iffSif: 'IFF / SIF',
         signatureEquipment: 'Assinatura do equipamento', platformType: 'Tipo de plataforma'
     };
-    const defaultConfig = { sidc: '13031000141211000000', options: {} };
-
-    /**
-     * Retorna a tradução do catálogo ou sinaliza um termo ainda não traduzido.
-     * @param {string} term - Nome técnico original.
-     * @returns {string} Nome em português ou aviso com o original.
-     */
-    function translateTerm(term) {
-        const original = String(term || '').trim();
-        if (!original) return '';
-        return Object.prototype.hasOwnProperty.call(window.PlanMilT.militarySymbolTranslations, original)
-            ? window.PlanMilT.militarySymbolTranslations[original]
-            : `${original} (sem tradução)`;
-    }
+    const defaultConfig = { sidc: '10031000001211000000', options: {} };
 
     /**
      * Normaliza a busca sem distinguir maiúsculas ou acentos.
@@ -69,8 +56,35 @@ window.PlanMilT.militarySymbols = (() => {
      */
     function render(config) {
         const normalized = normalize(config);
-        const symbol = new window.ms.Symbol(normalized.sidc, { ...normalized.options, size: 35 });
-        if (!symbol.isValid()) throw new Error('SIDC ou combinação de modificadores não reconhecida pela biblioteca.');
+        const symbol = new window.PlanMilTBrazilian.ms.Symbol(normalized.sidc, { ...normalized.options, size: 35 });
+        const code = normalized.sidc;
+        const category = window.PlanMilT.brazilianSymbolCatalog[code.slice(4, 6)];
+        if (!category) throw new Error('Categoria de calunga não disponível no catálogo brasileiro.');
+        if (code.length === 30 && code.slice(20, 23) !== '076') {
+            throw new Error('Informe uma extensão brasileira de SIDC.');
+        }
+        if (code.length === 30) {
+            const bits = Number(code.slice(23));
+            if (bits >= 2 ** 19) throw new Error('Extensão brasileira de SIDC inválida.');
+            const extensions = window.PlanMilTBrazilian.extensions[code.slice(4, 6)];
+            for (const [name, value] of [
+                ['ModificadorTransversal', (bits >> 10) & 7],
+                ['Modificador1', (bits >> 5) & 31],
+                ['Modificador2', bits & 31]
+            ]) {
+                if (value && (!extensions || !extensions[name] || !extensions[name][value])) {
+                    throw new Error('Modificador brasileiro não reconhecido para esta categoria.');
+                }
+            }
+        }
+        const entityExtension = value => value.length === 30 && value.slice(20, 23) === '076'
+            ? (Number(value.slice(23)) >> 14) & 31 : 0;
+        const knownBrazilianEntity = code.length === 30 && code.slice(20, 23) === '076' && category &&
+            [...category.icons, ...category.examples].some(item => item.sidc.slice(10, 16) === code.slice(10, 16) &&
+                entityExtension(item.sidc) === entityExtension(code));
+        if (!symbol.isValid() && !knownBrazilianEntity) {
+            throw new Error('SIDC ou combinação de modificadores não reconhecida pela biblioteca.');
+        }
         const size = symbol.getSize();
         const anchor = symbol.getAnchor();
         return {
@@ -125,7 +139,7 @@ window.PlanMilT.militarySymbols = (() => {
      * @returns {Promise<Object|null>} Símbolo criado ou null ao cancelar.
      */
     async function open(initial = defaultConfig, editing = false) {
-        const sets = window.milstd2525.ms2525e;
+        const sets = window.PlanMilT.brazilianSymbolCatalog;
         let current = normalize(initial);
         let library = [];
         let storageError = '';
@@ -153,17 +167,19 @@ window.PlanMilT.militarySymbols = (() => {
 #militarySymbolEditor [role=status]{color:#a00000}
 @media(max-width:600px){#militarySymbolEditor .symbol-grid{grid-template-columns:1fr}}
 </style><div id="militarySymbolEditor">
-<p>Personalize um símbolo MIL-STD-2525E/APP-6. As traduções do catálogo são aproximadas e devem ser revisadas; não há garantia de equivalência à doutrina brasileira.</p>
+<p>Personalize uma calunga com o gerador e catálogo do Portal de Simbologia Militar.</p>
 <div class="symbol-grid">
 <div><label for="symbolSet">Categoria</label><select id="symbolSet"></select></div>
+<div><label for="symbolCatalog">Catálogo</label><select id="symbolCatalog"><option value="icons">Ícones centrais</option><option value="examples">Exemplos doutrinários</option></select></div>
 <div><label for="symbolSearch">Buscar tipo</label><input id="symbolSearch" type="search" placeholder="Ex.: infantaria"></div>
 <div><label for="symbolEntity">Tipo de símbolo</label><select id="symbolEntity"></select></div>
 <div><label for="symbolAffiliation">Afiliação</label><select id="symbolAffiliation"><option value="3">Amigo</option><option value="6">Inimigo</option><option value="4">Neutro</option><option value="1">Desconhecido</option></select></div>
 <div><label for="symbolEchelon">Escalão / mobilidade (código)</label><select id="symbolEchelon">
-<option value="00">Não especificado</option><option value="11">Equipe</option><option value="12">Grupo</option><option value="13">Seção</option><option value="14">Pelotão</option><option value="15">Companhia</option><option value="16">Batalhão</option><option value="17">Regimento</option><option value="18">Brigada</option><option value="21">Divisão</option><option value="22">Corpo</option><option value="23">Exército</option><option value="24">Grupo de exércitos</option><option value="25">Região / teatro</option><option value="26">Comando</option>
+<option value="00">Não especificado</option><option value="11">Equipe / guarnição</option><option value="12">Esquadra</option><option value="13">Seção</option><option value="14">Pelotão</option><option value="15">Companhia</option><option value="16">Batalhão</option><option value="17">Regimento</option><option value="18">Brigada</option><option value="21">Divisão</option><option value="22">Corpo</option><option value="23">Exército</option><option value="24">Grupo de exércitos</option><option value="25">Região / teatro</option><option value="26">Comando</option>
 </select></div>
 <div><label for="symbolStatus">Situação</label><select id="symbolStatus"><option value="0">Presente</option><option value="1">Planejado</option><option value="2">Operacional</option><option value="3">Danificado</option><option value="4">Destruído</option><option value="5">Capacidade máxima</option></select></div>
 <div><label for="symbolHeadquarters">Comando / força-tarefa / dissimulação</label><select id="symbolHeadquarters"><option value="0">Nenhum</option><option value="1">Dissimulação</option><option value="2">Comando</option><option value="3">Comando em dissimulação</option><option value="4">Força-tarefa</option><option value="5">Força-tarefa em dissimulação</option><option value="6">Comando de força-tarefa</option><option value="7">Comando de força-tarefa em dissimulação</option></select></div>
+<div><label for="symbolTransversal">Modificador transversal brasileiro</label><select id="symbolTransversal"></select></div>
 <div><label for="symbolModifier1">Modificador 1</label><select id="symbolModifier1"></select></div>
 <div><label for="symbolModifier2">Modificador 2</label><select id="symbolModifier2"></select></div>
 </div>
@@ -217,29 +233,51 @@ window.PlanMilT.militarySymbols = (() => {
                     const catalog = sets[set.value];
                     entity.replaceChildren();
                     const query = searchText(get('symbolSearch').value.trim());
-                    for (const entry of catalog.mainIcon) {
-                        const terms = [entry.Entity, entry['Entity Type'], entry['Entity Subtype']].filter(value => value && value.trim());
-                        const original = terms.join(' / ');
-                        const name = terms.map(translateTerm).join(' / ');
-                        if (/^\d{6}$/.test(entry.Code) && (!query || searchText(`${name} ${original} ${entry.Code}`).includes(query))) {
-                            addOption(entity, entry.Code, `${name} (${entry.Code})`);
+                    const kind = get('symbolCatalog').value || 'icons';
+                    catalog[kind].forEach((entry, index) => {
+                        if (!query || searchText(`${entry.name} ${entry.sidc}`).includes(query)) {
+                            addOption(entity, String(index), `${entry.name} (${entry.sidc})`);
+                        }
+                    });
+                    const currentCode = sidc.value;
+                    const entityExtension = code => code.length === 30 && code.slice(20, 23) === '076'
+                        ? (Number(code.slice(23)) >> 14) & 31 : 0;
+                    const entryIndex = catalog[kind].findIndex(entry =>
+                        entry.sidc.slice(10, 16) === currentCode.slice(10, 16) &&
+                        entityExtension(entry.sidc) === entityExtension(currentCode));
+                    entity.value = String(entryIndex);
+                    const transversal = get('symbolTransversal');
+                    transversal.replaceChildren();
+                    addOption(transversal, '0', 'Nenhum');
+                    const categoryExtensions = window.PlanMilTBrazilian.extensions[set.value];
+                    if (categoryExtensions && categoryExtensions.ModificadorTransversal) {
+                        const transversalLabels = { BLD: 'Blindado', MTZ: 'Motorizado', MEC: 'Mecanizado', DEFESA_AEREA: 'Defesa aérea' };
+                        for (const [name, value] of Object.entries(categoryExtensions.ModificadorTransversal)) {
+                            if (typeof value === 'number' && value > 0) addOption(transversal, String(value), transversalLabels[name] || name);
                         }
                     }
-                    entity.value = sidc.value.slice(10, 16);
-                    for (const [id, key, label] of [['symbolModifier1', 'modifier1', 'First Modifier'], ['symbolModifier2', 'modifier2', 'Second Modifier']]) {
+                    transversal.value = String(currentCode.length === 30 && currentCode.slice(20, 23) === '076'
+                        ? (Number(currentCode.slice(23)) >> 10) & 7 : 0);
+                    for (const [id, key, extKey] of [['symbolModifier1', 'modifiers1', 'Modificador1'], ['symbolModifier2', 'modifiers2', 'Modificador2']]) {
                         const select = get(id);
                         select.replaceChildren();
-                        addOption(select, '000', 'Nenhum');
-                        const seen = new Set(['000']);
-                        for (const item of [...catalog[key], ...sets.common[key]]) {
-                            if (/^\d{2,3}$/.test(item.Code) && !seen.has(item.Code.padStart(3, '0'))) {
-                                const code = item.Code.padStart(3, '0');
-                                seen.add(code);
-                                addOption(select, code, `${translateTerm(item[label])} (${item.Code})`);
-                            }
+                        addOption(select, '00', 'Nenhum');
+                        for (const item of catalog[key]) {
+                            if (/^\d{2}$/.test(item.code) && item.code !== '00') addOption(select, item.code, item.name);
+                        }
+                        const extensions = window.PlanMilTBrazilian.extensions[set.value];
+                        const values = extensions && extensions[extKey];
+                        const names = extensions && extensions[`${extKey}Labels`];
+                        if (values) for (const [name, value] of Object.entries(values)) {
+                            if (typeof value === 'number' && value > 0) addOption(select, `ext:${value}`, (names && names[name]) || name);
                         }
                         const first = id === 'symbolModifier1';
-                        select.value = (sidc.value[first ? 20 : 21] || '0') + sidc.value.slice(first ? 16 : 18, first ? 18 : 20);
+                        const position = first ? 16 : 18;
+                        const standard = currentCode.slice(position, position + 2);
+                        const bits = currentCode.length === 30 && currentCode.slice(20, 23) === '076'
+                            ? Number(currentCode.slice(23)) : 0;
+                        const extension = (bits >> (first ? 5 : 0)) & 31;
+                        select.value = standard === '99' ? `ext:${extension}` : standard;
                     }
                 }
                 /** Preenche os controles a partir do SIDC, sem modificar seu conteúdo. */
@@ -247,7 +285,7 @@ window.PlanMilT.militarySymbols = (() => {
                     sidc.value = config.sidc;
                     for (const field of fields) get(`symbol-${field}`).value = config.options[field] || '';
                     set.value = config.sidc.slice(4, 6);
-                    if (!set.value) set.value = '10';
+                    if (!sets[set.value]) throw new Error('Categoria de calunga não disponível no catálogo brasileiro.');
                     get('symbolAffiliation').value = config.sidc.slice(3, 4);
                     get('symbolStatus').value = config.sidc.slice(6, 7);
                     get('symbolHeadquarters').value = config.sidc.slice(7, 8);
@@ -261,16 +299,23 @@ window.PlanMilT.militarySymbols = (() => {
                     sidc.value = sidc.value.slice(0, start) + value + sidc.value.slice(start + length);
                     updatePreview();
                 }
-                /** @param {boolean} first - Indica o setor do modificador. @param {string} value - Código de três dígitos. */
+                /** @param {boolean} first - Indica o setor. @param {string} value - Código ou extensão brasileira. */
                 function replaceModifier(first, value) {
-                    if (!/^\d{3}$/.test(value) || !/^(?:\d{20}|\d{30})$/.test(sidc.value)) return;
+                    if (!/^(?:\d{2}|ext:\d+)$/.test(value) || !/^(?:\d{20}|\d{30})$/.test(sidc.value)) return;
                     let code = sidc.value;
-                    if (code.length === 20 && value[0] !== '0') code = code.padEnd(30, '0');
+                    if (code.length === 30 && code.slice(20, 23) !== '076') {
+                        errorText.textContent = 'Extensão de outro país não pode ser editada neste seletor.';
+                        return;
+                    }
+                    const extended = value.startsWith('ext:');
+                    if (code.length === 20 && extended) code += '0760000000';
                     const position = first ? 16 : 18;
-                    code = code.slice(0, position) + value.slice(1) + code.slice(position + 2);
+                    code = code.slice(0, position) + (extended ? '99' : value) + code.slice(position + 2);
                     if (code.length === 30) {
-                        const prefix = first ? 20 : 21;
-                        code = code.slice(0, prefix) + value[0] + code.slice(prefix + 1);
+                        const shift = first ? 5 : 0;
+                        const bits = (Number(code.slice(23)) & ~(31 << shift)) |
+                            ((extended ? Number(value.slice(4)) : 0) << shift);
+                        code = code.slice(0, 23) + String(bits).padStart(7, '0');
                     }
                     sidc.value = code;
                     updatePreview();
@@ -282,32 +327,56 @@ window.PlanMilT.militarySymbols = (() => {
                     for (const entry of library) addOption(librarySelect, entry.id, entry.name);
                 }
                 for (const [code, catalog] of Object.entries(sets)) {
-                    if (code !== 'common') addOption(set, code, `${translateTerm(catalog.name)} (${code})`);
+                    addOption(set, code, `${catalog.name} (${code})`);
                 }
                 fillLibrary();
                 fillFromConfig(current);
                 set.addEventListener('change', () => {
-                    replaceSidc(4, 2, set.value);
-                    fillCatalog();
-                    if (entity.options.length) {
-                        entity.selectedIndex = 0;
-                        replaceSidc(10, 6, entity.value);
+                    get('symbolSearch').value = '';
+                    const kind = get('symbolCatalog').value || 'icons';
+                    const entry = sets[set.value][kind][0];
+                    if (!entry) { errorText.textContent = 'Nenhum símbolo disponível nesta categoria.'; return; }
+                    fillFromConfig({ sidc: entry.sidc, options: entry.options || {} });
+                });
+                get('symbolCatalog').addEventListener('change', fillCatalog);
+                entity.addEventListener('change', () => {
+                    const kind = get('symbolCatalog').value || 'icons';
+                    const entry = sets[set.value][kind][Number(entity.value)];
+                    if (!entry) return;
+                    const old = sidc.value;
+                    const selected = entry.sidc.slice(0, 3) + old.slice(3, 4) + entry.sidc.slice(4, 6) +
+                        old.slice(6, 10) + entry.sidc.slice(10);
+                    if (kind === 'examples') {
+                        fillFromConfig({ sidc: entry.sidc, options: entry.options || {} });
+                        return;
                     }
-                    get('symbolModifier1').value = '000';
-                    get('symbolModifier2').value = '000';
-                    replaceModifier(true, '000');
-                    replaceModifier(false, '000');
+                    sidc.value = selected;
+                    fillCatalog();
+                    updatePreview();
                 });
                 get('symbolSearch').addEventListener('input', fillCatalog);
-                for (const [id, start, length] of [['symbolEntity', 10, 6], ['symbolAffiliation', 3, 1],
+                for (const [id, start, length] of [['symbolAffiliation', 3, 1],
                     ['symbolEchelon', 8, 2], ['symbolStatus', 6, 1], ['symbolHeadquarters', 7, 1]]) {
                     get(id).addEventListener('change', event => replaceSidc(start, length, event.target.value));
                 }
                 get('symbolModifier1').addEventListener('change', event => replaceModifier(true, event.target.value));
                 get('symbolModifier2').addEventListener('change', event => replaceModifier(false, event.target.value));
+                get('symbolTransversal').addEventListener('change', event => {
+                    if (!/^[0-7]$/.test(event.target.value) || !/^(?:\d{20}|\d{30})$/.test(sidc.value)) return;
+                    let code = sidc.value;
+                    if (code.length === 30 && code.slice(20, 23) !== '076') {
+                        errorText.textContent = 'Extensão de outro país não pode ser editada neste seletor.';
+                        return;
+                    }
+                    if (code.length === 20) code += '0760000000';
+                    const bits = (Number(code.slice(23)) & ~(7 << 10)) | (Number(event.target.value) << 10);
+                    sidc.value = code.slice(0, 23) + String(bits).padStart(7, '0');
+                    updatePreview();
+                });
                 sidc.addEventListener('input', () => {
-                    if (/^(?:\d{20}|\d{30})$/.test(sidc.value)) fillFromConfig({ sidc: sidc.value, options: Object.fromEntries(fields.map(field => [field, get(`symbol-${field}`).value])) });
-                    else updatePreview();
+                    if (/^(?:\d{20}|\d{30})$/.test(sidc.value) && sets[sidc.value.slice(4, 6)]) {
+                        fillFromConfig({ sidc: sidc.value, options: Object.fromEntries(fields.map(field => [field, get(`symbol-${field}`).value])) });
+                    } else updatePreview();
                 });
                 for (const field of fields) get(`symbol-${field}`).addEventListener('input', updatePreview);
                 get('symbolLoad').addEventListener('click', () => {

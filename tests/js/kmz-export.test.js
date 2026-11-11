@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 global.window = {};
 global.document = {
@@ -108,7 +111,17 @@ test('exports multiple embedded military symbols as distinct PNG files reference
     let downloaded = false;
     const previousDocument = global.document;
     const previousCreate = URL.createObjectURL;
-    const icons = ['data:image/svg+xml;utf8,%3Csvg%20id%3D%221%22%2F%3E', 'data:image/svg+xml;utf8,%3Csvg%20id%3D%222%22%2F%3E'];
+    const isolatedWindow = { navigator: { userAgent: 'node' }, addEventListener() {}, removeEventListener() {} };
+    isolatedWindow.window = isolatedWindow;
+    const context = vm.createContext({ window: isolatedWindow, console: { error() {}, info() {}, warn() {} },
+        setTimeout, clearTimeout, URL, TextEncoder, TextDecoder });
+    for (const file of ['chunk-vendors.4e5d8119.js', 'planmilt-generator.js']) {
+        vm.runInContext(fs.readFileSync(path.join(__dirname, '../../js/library/simbologia', file), 'utf8'), context);
+    }
+    const generator = isolatedWindow.PlanMilTBrazilian.ms;
+    const icons = ['100310000012189900000760000000', '100310000012189900000760016384']
+        .map(sidc => new generator.Symbol(sidc, { size: 35 }).toDataURL());
+    assert.notEqual(icons[0], icons[1]);
     const features = icons.map(iconUrl => ({ type: 'Feature',
         properties: { iconUrl, militarySymbol: { iconSize: [100, 50], iconAnchor: [75, 20] } },
         geometry: { type: 'Point', coordinates: [-50, -20] } }));
