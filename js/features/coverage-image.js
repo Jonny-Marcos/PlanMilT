@@ -256,10 +256,9 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
      * Cria uma imagem Leaflet serializável sem inseri-la no grupo editável de desenhos.
      * @param {Object} feature - Feição que contém os dados da cobertura.
      * @param {Object} leaflet - Namespace Leaflet.
-     * @param {Function} [onRemove] - Remove a imagem quando o usuário solicitar.
      * @returns {Object} Sobreposição com serialização GeoJSON.
      */
-    function fromFeature(feature, leaflet, onRemove) {
+    function fromFeature(feature, leaflet) {
         const data = feature && feature.properties && feature.properties.coverageImage;
         if (!data || !validBounds(data.bounds) ||
             typeof data.image !== 'string' || !data.image.startsWith('data:image/png;base64,') ||
@@ -275,33 +274,18 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
         });
         const samples = data.mode === 'radio' && Object.prototype.hasOwnProperty.call(data, 'powerSamples')
             ? decodePowerSamples(data.powerSamples) : null;
-        const removal = onRemove ? '<br><button type="button" data-coverage-remove>Remover cobertura</button>' : '';
-        /**
-         * Liga o botão após cada atualização do conteúdo do popup.
-         * @param {Object} popup - Popup Leaflet aberto.
-         */
-        function bindRemoveButton(popup) {
-            const button = popup.getElement().querySelector('[data-coverage-remove]');
-            button.onclick = () => onRemove(overlay);
-        }
         if (data.mode === 'radio') {
-            overlay.bindPopup(`<b>Cobertura estimada</b><br>Potência indisponível neste ponto.${removal}`);
+            overlay.bindPopup('<b>Cobertura estimada</b><br>Potência indisponível neste ponto.');
             overlay.on('click', event => {
                 const value = samples ? powerAt(data.powerSamples, samples, event.latlng) : null;
                 const message = samples
                     ? (value === null ? 'Sem potência disponível neste ponto.' : `Potência recebida aproximada: ${value.toFixed(2)} dBm.`)
                     : 'Potência indisponível nesta cobertura; execute a predição novamente.';
-                overlay.setPopupContent(`<b>Cobertura estimada</b><br>${message}${removal}`);
-                if (onRemove && overlay.isPopupOpen()) bindRemoveButton(overlay.getPopup());
+                overlay.setPopupContent(`<b>Cobertura estimada</b><br>${message}`);
                 overlay.openPopup(event.latlng);
             });
         } else {
-            overlay.bindPopup(`<b>Cobertura estimada</b><br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.${removal}`);
-        }
-        if (onRemove) {
-            overlay.on('popupopen', event => {
-                bindRemoveButton(event.popup);
-            });
+            overlay.bindPopup(`<b>Cobertura estimada</b><br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.`);
         }
         overlay.toGeoJSON = () => feature;
         return overlay;
@@ -315,7 +299,7 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
      */
     function add(feature, leaflet) {
         if (!editableGroup) throw new Error('O grupo de coberturas não foi inicializado.');
-        const layer = fromFeature(feature, leaflet, remove);
+        const layer = fromFeature(feature, leaflet);
         editableGroup.addLayer(layer);
         if (!activeMap.hasLayer(editableGroup)) activeMap.addLayer(editableGroup);
         return layer;
