@@ -59,9 +59,16 @@ function getElevationFromTile($tilePath, $lat, $lon) {
         return null;
     }
 
-    // Cada tile SRTM3 tem 1201x1201 pontos, com espaçamento de 1/1200 graus
-    $size = 1201;
-    $delta = 1 / 1200;
+    $bytes = filesize($tilePath);
+    if ($bytes === 1201 * 1201 * 2) {
+        $size = 1201;
+    } elseif ($bytes === 3601 * 3601 * 2) {
+        $size = 3601;
+    } else {
+        fclose($handle);
+        return null;
+    }
+    $delta = 1 / ($size - 1);
 
     // Obter o nome do tile a partir do caminho completo
     $tileName = basename($tilePath);

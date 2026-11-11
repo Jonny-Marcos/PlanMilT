@@ -32,6 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $successCount = 0;
 
     foreach ($missingTiles as $index => $tileName) {
+            if (!is_string($tileName) || !preg_match('/^([NS])(\d{2})([EW])(\d{3})\.HGT$/iD', $tileName, $parts) ||
+                (strtoupper($parts[1]) === 'N' ? (int) $parts[2] >= 90 : (int) $parts[2] < 1 || (int) $parts[2] > 90) ||
+                (strtoupper($parts[3]) === 'E' ? (int) $parts[4] >= 180 : (int) $parts[4] < 1 || (int) $parts[4] > 180)) {
+                $errors[] = 'Nome de tile inválido.';
+                continue;
+            }
         // Verifica se o arquivo foi enviado
         if (isset($uploadedFiles['name'][$index])) {
             $fileName = $uploadedFiles['name'][$index];
@@ -58,13 +64,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 continue;
             }
 
-            // Move o arquivo para o diretório SRTM3
             $destination = $uploadDir . strtoupper($tileName);
-            if (move_uploaded_file($tmpName, $destination)) {
+            $temporary = tempnam($uploadDir, '.elevation-upload-');
+            if ($temporary === false) {
+                $errors[] = "Falha ao preparar o arquivo $fileName.";
+                continue;
+            }
+            if (move_uploaded_file($tmpName, $temporary) && link($temporary, $destination)) {
                 $successCount++;
             } else {
-                $errors[] = "Falha ao mover o arquivo $fileName.";
+                $errors[] = "Falha ao gravar o arquivo $fileName; ele pode já existir.";
             }
+            unlink($temporary);
         } else {
             $errors[] = "Arquivo para $tileName não foi enviado.";
         }

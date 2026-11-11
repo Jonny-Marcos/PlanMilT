@@ -704,7 +704,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                     if (data && data.error === 'Arquivos de elevação faltando' && Array.isArray(data.missingTiles)) {
                         const missingTiles = [...new Set(data.missingTiles)];
-                        const uploaded = allowUpload && await uploadMissingElevationTiles(missingTiles);
+                        const uploaded = allowUpload && await window.PlanMilT.elevationFiles.ensure(missingTiles);
                         if (uploaded) {
                             if (onResume) onResume();
                             return requestElevation(pointsArray, false, onResume);
@@ -724,70 +724,6 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         throw new Error('A API retornou elevações inválidas.');
                     }
                     return data;
-                }
-
-                /**
-                 * Solicita os tiles ausentes e os envia ao endpoint de upload.
-                 * @param {Array<string>} missingTiles - Nomes dos arquivos HGT ausentes.
-                 * @returns {Promise<boolean>} Indica se os arquivos foram enviados.
-                 */
-                async function uploadMissingElevationTiles(missingTiles) {
-                    if (missingTiles.length === 0 || missingTiles.some(tile => !/^[NS]\d{2}[EW]\d{3}\.HGT$/i.test(tile))) {
-                        throw new Error('A API retornou nomes de tiles inválidos.');
-                    }
-
-                    const { isConfirmed } = await Swal.fire({
-                        title: 'Arquivos de Elevação Faltando',
-                        html: `Os seguintes arquivos HGT estão faltando: <b>${missingTiles.join(', ')}</b><br>Você pode obtê-los em <a href="https://www.okmap.org/en/en_srtm.aspx" target="_blank" rel="noopener">OkMap</a>.<br>Deseja fazer o upload agora?`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Fazer Upload',
-                        cancelButtonText: 'Cancelar'
-                    });
-                    if (!isConfirmed) return false;
-
-                    const { value: formData } = await Swal.fire({
-                        title: 'Upload de Arquivos de Elevação',
-                        html: `<p>Selecione os arquivos correspondentes aos tiles faltantes.</p>${missingTiles.map((tile, index) => `<label>${tile}: <input type="file" id="radio-hgt-${index}" accept=".hgt"></label><br>`).join('')}`,
-                        focusConfirm: false,
-                        showCancelButton: true,
-                        confirmButtonText: 'Enviar',
-                        cancelButtonText: 'Cancelar',
-                        preConfirm: () => {
-                            const uploadData = new FormData();
-                            for (const [index, tile] of missingTiles.entries()) {
-                                const input = document.getElementById(`radio-hgt-${index}`);
-                                if (!input || !input.files || input.files.length === 0) {
-                                    Swal.showValidationMessage(`Selecione o arquivo ${tile}.`);
-                                    return false;
-                                }
-                                uploadData.append('files[]', input.files[0]);
-                            }
-                            uploadData.append('missingTiles', JSON.stringify(missingTiles));
-                            return uploadData;
-                        }
-                    });
-                    if (!formData) return false;
-
-                    const uploadResponse = await window.PlanMilT.apiClient.request('elevation-upload.php', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const uploadResult = await uploadResponse.json();
-                    if (!uploadResponse.ok || !uploadResult || !uploadResult.success) {
-                        const error = new Error((uploadResult && uploadResult.message) || `Falha no upload (HTTP ${uploadResponse.status}).`);
-                        error.userMessage = error.message;
-                        throw error;
-                    }
-
-                    await Swal.fire({
-                        title: 'Upload concluído',
-                        text: 'Os arquivos foram enviados. O cálculo será tentado novamente.',
-                        icon: 'success',
-                        timer: 1800,
-                        showConfirmButton: false
-                    });
-                    return true;
                 }
 
                 /**

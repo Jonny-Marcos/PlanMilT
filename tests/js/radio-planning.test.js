@@ -217,6 +217,11 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const finished = new Promise(resolve => { finish = resolve; });
         const originalDocument = global.document;
         const originalClient = window.PlanMilT.apiClient;
+        const originalElevationFiles = window.PlanMilT.elevationFiles;
+        window.PlanMilT.elevationFiles = { async ensure() {
+            const response = await window.PlanMilT.apiClient.request('elevation-upload.php');
+            return (await response.json()).success;
+        } };
         const originalCoverage = window.PlanMilT.coverageImage;
         window.PlanMilT.coverageImage = {
             resolution: originalCoverage.resolution,
@@ -336,6 +341,7 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         } finally {
             global.document = originalDocument;
             window.PlanMilT.apiClient = originalClient;
+            window.PlanMilT.elevationFiles = originalElevationFiles;
             window.PlanMilT.coverageImage = originalCoverage;
         }
     });

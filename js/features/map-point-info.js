@@ -1,7 +1,7 @@
 /**
  * @fileoverview Apresenta coordenadas, elevação local e acesso externo ao Street View para um ponto do mapa.
  * @exports window.PlanMilT.mapPointInfo
- * @requires Leaflet, proj4 e cliente HTTP injetados
+ * @requires Leaflet, proj4 e serviço de arquivos de elevação
  */
 window.PlanMilT = window.PlanMilT || {};
 
@@ -101,7 +101,7 @@ window.PlanMilT.mapPointInfo = Object.freeze({
                 console.error('[PlanMilT][Mapa] Falha ao converter coordenadas UTM.', error);
                 addRow('UTM (WGS84)', 'Não foi possível calcular.');
             }
-            const elevation = addRow('Elevação SRTM', 'Consultando…');
+            const elevation = addRow('Elevação', 'Consultando…');
             elevation.setAttribute('aria-live', 'polite');
             const link = document.createElement('a');
             link.href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent(`${latitude},${longitude}`)}`;
@@ -112,7 +112,7 @@ window.PlanMilT.mapPointInfo = Object.freeze({
             leaflet.popup().setLatLng(latlng).setContent(content).openOn(map);
 
             try {
-                const response = await apiClient.postJson('elevation-profile.php', {
+                const response = await window.PlanMilT.elevationFiles.profile({
                     points: [{ latitude, longitude }]
                 });
                 const value = Array.isArray(response) && response.length === 1 && response[0] && response[0].elevation;

@@ -44,6 +44,9 @@ function createHarness(request = async () => [{ elevation: 123 }]) {
         clearTimeout(id) { timers.delete(id); }
     };
     vm.runInNewContext(source, context);
+    window.PlanMilT.elevationFiles = {
+        async profile(payload) { requests.push({ url: 'elevation-profile.php', payload }); return request(); }
+    };
     window.PlanMilT.mapPointInfo.attach({
         map, leaflet, projection: proj4,
         apiClient: { async postJson(url, payload) { requests.push({ url, payload }); return request(); } }

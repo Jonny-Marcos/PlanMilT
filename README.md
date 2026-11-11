@@ -38,7 +38,7 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 ### Pré-requisitos
 
 - Servidor WAMP ou LAMP com Apache e PHP 8.3 ou superior.
-- Extensões PHP PDO SQLite (`pdo_sqlite`) e cURL (`curl`) habilitadas.
+- Extensões PHP PDO SQLite (`pdo_sqlite`), cURL (`curl`) e zlib habilitadas.
 - Módulos Apache `mod_rewrite` e autorização para regras `.htaccess` (`AllowOverride All`, ou as permissões equivalentes para `FileInfo`, `AuthConfig` e `Options`).
 - Permissão de leitura e escrita no arquivo `bd.db` e em seu diretório para o usuário do Apache.
 - Permissão de escrita em `SRTM3/` para receber arquivos de elevação.
@@ -46,7 +46,7 @@ A aplicação é construída com as seguintes tecnologias e bibliotecas:
 ### Instalação no WAMP ou LAMP
 
 1. Copie ou clone todos os arquivos do projeto para um diretório publicado pelo Apache, por exemplo `www/PlanMilT` no WAMP ou `htdocs/PlanMilT` no XAMPP.
-2. No `php.ini` usado pelo Apache, habilite `pdo_sqlite` e `curl`. Reinicie o Apache depois de alterar a configuração.
+2. No `php.ini` usado pelo Apache, habilite `pdo_sqlite`, `curl` e zlib quando necessário. Reinicie o Apache depois de alterar a configuração.
 3. Habilite o módulo Apache `mod_rewrite` e permita as diretivas necessárias do `.htaccess` no VirtualHost ou na configuração do servidor.
 4. Garanta que o usuário do Apache possa ler os arquivos do projeto e gravar em `bd.db`, no diretório que contém esse banco e em `SRTM3/`.
 5. Acesse `http://localhost/PlanMilT/` ou o endereço configurado no servidor.
@@ -64,6 +64,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 ### Interface do Usuário
 - **Mapa:** Ocupa a área disponível da janela, sem ocultar as barras do navegador. Use o ícone de olho na barra de ferramentas para ocultar ou mostrar os controles; em telas pequenas eles começam ocultos, mas o ícone permanece disponível.
 - **Dados do ponto:** Clique com o botão direito no mapa ou mantenha o toque pressionado no celular para consultar coordenadas WGS84 em graus decimais, graus/minutos/segundos e UTM, além da elevação dos arquivos SRTM locais. A opção Street View abre o Google Maps em outra aba e envia a coordenada selecionada ao Google; a disponibilidade de imagens depende da cobertura do serviço.
+- **Arquivos de elevação:** Quando faltar um tile, a aplicação tenta baixá-lo automaticamente da [Mapzen Terrain Tiles na AWS](https://registry.opendata.aws/terrain-tiles/); se falhar, oferece upload manual. A consulta revela ao provedor a região aproximada do tile (1° × 1°). O serviço combina SRTM e outras fontes, com [atribuições e licenças específicas](https://github.com/tilezen/joerd/blob/master/docs/attribution.md); não é exclusivamente uma base da NASA. A grade de 30 m é subamostrada para 90 m, sem substituir arquivos existentes. O download requer acesso HTTPS externo, cURL, zlib e escrita em `SRTM3/`; é limitado a 32 tiles por operação e a 1 GiB de arquivos HGT no diretório. A função é acessível a todos os usuários da aplicação.
 - **Predição de cobertura:** A análise manual mostra o andamento das radiais e uma estimativa do tempo dessa etapa. A consulta inicial de elevação e a exibição final não possuem estimativa de duração.
 - **Salvamento de coberturas:** Novas predições manuais são desenhadas diretamente em PNG transparente georreferenciado e salvas com o planejamento; o KMZ inclui a imagem automaticamente, independentemente da captura opcional do mapa. Clique na cobertura para consultar a resolução radial; no planejamento editável, o mesmo popup permite removê-la. A cor RF representa a margem sobre a sensibilidade; não há consulta de sinal numérico por célula. Coberturas antigas em polígonos permanecem compatíveis e não são convertidas. São usadas 72 radiais e até 200 passos por radial (14.472 pontos incluindo os centros): em 100 km, o espaçamento é de 500 m. A resolução adaptativa reduz o custo, mas pode omitir detalhes do relevo; a imagem tem 1024 × 1024 pixels. Áreas que cruzem o antimeridiano ou ultrapassem 85° de latitude são recusadas. Muitas imagens ainda podem ultrapassar `post_max_size` ou outros limites do servidor.
 - **Penetração/Difração:** Na cobertura RF e na sugestão de repetidoras, escolha Alta (Otimista), Média (Equilibrada) ou Baixa (Pessimista); sequências antigas usam Média. O mesmo cenário é usado nos contornos e na validação dos enlaces das repetidoras. A visada ótica continua independente dessa escolha.
@@ -133,15 +134,15 @@ The application is built with the following technologies and libraries:
 ### Prerequisites
 
 - Apache with PHP 8.3 or later.
-- PHP PDO SQLite (`pdo_sqlite`) and cURL (`curl`) extensions enabled.
+- PHP PDO SQLite (`pdo_sqlite`), cURL (`curl`) and zlib extensions enabled.
 - Apache `mod_rewrite` and permission to use `.htaccess` rules (`AllowOverride All`, or equivalent permissions for `FileInfo`, `AuthConfig` and `Options`).
 - Read and write access to `bd.db` and its parent directory for the Apache user.
-- Write access to `SRTM3/` for elevation file uploads.
+- Write access to `SRTM3/` for elevation file uploads and downloads.
 
 ### Installation on WAMP or LAMP
 
 1. Copy or clone all project files into a directory published by Apache, such as WAMP's `www/PlanMilT` or XAMPP's `htdocs/PlanMilT`.
-2. Enable `pdo_sqlite` and `curl` in the `php.ini` used by Apache, then restart Apache.
+2. Enable `pdo_sqlite`, `curl` and zlib as needed in the `php.ini` used by Apache, then restart Apache.
 3. Enable Apache's `mod_rewrite` module and allow the required `.htaccess` directives in the VirtualHost or server configuration.
 4. Ensure the Apache user can read the project files and write to `bd.db`, its containing directory, and `SRTM3/`.
 5. Open `http://localhost/PlanMilT/` or the address configured on the server.

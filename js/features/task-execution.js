@@ -359,137 +359,20 @@ ${!hasErrors(logMessages) ? "<p>Planejamento salvo na camada 'Sugestão de Plane
                 /**
                  * Obtém os dados de elevação necessários à análise da área.
                  * @param {Object} bounds - Limites geográficos da área consultada.
+                 * @param {boolean} [allowRecovery=true] - Permite uma tentativa de recuperação.
+                 * @returns {Promise<Array<Object>|null>} Amostras ou ausência de dados após erro.
                  */
-                async function fetchElevationData(bounds) {
+                async function fetchElevationData(bounds, allowRecovery = true) {
                     try {
                         const response = await window.PlanMilT.apiClient.request(`elevation-data.php?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLon=${bounds.getWest()}&maxLon=${bounds.getEast()}`);
 
                         if (!response.ok) {
                             const errorData = await response.json();
 
-                            if (errorData.error === 'Arquivos de elevação faltando' && errorData.missingTiles) {
-                                // Mostrar mensagem de erro e oferecer opção de upload
-                                const missingTiles = errorData.missingTiles;
-                                const tileList = missingTiles.join(', ');
-                                const { isConfirmed } = await Swal.fire({
-                                    title: 'Arquivos de Elevação Faltando',
-                                    html: `Os seguintes arquivos de elevação estão faltando: <b>${tileList}</b><br>Você pode obtê-los em <a href="https://www.okmap.org/en/en_srtm.aspx" target="_blank" rel="noopener">OkMap</a>.<br>Deseja fazer o upload dos arquivos faltantes?`,
-                                    icon: 'error',
-                                    showCancelButton: true,
-                                    confirmButtonText: 'Fazer Upload',
-                                    cancelButtonText: 'Cancelar'
-                                });
-
-                                if (isConfirmed) {
-                                    // Mostrar formulário para upload
-                                    const { value: uploadData } = await Swal.fire({
-                                        title: 'Upload de Arquivos de Elevação',
-                                        html: `
-<p>Por favor, selecione os arquivos correspondentes aos tiles faltantes.</p>
-${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}" accept=".hgt"></label><br>`).join('')}
-`,
-                                        focusConfirm: false,
-                                        preConfirm: () => {
-                                            const formData = new FormData();
-                                            let allFilesSelected = true;
-                                            missingTiles.forEach(tile => {
-                                                const fileInput = document.getElementById(`file_${tile}`);
-                                                if (!fileInput || fileInput.files.length === 0) {
-                                                    allFilesSelected = false;
-                                                } else {
-                                                    formData.append('files[]', fileInput.files[0], fileInput.files[0].name.toUpperCase());
-                                                }
-                                                // Adicionar missingTiles ao FormData
-                                                formData.append('missingTiles', JSON.stringify(missingTiles));
-
-                                            });
-                                            if (!allFilesSelected) {
-                                                Swal.showValidationMessage('Você deve selecionar todos os arquivos.');
-                                                return false;
-                                            }
-                                            return formData;
-                                        },
-                                        showCancelButton: true,
-                                        confirmButtonText: 'Enviar',
-                                        cancelButtonText: 'Cancelar'
-                                    });
-
-                                    if (uploadData) {
-                                        // Enviar os arquivos ao servidor
-                                        try {
-                                            // **Adicionar** a barra de progresso falsa antes do upload
-                                            Swal.fire({
-                                                title: 'Enviando arquivo(s)',
-                                                html: `
-<div style="width: 100%; background-color: #ddd; border-radius: 5px; overflow: hidden; margin-top: 20px;">
-<div id="fake-progress" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
-            </div>
-<p style="margin-top: 10px;">Por favor, aguarde...</p>
-`,
-                                                allowOutsideClick: false,
-                                                showConfirmButton: false,
-                                                didOpen: () => {
-                                                    const progressBar = Swal.getPopup().querySelector('#fake-progress');
-                                                    let progress = 0;
-                                                    // Simular o progresso até 90%
-                                                    window.fakeProgressInterval = setInterval(() => {
-                                                        if (progress < 95) {
-                                                            // Incremento aleatório entre 0.5% e 1%
-                                                            progress += (Math.random() * 0.4) + 0.5;
-                                                            if (progress > 90) progress = 90; // Limitar a 90%
-                                                            progressBar.style.width = progress.toFixed(2) + '%';
-                                                        } else {
-                                                            clearInterval(window.fakeProgressInterval);
-                                                        }
-                                                    }, 1000); // Atualizar a cada 1 segundo
-
-                                                }
-                                            });
-
-                                            const uploadResponse = await window.PlanMilT.apiClient.request('elevation-upload.php', {
-                                                method: 'POST',
-                                                body: uploadData
-                                            });
-
-                                            // **Atualizar** a barra de progresso para 100% após a conclusão do upload
-                                            const progressBar = Swal.getPopup().querySelector('#fake-progress');
-                                            progressBar.style.width = '100%';
-                                            clearInterval(window.fakeProgressInterval);
-
-                                            const uploadResult = await uploadResponse.json();
-
-                                            if (uploadResult.success) {
-                                                Swal.fire('Sucesso', 'Arquivos enviados com sucesso. Tentando novamente obter os dados de elevação...', 'success');
-                                                addToLog('Arquivos de elevação enviados com sucesso.');
-                                                console.info('[PlanMilT][Elevação] Upload concluído.');
-
-                                                // Tentar novamente obter os dados de elevação
-                                                return await fetchElevationData(bounds);
-                                            } else {
-                                                Swal.fire('Erro', uploadResult.message || 'Falha ao enviar os arquivos de elevação.', 'error');
-                                                addToLog('Erro: Falha ao enviar os arquivos de elevação:', uploadResult.message);
-                                                console.error('[PlanMilT][Elevação] Upload recusado.', {
-                                                    message: uploadResult.message || 'Falha ao enviar os arquivos.'
-                                                });
-                                                return null;
-                                            }
-                                        } catch (uploadError) {
-                                            Swal.fire('Erro', 'Erro ao enviar os arquivos de elevação.', 'error');
-                                            addToLog('Erro ao enviar os arquivos de elevação:', uploadError);
-                                            console.error('[PlanMilT][Elevação] Falha no upload.', uploadError);
-                                            return null;
-                                        }
-                                    } else {
-                                        // Usuário cancelou o upload
-                                        Swal.fire('Aviso', 'Operação cancelada pelo usuário.', 'warning');
-                                        return null;
-                                    }
-
-
-                                } else {
-                                    // Usuário cancelou a ação
-                                    return null;
-                                }
+                            if (allowRecovery && errorData.error === 'Arquivos de elevação faltando' && errorData.missingTiles) {
+                                const obtained = await window.PlanMilT.elevationFiles.ensure(errorData.missingTiles);
+                                if (obtained) return await fetchElevationData(bounds, false);
+                                return null;
                             } else {
                                 addToLog('Erro ao obter dados de elevação:', errorData.error);
                                 console.error('[PlanMilT][Elevação] Falha ao consultar amostras.', {
@@ -515,6 +398,7 @@ ${missingTiles.map(tile => `<label>${tile}: <input type="file" id="file_${tile}"
                     } catch (error) {
                         addToLog('Erro ao obter os dados de elevação:', error);
                         console.error('[PlanMilT][Elevação] Falha ao consultar elevações.', error);
+                        Swal.fire('Erro', error.userMessage || 'Não foi possível obter os arquivos de elevação.', 'error');
                         return null;
                     }
                 }

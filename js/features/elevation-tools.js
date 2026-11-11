@@ -59,7 +59,7 @@
                         points: points
                     };
 
-                    const data = await window.PlanMilT.apiClient.postJson('elevation-profile.php', payload);
+                    const data = await window.PlanMilT.elevationFiles.profile(payload);
 
 
                     // Verifica se a resposta contém as elevações
@@ -71,6 +71,7 @@
                     drawElevationProfile(elevationData, midpoint); // Passa o ponto médio para a função
                 } catch (error) {
                     console.error('Erro:', error);
+                    if (error.userCancelled) return;
                     Swal.fire({
                         icon: 'error',
                         title: 'Erro',
