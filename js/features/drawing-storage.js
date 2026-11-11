@@ -24,11 +24,19 @@
                     }
                 });
 
+                let serializedData;
+                try {
+                    serializedData = JSON.stringify(drawnData);
+                } catch (error) {
+                    console.error('[PlanMilT][Desenhos] Falha ao serializar os desenhos.', error);
+                    Swal.fire('Erro!', 'Não foi possível serializar os desenhos para salvamento.', 'error');
+                    return;
+                }
                 var data = {
                     usuario: usuario,
                     senha: senha,
                     link: diretorio, // Diretório a ser usado na requisição
-                    leaflet: JSON.stringify(drawnData) // Converte os dados desenhados para uma string JSON
+                    leaflet: serializedData
                 };
 
                 // Envio dos dados via AJAX
@@ -54,7 +62,9 @@
                             status: xhr.status,
                             error
                         });
-                        Swal.fire('Erro!', 'Não foi possível salvar os desenhos.', 'error');
+                        Swal.fire('Erro!', xhr.status === 413
+                            ? 'Os desenhos excedem o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza o tamanho da cobertura.'
+                            : 'Não foi possível salvar os desenhos.', 'error');
                     }
                 });
             }
@@ -95,7 +105,14 @@
                         sessionStorage.setItem('senha', senha);
 
                         // Gera o GeoJSON dos desenhos
-                        var drawnData = drawnItems.toGeoJSON();
+                        let drawnData;
+                        try {
+                            drawnData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
+                        } catch (error) {
+                            console.error('[PlanMilT][Desenhos] Falha ao preparar o salvamento.', error);
+                            Swal.fire('Erro!', 'Não foi possível preparar os desenhos para salvamento.', 'error');
+                            return;
+                        }
 
                         // Verifica se não há desenhos para salvar
                         if (drawnData.features.length === 0) {

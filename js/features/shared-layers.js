@@ -112,7 +112,10 @@
                                 }
                                 // Aplica estilo para outros tipos de geometria
                                 else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon'){
-                                    layer.setStyle({color: feature.properties.color});
+                                    const style = { color: feature.properties.color };
+                                    if (feature.properties.fillColor) style.fillColor = feature.properties.fillColor;
+                                    if (feature.properties.fillOpacity !== undefined) style.fillOpacity = feature.properties.fillOpacity;
+                                    layer.setStyle(style);
                                     newLayer.addLayer(layer);
                                 }
                             }
@@ -272,7 +275,6 @@
                     }
                 }
             });
-
 
 
 

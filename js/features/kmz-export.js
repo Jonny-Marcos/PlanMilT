@@ -28,7 +28,7 @@ window.PlanMilT.kmzExport = Object.freeze({
             async function exportDrawingsToKMZ() {
                 try {
                     // Obtém os dados dos desenhos existentes
-                    var geoJsonData = drawnItems.toGeoJSON();
+                    var geoJsonData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
 
                     // Verifica se a camada "Sugestão de Planejamento" existe no layerRegistry
                     if (layerRegistry.hasOwnProperty("Sugestão de Planejamento")) {
@@ -38,7 +38,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                         if (sugestaoLayer.getLayers && sugestaoLayer.getLayers().length > 0) {
 
                             // Obtém os dados da camada "Sugestão de Planejamento"
-                            var sugestaoGeoJSON = sugestaoLayer.toGeoJSON();
+                            var sugestaoGeoJSON = window.PlanMilT.geoJsonSerialization.toFeatureCollection(sugestaoLayer);
 
                             // Verifica se há features no GeoJSON
                             if (sugestaoGeoJSON.features && sugestaoGeoJSON.features.length > 0) {

@@ -648,7 +648,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                                 let cellColor = p.isOptical ? '#ffff00' : getSignalColor(rxPower, p.rxSens);
 
-                                validCells.push(turf.polygon([[p1, p2, p3, p4, p1]], { rxPower: p.isOptical ? 'Visível' : rxPower.toFixed(2), color: cellColor }));
+                                validCells.push(turf.polygon([[p1, p2, p3, p4, p1]], {
+                                    rxPower: p.isOptical ? 'Visível' : rxPower.toFixed(2),
+                                    color: cellColor,
+                                    fillColor: cellColor,
+                                    fillOpacity: p.isOptical ? 0.45 : 0.6
+                                }));
                             }
                             const completed = r + 1;
                             progressBar.value = completed;

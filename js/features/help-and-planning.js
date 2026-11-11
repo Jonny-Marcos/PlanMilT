@@ -99,7 +99,14 @@
                             const { usuario, senha } = result.value;
 
                             // Gera o GeoJSON da camada "Sugestão de Planejamento"
-                            const planejamentoData = planejamentoLayer.toGeoJSON();
+                            let planejamentoData;
+                            try {
+                                planejamentoData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(planejamentoLayer);
+                            } catch (error) {
+                                console.error('[PlanMilT][Planejamento] Falha ao preparar o salvamento.', error);
+                                Swal.fire('Erro!', 'Não foi possível preparar a Sugestão de Planejamento para salvamento.', 'error');
+                                return;
+                            }
 
                             // Itera por cada feature para incluir propriedades personalizadas
                             planejamentoData.features.forEach(function(feature) {
@@ -131,11 +138,19 @@
                             const diretorio = resultado ? resultado[1] : '';
 
                             // Prepara os dados a serem enviados
+                            let serializedData;
+                            try {
+                                serializedData = JSON.stringify(planejamentoData);
+                            } catch (error) {
+                                console.error('[PlanMilT][Planejamento] Falha ao serializar a sugestão.', error);
+                                Swal.fire('Erro!', 'Não foi possível serializar a Sugestão de Planejamento.', 'error');
+                                return;
+                            }
                             const data = {
                                 usuario: usuario,
                                 senha: senha,
                                 link: diretorio, // Diretório a ser usado na requisição
-                                leaflet: JSON.stringify(planejamentoData) // Converte os dados da camada para uma string JSON
+                                leaflet: serializedData
                             };
 
                             // Envio dos dados via AJAX usando jQuery
@@ -156,7 +171,9 @@
                                 },
                                 error: function(xhr, status, error) {
                                     console.error("Erro ao salvar a Sugestão de Planejamento:", error);
-                                    Swal.fire('Erro!', 'Não foi possível salvar a Sugestão de Planejamento.', 'error');
+                                    Swal.fire('Erro!', xhr.status === 413
+                                        ? 'A sugestão excede o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza os desenhos.'
+                                        : 'Não foi possível salvar a Sugestão de Planejamento.', 'error');
                                 }
                             });
                         }

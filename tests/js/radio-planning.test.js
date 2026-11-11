@@ -208,6 +208,7 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const progressValues = [];
         const messages = [];
         const requestUrls = [];
+        let renderedFeatures;
         let finish;
         const finished = new Promise(resolve => { finish = resolve; });
         const originalDocument = global.document;
@@ -237,7 +238,10 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             layerGroup: () => ({ addTo() { return this; }, clearLayers() {} }),
             marker: () => marker,
             divIcon: () => ({}),
-            geoJSON: () => ({ addTo() { return this; } })
+            geoJSON: collection => {
+                renderedFeatures = collection.features;
+                return { addTo() { return this; } };
+            }
         };
         const turf = {
             destination(center, distance, angle) {
@@ -305,6 +309,9 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             assert.ok(messages.some(message => /Tempo estimado para as radiais/.test(message)));
             assert.ok(messages.some(message => /Preparando a exibição/.test(message)));
             assert.deepEqual(requestUrls, ['elevation-profile.php', 'elevation-upload.php', 'elevation-profile.php']);
+            assert.ok(renderedFeatures.length > 0);
+            assert.equal(renderedFeatures[0].properties.fillColor, '#ffff00');
+            assert.equal(renderedFeatures[0].properties.fillOpacity, 0.45);
         } finally {
             global.document = originalDocument;
             window.PlanMilT.apiClient = originalClient;
