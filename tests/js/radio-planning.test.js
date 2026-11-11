@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 global.window = {};
+require('../../js/features/coverage-propagation.js');
 
 const buttonListeners = new Map();
 const mapListeners = new Map();
@@ -49,6 +50,110 @@ test('radio planning attaches the UI/map listeners and keeps generated layers pr
     assert.equal(mapListeners.has('click'), true);
     assert.equal(buttonListeners.has('linkPredictionBtn:click'), true);
     assert.equal(window.rfGeneratedLayers, undefined);
+});
+
+test('manual coverage form offers the three scenarios and validates supported frequencies', async () => {
+    const listeners = new Map();
+    const fields = {
+        rfMode: { value: 'coverage' },
+        rfPreset: { value: 'custom' },
+        rfFreq: { value: '450' },
+        rfTxPower: { value: '37' },
+        rfTxGain: { value: '2' },
+        rfTxHeight: { value: '1.5' },
+        rfRxGain: { value: '2' },
+        rfRxHeight: { value: '1.5' },
+        rfRxSens: { value: '-105' },
+        rfRadius: { value: '5' },
+        rfPenetration: { value: 'low' },
+        rfPenetrationField: { style: {} },
+        rfSpecificOptions: { style: {} },
+        colRadius: { style: {} },
+        wattsDisplay: {},
+        btnClearRFLayers: {}
+    };
+    for (const field of Object.values(fields)) {
+        field.addEventListener = (name, callback) => { field[name] = callback; };
+    }
+    const originalDocument = global.document;
+    let form;
+    let warning;
+    global.document = {
+        getElementById(id) {
+            return fields[id] || { addEventListener(name, callback) { listeners.set(name, callback); } };
+        }
+    };
+    try {
+        window.PlanMilT.radioPlanning.attach({
+            map: { on() {} },
+            leaflet: { layerGroup: () => temporaryLayer },
+            turf: {}, drawnItems: {},
+            sweetAlert: {
+                fire(options) { form = options; return Promise.resolve({}); },
+                showValidationMessage(message) { warning = message; }
+            },
+            chartConstructor: class {}
+        });
+        await listeners.get('click').call({ style: {} });
+        assert.match(form.html, /Alta \(Otimista\)/);
+        assert.match(form.html, /Média \(Equilibrada\)/);
+        assert.match(form.html, /Baixa \(Pessimista\)/);
+        form.didOpen();
+        assert.equal(fields.rfPenetrationField.style.display, 'block');
+        fields.rfMode.value = 'ptp';
+        fields.rfMode.change({ target: fields.rfMode });
+        assert.equal(fields.rfPenetrationField.style.display, 'none');
+        fields.rfMode.value = 'coverage';
+        fields.rfPreset.value = 'optical';
+        fields.rfPreset.change({ target: fields.rfPreset });
+        assert.equal(fields.rfPenetrationField.style.display, 'none');
+        fields.rfPreset.value = 'custom';
+        fields.rfPreset.change({ target: fields.rfPreset });
+        assert.equal(fields.rfPenetrationField.style.display, 'block');
+        assert.equal(form.preConfirm().penetration, 'low');
+        fields.rfFreq.value = '2';
+        assert.equal(form.preConfirm(), false);
+        assert.match(warning, /frequência/);
+        fields.rfFreq.value = '450';
+        fields.rfTxPower.value = '';
+        assert.equal(form.preConfirm(), false);
+        assert.match(warning, /parâmetros RF/);
+        fields.rfPreset.value = 'optical';
+        assert.equal(form.preConfirm().isOptical, true);
+    } finally {
+        global.document = originalDocument;
+    }
+});
+
+test('coverage boundary changes with scenario for an obstructed SHF terrain profile', async () => {
+    const previousClient = window.PlanMilT.apiClient;
+    window.PlanMilT.apiClient = {
+        async request(url, options) {
+            const points = JSON.parse(options.body).points;
+            return { ok: true, async json() {
+                return points.map((_, index) => ({ elevation: index % 11 === 3 ? 120 : 100 }));
+            } };
+        }
+    };
+    try {
+        const radio = window.PlanMilT.radioPlanning.attach({
+            map: { on() {} },
+            leaflet: { layerGroup: () => temporaryLayer },
+            turf: { destination: (center, distance) => ({ geometry: { coordinates: [center[0] + distance, center[1]] } }) },
+            drawnItems: {}, sweetAlert: {}, chartConstructor: class {}
+        });
+        const boundaries = [];
+        for (const penetration of ['high', 'medium', 'low']) {
+            const ring = await radio.analyzeCoverageBoundary(
+                { lat: 0, lng: 0 }, 'airgrid_m5', 10, 1.5,
+                { radialCount: 8, resolutionKm: 1, penetration }
+            );
+            boundaries.push(ring[0].lng);
+        }
+        assert.deepEqual(boundaries, [10, 8, 3]);
+    } finally {
+        window.PlanMilT.apiClient = previousClient;
+    }
 });
 
 test('radio planning exposes shared presets and reusable point-to-point analysis', async () => {
@@ -282,4 +387,18 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
     assert.equal(coverageBoundary.length, 8);
     assert.ok(coverageBoundary.every(point => Number.isFinite(point.lat) && Number.isFinite(point.lng)));
     assert.equal(requests.length, 6);
+
+    elevations = [100, 120, 100];
+    const high = await radioPlanning.analyzeLinks([
+        { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } }
+    ], 'harris_hh', 1.5, { penetration: 'high' });
+    const low = await radioPlanning.analyzeLinks([
+        { from: { lat: 0, lng: 0 }, to: { lat: 0, lng: 0.06 } }
+    ], 'harris_hh', 1.5, { penetration: 'low' });
+    assert.ok(high[0].rxPower > low[0].rxPower);
+    assert.equal(high[0].band, 'VHF');
+    await assert.rejects(radioPlanning.analyzeCoverageBoundary(
+        { lat: 0, lng: 0 }, 'harris_hh', 0.2, 1.5,
+        { radialCount: 8, resolutionKm: 0.1, penetration: 'invalid' }
+    ), /condição válida/);
 });

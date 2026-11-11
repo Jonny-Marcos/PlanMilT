@@ -366,6 +366,7 @@ test('radio task forms collect route, repeater and preset settings', async () =>
             '#routeAntennaHeight': '8',
             '#repeaterIconUrl': icons[0],
             '#repeaterRadioPreset': 'radio',
+            '#repeaterPenetration': 'high',
             '#repeaterMaxDistance': '10',
             '#repeaterAntennaHeight': '4',
             '#repeaterMaxCount': '4',
@@ -387,6 +388,8 @@ test('radio task forms collect route, repeater and preset settings', async () =>
         assert.match(html, /Altura comum das antenas \(m\)/);
     }
     assert.match(repeaterHtml, /Ícones que precisam de cobertura/);
+    assert.match(repeaterHtml, /Alta \(Otimista\)/);
+    assert.match(repeaterHtml, /value="medium" selected>Média \(Equilibrada\)/);
     assert.match(repeaterHtml, /Ícone a colocar/);
     assert.match(repeaterHtml, /Alcance máximo de cada enlace/);
     assert.match(repeaterHtml, /Máximo de repetidoras sugeridas \(1–40\)/);
@@ -416,6 +419,7 @@ test('radio task forms collect route, repeater and preset settings', async () =>
         iconTypesToCover: icons,
         repeaterIcon: icons[0],
         radioPreset: 'radio',
+        penetration: 'high',
         maxDistance: 10,
         antennaHeight: 4,
         maxRepeaters: 4,

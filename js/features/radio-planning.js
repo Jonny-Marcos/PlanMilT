@@ -1,7 +1,7 @@
 /**
  * @fileoverview Implementa simulações de enlace de rádio e visada ótica, desenha resultados e apresenta gráficos.
  * @exports window.PlanMilT.radioPlanning
- * @requires Leaflet, Turf, Chart, drawnItems e SweetAlert injetados
+ * @requires Leaflet, Turf, Chart, coveragePropagation, drawnItems e SweetAlert injetados
  */
 window.PlanMilT = window.PlanMilT || {};
 
@@ -104,6 +104,15 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 <div class="row" id="colRadius">
                                     <div class="col"><label>Raio Máx de Varredura (km)</label><input id="rfRadius" type="number" step="0.1" value="5"></div>
                                 </div>
+                                <div id="rfPenetrationField">
+                                    <label for="rfPenetration">Penetração/Difração (cobertura RF)</label>
+                                    <select id="rfPenetration">
+                                        <option value="high">Alta (Otimista)</option>
+                                        <option value="medium" selected>Média (Equilibrada)</option>
+                                        <option value="low">Baixa (Pessimista)</option>
+                                    </select>
+                                    <small>Estimativa terrestre simplificada; não representa construções, vegetação ou propagação ionosférica HF.</small>
+                                </div>
                                 
                                 <button type="button" id="btnClearRFLayers" class="btn-clear-rf"><i class="fas fa-trash"></i> Limpar Simulações Anteriores</button>
                             </div>
@@ -122,6 +131,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 let watts = Math.pow(10, (dbm - 30) / 10);
                                 let text = watts >= 1 ? watts.toFixed(1) + ' W' : (watts * 1000).toFixed(0) + ' mW';
                                 document.getElementById('wattsDisplay').innerText = `(= ${text})`;
+                            };
+                            const updatePenetrationField = () => {
+                                document.getElementById('rfPenetrationField').style.display =
+                                    document.getElementById('rfMode').value === 'coverage' &&
+                                    document.getElementById('rfPreset').value !== 'optical' ? 'block' : 'none';
                             };
 
                             // Dinâmica de exibir/ocultar campos dependendo do Preset
@@ -148,14 +162,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 
                                 // Oculta opções de RF se for Linha de Visada (Ótico)
                                 document.getElementById('rfSpecificOptions').style.display = (val === 'optical') ? 'none' : 'block';
+                                updatePenetrationField();
                             });
 
                             document.getElementById('rfMode').addEventListener('change', function(e) {
                                 document.getElementById('colRadius').style.display = (e.target.value === 'coverage') ? 'block' : 'none';
+                                updatePenetrationField();
                             });
 
                             document.getElementById('rfTxPower').addEventListener('input', updateWatts);
                             updateWatts();
+                            updatePenetrationField();
 
                             document.getElementById('btnClearRFLayers').addEventListener('click', function() {
                                 if(rfGeneratedLayers.length > 0) {
@@ -171,18 +188,41 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             });
                         },
                         preConfirm: () => {
-                            return {
+                            const values = {
                                 mode: document.getElementById('rfMode').value,
                                 freq: parseFloat(document.getElementById('rfFreq').value) || 0,
-                                txPower: parseFloat(document.getElementById('rfTxPower').value) || 0,
-                                txGain: parseFloat(document.getElementById('rfTxGain').value) || 0,
+                                txPower: parseFloat(document.getElementById('rfTxPower').value),
+                                txGain: parseFloat(document.getElementById('rfTxGain').value),
                                 txHeight: parseFloat(document.getElementById('rfTxHeight').value),
-                                rxGain: parseFloat(document.getElementById('rfRxGain').value) || 0,
+                                rxGain: parseFloat(document.getElementById('rfRxGain').value),
                                 rxHeight: parseFloat(document.getElementById('rfRxHeight').value),
-                                rxSens: parseFloat(document.getElementById('rfRxSens').value) || 0,
+                                rxSens: parseFloat(document.getElementById('rfRxSens').value),
                                 radius: parseFloat(document.getElementById('rfRadius').value),
-                                isOptical: (document.getElementById('rfPreset').value === 'optical') // Flag Ótica
+                                isOptical: (document.getElementById('rfPreset').value === 'optical'),
+                                penetration: document.getElementById('rfPenetration').value
+                            };
+                            if (values.mode === 'coverage') {
+                                if (!Number.isFinite(values.radius) || values.radius <= 0 ||
+                                    !Number.isFinite(values.txHeight) || values.txHeight < 0 ||
+                                    !Number.isFinite(values.rxHeight) || values.rxHeight < 0) {
+                                    Swal.showValidationMessage('Informe raio e alturas de antena válidos.');
+                                    return false;
+                                }
+                                if (!values.isOptical) {
+                                    if ([values.txPower, values.txGain, values.rxGain, values.rxSens].some(value => !Number.isFinite(value)) ||
+                                        !['high', 'medium', 'low'].includes(values.penetration)) {
+                                        Swal.showValidationMessage('Informe parâmetros RF e uma condição de penetração/difração válidos.');
+                                        return false;
+                                    }
+                                    try { window.PlanMilT.coveragePropagation.bandForFrequency(values.freq); }
+                                    catch (error) { Swal.showValidationMessage(error.message); return false; }
+                                }
+                            } else {
+                                for (const key of ['txPower', 'txGain', 'rxGain', 'rxSens']) {
+                                    if (!Number.isFinite(values[key])) values[key] = 0;
+                                }
                             }
+                            return values;
                         }
                     });
 
@@ -322,7 +362,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx; sem valor mantém o preset.
                  * @returns {Promise<Object>} Resultados indexados pelo identificador do preset.
                  */
-                async function analisarEnlacesComPresets(links, presetIds, antennaHeight) {
+                async function analisarEnlacesComPresets(links, presetIds, antennaHeight, coverageOptions) {
                     if (!Array.isArray(links) || links.length === 0) throw new Error('Informe pelo menos um enlace para analisar.');
                     if (antennaHeight !== undefined && (!Number.isFinite(antennaHeight) || antennaHeight < 0)) {
                         throw new Error('A altura da antena deve ser um número igual ou maior que zero.');
@@ -351,7 +391,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                     return Object.fromEntries(presets.map(preset => [
                         preset.id,
-                        profiles.map((profile, index) => calcularMetricasEnlace(profile, profileElevations[index], preset.parameters))
+                        profiles.map((profile, index) => {
+                            if (!coverageOptions) return calcularMetricasEnlace(profile, profileElevations[index], preset.parameters);
+                            const points = profile.points.map((point, pointIndex) => ({
+                                distKm: point.distKm,
+                                elevation: profileElevations[index][pointIndex].elevation
+                            }));
+                            return {
+                                ...window.PlanMilT.coveragePropagation.evaluate(points, preset.parameters, coverageOptions.penetration),
+                                distTotalKm: profile.distTotalKm
+                            };
+                        })
                     ]));
                 }
 
@@ -375,8 +425,8 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {number} [antennaHeight] - Altura comum em metros para Tx e Rx.
                  * @returns {Promise<Array<Object>>} Resultados na mesma ordem dos enlaces.
                  */
-                async function analisarEnlacesComPreset(links, presetId, antennaHeight) {
-                    const results = await analisarEnlacesComPresets(links, [presetId], antennaHeight);
+                async function analisarEnlacesComPreset(links, presetId, antennaHeight, coverageOptions) {
+                    const results = await analisarEnlacesComPresets(links, [presetId], antennaHeight, coverageOptions);
                     return results[presetId];
                 }
 
@@ -389,6 +439,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} [options] - Resolução e quantidade de radiais da aproximação.
                  * @param {number} [options.radialCount=36] - Quantidade de direções do contorno.
                  * @param {number} [options.resolutionKm=0.1] - Intervalo de amostragem em quilômetros.
+                 * @param {string} [options.penetration=medium] - Condição de penetração/difração RF.
                  * @returns {Promise<Array<Object>>} Pontos do contorno com latitude e longitude.
                  */
                 async function analisarAreaCobertura(center, presetId, radiusKm, antennaHeight, options = {}) {
@@ -433,48 +484,18 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         ...(antennaHeight === undefined ? {} : { txHeight: antennaHeight, rxHeight: antennaHeight }),
                         isOptical: presetId === 'optical'
                     };
-                    const freqGHz = parameters.isOptical ? 1 : parameters.freq / 1000;
                     const boundary = [];
                     for (let radialIndex = 0; radialIndex < radialCount; radialIndex++) {
                         const radialOffset = radialIndex * (steps + 1);
-                        const txElevation = elevations[radialOffset].elevation + parameters.txHeight;
                         let furthestViableDistance = 0;
+                        const profile = [{ distKm: 0, elevation: elevations[radialOffset].elevation }];
 
                         for (let step = 1; step <= steps; step++) {
                             const pointIndex = radialOffset + step;
                             const distanceKm = points[pointIndex].distKm;
-                            const rxElevation = elevations[pointIndex].elevation + parameters.rxHeight;
-                            let hasObstruction = false;
-
-                            for (let intermediateStep = 1; intermediateStep < step; intermediateStep++) {
-                                const intermediateIndex = radialOffset + intermediateStep;
-                                const distanceFromTx = points[intermediateIndex].distKm;
-                                const distanceToRx = distanceKm - distanceFromTx;
-                                const curvature = (distanceFromTx * distanceToRx) / (12.74 * 1.333);
-                                const terrainElevation = elevations[intermediateIndex].elevation + curvature;
-                                const losElevation = txElevation -
-                                    ((txElevation - rxElevation) * (distanceFromTx / distanceKm));
-                                const fresnelRadius = parameters.isOptical
-                                    ? 0
-                                    : 17.32 * Math.sqrt((distanceFromTx * distanceToRx) / (freqGHz * distanceKm));
-                                if (terrainElevation > losElevation - 0.6 * fresnelRadius) {
-                                    hasObstruction = true;
-                                    break;
-                                }
-                            }
-
-                            let isViable = !hasObstruction;
-                            if (!parameters.isOptical) {
-                                const freeSpaceLoss = 20 * Math.log10(distanceKm) +
-                                    20 * Math.log10(parameters.freq) + 32.44;
-                                const receivedPower = parameters.txPower + parameters.txGain -
-                                    freeSpaceLoss + parameters.rxGain;
-                                const isMicrowave = parameters.freq > 1000;
-                                isViable = isMicrowave
-                                    ? !hasObstruction && receivedPower >= parameters.rxSens
-                                    : receivedPower >= parameters.rxSens;
-                            }
-                            if (isViable) furthestViableDistance = distanceKm;
+                            profile.push({ distKm: distanceKm, elevation: elevations[pointIndex].elevation });
+                            const result = window.PlanMilT.coveragePropagation.evaluate(profile, parameters, options.penetration);
+                            if (result.isViable) furthestViableDistance = distanceKm;
                         }
 
                         const destination = turf.destination(
@@ -577,13 +598,8 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         progressBar.value = 0;
                         await yieldCoverageProgress();
                         let validCells = []; 
-                        let K = 1.333;
                         let halfAngle = (360 / radiais) / 2;
                         let halfDist = resolucaoKm / 2;
-                        let freqGHz = p.isOptical ? 1 : (p.freq / 1000);
-                        
-                        let isMicrowave = p.freq > 1000;
-                        let fresnelClearance = p.isOptical ? 0.0 : (isMicrowave ? 0.6 : 0.0);
                         
                         /**
                          * Determina a cor de apresentação segundo o nível e a sensibilidade do sinal.
@@ -606,7 +622,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             }
 
                             let startIdx = radialIndices[0];
-                            let hTx = data[startIdx].elevation + p.txHeight; 
+                            const profile = [{ distKm: 0, elevation: data[startIdx].elevation }];
 
                             for (let i = 1; i < radialIndices.length; i++) {
                                 let idx = radialIndices[i];
@@ -614,49 +630,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 
                                 if (d1 === 0) continue; 
 
-                                let hRx = data[idx].elevation + p.rxHeight;
-                                let rxPower = 0;
-                                
-                                if (!p.isOptical) {
-                                    let fspl = 20 * Math.log10(d1) + 20 * Math.log10(p.freq) + 32.44;
-                                    let clutterLoss = isMicrowave ? (2 + (2 * d1)) : (10 + (6 * d1)); 
-                                    rxPower = p.txPower + p.txGain - fspl - clutterLoss + p.rxGain;
-                                }
-                                
-                                let isObstructed = false;
-                                let maxObstructionMeters = 0;
-
-                                for (let j = 1; j < i; j++) {
-                                    let idxJ = radialIndices[j];
-                                    let distJ = pointReqArray[idxJ].distKm;
-                                    let distRestante = d1 - distJ;
-                                    
-                                    let curvatura = (distJ * distRestante) / (12.74 * K);
-                                    let terrenoJ = data[idxJ].elevation + curvatura;
-                                    
-                                    let hLos = hTx - ( (hTx - hRx) * (distJ / d1) );
-                                    let fresnelRadius = p.isOptical ? 0 : 17.32 * Math.sqrt((distJ * distRestante) / (freqGHz * d1));
-                                    let hRequired = hLos - (fresnelClearance * fresnelRadius);
-
-                                    if (terrenoJ > hRequired) {
-                                        // Visada Ótica e Micro-ondas param estritamente ao encostar no relevo
-                                        if (isMicrowave || p.isOptical) {
-                                            isObstructed = true;
-                                            break;
-                                        } else {
-                                            let blockage = terrenoJ - hRequired;
-                                            if (blockage > maxObstructionMeters) maxObstructionMeters = blockage;
-                                        }
-                                    }
-                                }
-
-                                if ((isMicrowave || p.isOptical) && isObstructed) continue;
-
-                                if (!p.isOptical && !isMicrowave && maxObstructionMeters > 0) {
-                                    rxPower -= (maxObstructionMeters * 1.5);
-                                }
-
-                                if (!p.isOptical && rxPower < p.rxSens) continue; 
+                                profile.push({ distKm: d1, elevation: data[idx].elevation });
+                                const result = window.PlanMilT.coveragePropagation.evaluate(profile, p, p.penetration);
+                                if (!result.isViable) continue;
+                                const rxPower = result.rxPower;
 
                                 let currentPoint = pointReqArray[idx];
                                 let dist1 = Math.max(0, currentPoint.distKm - halfDist);
@@ -704,7 +681,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             }).addTo(drawnItems);
                             
                             let txMarker = L.marker(center) 
-                             .bindPopup(`<b>Base/Origem</b><br>Modo: ${p.isOptical ? 'Ótico (Visual)' : 'RF'}`)
+                             .bindPopup(`<b>Base/Origem</b><br>Modo: ${p.isOptical ? 'Ótico (Visual)' : 'RF'}${p.isOptical ? '' : `<br>Faixa: ${window.PlanMilT.coveragePropagation.bandForFrequency(p.freq).name}<br>Penetração/Difração: ${{ high: 'Alta (Otimista)', medium: 'Média (Equilibrada)', low: 'Baixa (Pessimista)' }[p.penetration || 'medium']}`}`)
                              .addTo(drawnItems);
                              
                             rfGeneratedLayers.push(coverageLayer);

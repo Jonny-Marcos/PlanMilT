@@ -427,6 +427,7 @@ ${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:<
                                     iconTypesToCover: 'Tipos de ícones a cobrir',
                                     antennaHeight: 'Altura comum das antenas (m)',
                                     radioPreset: 'Preset de rádio/visada',
+                                    penetration: 'Penetração/Difração',
                                     maxDistance: 'Distância máxima (km)',
                                     sampleInterval: 'Intervalo entre amostras (km)',
                                     numberOfNewIcons: 'Quantidade de novos ícones',
@@ -462,6 +463,9 @@ ${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:<
                                     }
                                     if (key === 'radioPreset') {
                                         return escapeHtml(taskParameters.getPresetLabel?.(value) || value);
+                                    }
+                                    if (key === 'penetration') {
+                                        return { high: 'Alta (Otimista)', medium: 'Média (Equilibrada)', low: 'Baixa (Pessimista)' }[value] || escapeHtml(value);
                                     }
                                     if (key === 'connectionCriterion') {
                                         return value === 'closest' ? 'Ícones mais próximos' : 'Ícones mais distantes';

@@ -830,6 +830,15 @@ ${getAntennaHeightField('routeAntennaHeight', existingParameters)}
 <label for="repeaterRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>
 <select id="repeaterRadioPreset" class="swal2-input">${presetOptions}</select>
 </div>
+<div class="task-parameter-field">
+<label for="repeaterPenetration">Penetração/Difração (somente RF):</label>
+<select id="repeaterPenetration" class="swal2-input">
+<option value="high" ${existingParameters.penetration === 'high' ? 'selected' : ''}>Alta (Otimista)</option>
+<option value="medium" ${!existingParameters.penetration || existingParameters.penetration === 'medium' ? 'selected' : ''}>Média (Equilibrada)</option>
+<option value="low" ${existingParameters.penetration === 'low' ? 'selected' : ''}>Baixa (Pessimista)</option>
+</select>
+<small>Estimativa terrestre simplificada; não representa construções, vegetação ou propagação ionosférica HF. Não se aplica à visada ótica.</small>
+</div>
 ${getAntennaHeightField('repeaterAntennaHeight', existingParameters)}
 <div class="task-parameter-field">
 <label for="repeaterMaxDistance"><i class="fas fa-ruler-horizontal" aria-hidden="true"></i> Alcance máximo de cada enlace (km):</label>
@@ -1053,23 +1062,25 @@ ${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
                                 .map(option => option.value)
                                 .filter(Boolean);
                             const radioPreset = popup.querySelector('#repeaterRadioPreset').value;
+                            const penetration = popup.querySelector('#repeaterPenetration').value;
                             const maxDistance = parseFloat(popup.querySelector('#repeaterMaxDistance').value);
                             const antennaHeight = parseFloat(popup.querySelector('#repeaterAntennaHeight').value);
                             const maxRepeaters = Number(popup.querySelector('#repeaterMaxCount').value);
                             const minimumRepeaterDistanceKm = parseFloat(popup.querySelector('#repeaterMinDistance').value);
                             if (!repeaterIcon || targetIcons.length === 0 ||
-                                !radioPresets.some(preset => preset.id === radioPreset) ||
+                                !radioPresets.some(preset => preset.id === radioPreset) || !['high', 'medium', 'low'].includes(penetration) ||
                                 !Number.isFinite(maxDistance) || maxDistance <= 0 ||
                                 !Number.isFinite(antennaHeight) || antennaHeight < 0 ||
                                 !Number.isInteger(maxRepeaters) || maxRepeaters < 1 || maxRepeaters > 40 ||
                                 !Number.isFinite(minimumRepeaterDistanceKm) || minimumRepeaterDistanceKm < 0) {
-                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar e um preset; informe alcance, altura, quantidade máxima e distância mínima válidos.', 'warning');
+                                await Swal.fire('Aviso', 'Selecione os ícones que precisam de cobertura, o ícone a colocar, um preset e uma condição de penetração/difração; informe alcance, altura, quantidade máxima e distância mínima válidos.', 'warning');
                                 return null;
                             }
                             return {
                                 iconTypesToCover: targetIcons,
                                 repeaterIcon,
                                 radioPreset,
+                                penetration,
                                 maxDistance,
                                 antennaHeight,
                                 maxRepeaters,

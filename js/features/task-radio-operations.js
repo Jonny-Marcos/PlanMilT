@@ -373,6 +373,10 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
             const targetIcons = [...new Set(params.iconTypesToCover || [params.iconType1, params.iconType2].filter(Boolean))];
             const maxRepeaters = params.maxRepeaters ?? 10;
             const minimumRepeaterDistanceKm = params.minimumRepeaterDistanceKm ?? 0.5;
+            const penetration = params.penetration ?? 'medium';
+            if (!['high', 'medium', 'low'].includes(penetration)) {
+                throw new Error('Selecione uma condição válida de penetração/difração.');
+            }
             if (!Number.isFinite(params.maxDistance) || params.maxDistance <= 0) {
                 throw new Error('Informe uma distância máxima válida para cada enlace com a repetidora.');
             }
@@ -427,7 +431,7 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                     params.radioPreset,
                     params.maxDistance,
                     params.antennaHeight,
-                    { radialCount, resolutionKm }
+                    { radialCount, resolutionKm, penetration }
                 );
                 const distinctPoints = ring.filter((point, index) =>
                     index === 0 || map.distance(point, ring[index - 1]) > 1
@@ -482,7 +486,7 @@ window.PlanMilT.taskRadioOperations = Object.freeze({
                     linkOffset++;
                 }
                 ensureLinkLimit(batch);
-                const results = await radioPlanning.analyzeLinks(batch, params.radioPreset, params.antennaHeight);
+                const results = await radioPlanning.analyzeLinks(batch, params.radioPreset, params.antennaHeight, { penetration });
                 results.forEach((result, batchIndex) => {
                     if (!result.isViable) return;
                     const linkIndex = linkOffset - batch.length + batchIndex;

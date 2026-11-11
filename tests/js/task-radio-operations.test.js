@@ -74,9 +74,9 @@ function setup({ layers = [], suggestionLayers = layers, bounds = new LatLngBoun
             { id: 'optical', label: 'Ótico' },
             { id: 'radio', label: 'Rádio' }
         ],
-        async analyzeLinks(links, presetId, antennaHeight) {
-            analyzedCalls.push({ links, presetId, antennaHeight });
-            return analyzeLinks ? analyzeLinks(links, presetId, antennaHeight) : links.map(() => ({ isViable: true, rxPower: -70, distTotalKm: 1 }));
+        async analyzeLinks(links, presetId, antennaHeight, options) {
+            analyzedCalls.push({ links, presetId, antennaHeight, options });
+            return analyzeLinks ? analyzeLinks(links, presetId, antennaHeight, options) : links.map(() => ({ isViable: true, rxPower: -70, distTotalKm: 1 }));
         },
         async analyzeCoverageBoundary(center, presetId, maxDistance, antennaHeight, options) {
             coverageCalls.push({ center, presetId, maxDistance, antennaHeight, options });
@@ -241,15 +241,37 @@ test('repeater task calculates each unit coverage and recommends sites inside th
     assert.equal(coverageCalls.length, 2);
     assert.equal(coverageCalls[0].antennaHeight, 15);
     assert.equal(coverageCalls[0].options.radialCount, 72);
+    assert.equal(coverageCalls[0].options.penetration, 'medium');
     assert.ok(coverageCalls[0].options.resolutionKm >= 0.05);
     assert.ok(
         72 * (Math.ceil(20 / coverageCalls[0].options.resolutionKm) + 1) <= 25000
     );
     assert.match(progress[0], /resolução aproximada/);
     assert.ok(analyzedCalls.length > 0);
+    assert.equal(analyzedCalls[0].options.penetration, 'medium');
     assert.match(progress[0], /Calculando área de cobertura 1 de 2/);
     assert.match(progress.at(-1), /Validando os locais de interseção/);
     assert.match(logs.at(-1), /nas interseções das áreas de cobertura/);
+});
+
+test('repeater task forwards the selected scenario to coverage and link validation', async () => {
+    const layers = [
+        new Marker('group-a', { lat: 0, lng: 0.005 }),
+        new Marker('group-b', { lat: 0, lng: 0.015 })
+    ];
+    const { task, coverageCalls, analyzedCalls } = setup({ layers });
+    await task.suggestRepeaterPositions({
+        iconTypesToCover: ['group-a', 'group-b'],
+        repeaterIcon: 'symbols/friend/repeater.svg',
+        radioPreset: 'radio',
+        maxDistance: 20,
+        antennaHeight: 15,
+        penetration: 'low'
+    });
+    assert.ok(coverageCalls.every(call => call.options.penetration === 'low'));
+    assert.ok(analyzedCalls.length > 0);
+    assert.ok(analyzedCalls.every(call => call.options.penetration === 'low'));
+    await assert.rejects(task.suggestRepeaterPositions({ penetration: 'invalid' }), /condição válida/);
 });
 
 test('repeater task supports saved sequences with the former candidate icon parameter', async () => {
