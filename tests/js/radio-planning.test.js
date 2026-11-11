@@ -218,8 +218,13 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         chartConstructor: class {}
     });
 
-    for (const radialCount of [32, 72, 180]) {
-    await test(`manual coverage computes and reports progress for ${radialCount} radials`, async () => {
+    for (const { radialCount, optical } of [
+        { radialCount: 32, optical: false },
+        { radialCount: 32, optical: true },
+        { radialCount: 72, optical: true },
+        { radialCount: 180, optical: true }
+    ]) {
+    await test(`manual ${optical ? 'optical' : 'RF'} coverage computes and reports progress for ${radialCount} radials`, async () => {
         const listeners = new Map();
         const elements = new Map();
         const progressValues = [];
@@ -242,6 +247,8 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const originalCoverage = window.PlanMilT.coverageImage;
         window.PlanMilT.coverageImage = {
             resolution: originalCoverage.resolution,
+            createPowerSamples: originalCoverage.createPowerSamples,
+            signalColor: originalCoverage.signalColor,
             createRaster: () => ({
                 draw(points, color, opacity) { renderedCells.push({ points, color, opacity }); },
                 finish: () => ({ image: 'data:image/png;base64,AA==', mapImage: 'data:image/png;base64,AA==', bounds: [[-1, -1], [1, 1]] })
@@ -288,8 +295,8 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
                 if (options.title && options.title.includes('Predição de Alcance')) {
                     options.didOpen();
                     return Promise.resolve({ value: {
-                        mode: 'coverage', radius: 100, freq: 0, isOptical: true, radialCount,
-                        txHeight: 1.5, rxHeight: 1.5
+                        mode: 'coverage', radius: 100, freq: optical ? 0 : 450, isOptical: optical, radialCount,
+                        txHeight: 1.5, rxHeight: 1.5, txPower: 37, txGain: 2, rxGain: 2, rxSens: -200, penetration: 'medium'
                     } });
                 }
                 if (options.title === 'Predição de área de cobertura') {
@@ -351,10 +358,22 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             assert.ok(requestedPoints.every(point => point.longitude <= 100));
             assert.ok(requestedPoints.every(point => Object.keys(point).length === 2));
             assert.ok(renderedCells.length > 0);
-            assert.equal(renderedCells[0].color, '#ffff00');
-            assert.equal(renderedCells[0].opacity, 0.45);
+            assert.equal(renderedCells[0].opacity, optical ? 0.45 : 0.6);
+            if (optical) assert.equal(renderedCells[0].color, '#ffff00');
             assert.equal(savedImage.geometry, null);
-            assert.equal(savedImage.properties.coverageImage.mode, 'optical');
+            assert.equal(savedImage.properties.coverageImage.mode, optical ? 'optical' : 'radio');
+            if (optical) {
+                assert.equal(savedImage.properties.coverageImage.powerSamples, undefined);
+            } else {
+                const samples = savedImage.properties.coverageImage.powerSamples;
+                assert.equal(samples.radialCount, radialCount);
+                assert.equal(samples.steps, 200);
+                const bytes = Buffer.from(samples.values, 'base64');
+                const expected = window.PlanMilT.coveragePropagation.evaluate([
+                    { distKm: 0, elevation: 100 }, { distKm: 0.5, elevation: 100 }
+                ], { freq: 450, txPower: 37, txGain: 2, rxGain: 2, rxSens: -200, txHeight: 1.5, rxHeight: 1.5 }, 'medium');
+                assert.ok(Math.abs(bytes.readFloatLE(0) - expected.rxPower) < 0.0001);
+            }
             listeners.get('btnClearRFLayers:click')();
             listeners.get('btnClearRFLayers:click')();
             assert.equal(removedLayers.length, 2);

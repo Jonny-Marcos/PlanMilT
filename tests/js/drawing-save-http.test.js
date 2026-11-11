@@ -79,7 +79,8 @@ test('drawing endpoint persists a large collection and rejects oversized request
         const raster = JSON.stringify({ type: 'FeatureCollection', features: [{
             type: 'Feature', geometry: null, properties: { coverageImage: {
                 image: 'data:image/png;base64,AQ==', mapImage: 'data:image/png;base64,Ag==',
-                bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5
+                bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5,
+                powerSamples: { center: [-21.5, -51.5], radiusKm: 0.5, radialCount: 32, steps: 1, values: Buffer.alloc(128, 0xff).toString('base64') }
             } }
         }] });
         assert.equal((await save(raster)).status, 200);

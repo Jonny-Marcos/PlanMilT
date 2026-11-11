@@ -95,7 +95,7 @@ test('real Turf coordinates preserve local 100 km bounds and reject a crossing',
     assert.throws(() => coverage.createRaster({ center: { lat: 0, lng: 179.9 }, radius: 100, turf: realTurf, document }), /antimeridiano/);
 });
 
-test('image overlays omit the legend while retaining resolution, removal and serialization', () => {
+test('image overlays report legacy RF limitations and retain optical resolution and removal', () => {
     const layers = [];
     const group = {
         addTo() { return this; },
@@ -108,7 +108,7 @@ test('image overlays omit the legend while retaining resolution, removal and ser
     const leaflet = {
         featureGroup: () => group,
         imageOverlay(image, bounds, options) {
-            return { image, bounds, options, bindPopup(html) { this.popup = html; }, on(name, callback) { this[name] = callback; } };
+            return { image, bounds, options, bindPopup(html) { this.popup = html; }, setPopupContent(html) { this.popup = html; }, isPopupOpen() { return false; }, openPopup() {}, on(name, callback) { this[name] = callback; } };
         }
     };
     coverage.attach({ hasLayer: () => true }, leaflet, { addOverlay(actual) { assert.equal(actual, group); } });
@@ -118,15 +118,15 @@ test('image overlays omit the legend while retaining resolution, removal and ser
     } } };
     const layer = coverage.add(feature, leaflet);
     assert.doesNotMatch(layer.popup, /sensibilidade|verde|amarelo|vermelho/i);
-    assert.match(layer.popup, /0\.500 km/);
+    layer.click({ latlng: { lat: -21.5, lng: -51.5 } });
+    assert.match(layer.popup, /execute a predição novamente/);
+    assert.doesNotMatch(layer.popup, /Resolução radial/);
     assert.match(layer.popup, /Remover cobertura/);
     assert.equal(layer.image, feature.properties.coverageImage.mapImage);
     assert.deepEqual(window.PlanMilT.geoJsonSerialization.toFeatureCollection(group).features, [feature]);
-    let removeClick;
-    layer.popupopen({ popup: { getElement: () => ({ querySelector: () => ({
-        addEventListener(name, callback) { assert.equal(name, 'click'); removeClick = callback; }
-    }) }) } });
-    removeClick();
+    const button = {};
+    layer.popupopen({ popup: { getElement: () => ({ querySelector: () => button }) } });
+    button.onclick();
     assert.equal(layers.length, 0);
     const optical = coverage.fromFeature({
         ...feature,
@@ -135,4 +135,60 @@ test('image overlays omit the legend while retaining resolution, removal and ser
     assert.doesNotMatch(optical.popup, /amarelo|visada|Remover cobertura/i);
     assert.match(optical.popup, /0\.500 km/);
     assert.throws(() => coverage.fromFeature({ properties: { coverageImage: {} } }, leaflet), /inválida/);
+});
+
+test('updating an open RF popup keeps its removal button active', () => {
+    let removed = false;
+    const buttons = [];
+    const leaflet = { imageOverlay() {
+        return {
+            on(name, callback) { this[name] = callback; },
+            bindPopup() {},
+            setPopupContent() { buttons.push({}); },
+            isPopupOpen: () => true,
+            getPopup() { return { getElement: () => ({ querySelector: () => buttons.at(-1) }) }; },
+            openPopup() {}
+        };
+    } };
+    const feature = { properties: { coverageImage: {
+        image: 'data:image/png;base64,AA==', mapImage: 'data:image/png;base64,AA==',
+        bounds: [[-22, -52], [-21, -51]], mode: 'radio', resolutionKm: 0.5
+    } } };
+    const overlay = coverage.fromFeature(feature, leaflet, () => { removed = true; });
+    overlay.click({ latlng: { lat: -21.5, lng: -51.5 } });
+    overlay.click({ latlng: { lat: -21.4, lng: -51.4 } });
+    buttons.at(-1).onclick();
+    assert.equal(removed, true);
+});
+
+test('RF click returns sampled power by geographic position and survives JSON serialization', () => {
+    const realTurf = require('../../js/library/turf.min.js');
+    const center = { lat: -21.57, lng: -51.25 };
+    const grid = coverage.createPowerSamples(center, 100, 32, 200);
+    grid.set(0, 20, -86.125);
+    grid.set(8, 100, -103.43);
+    grid.set(31, 200, -77.51);
+    const data = JSON.parse(JSON.stringify({
+        image: 'data:image/png;base64,AA==', mapImage: 'data:image/png;base64,AQ==',
+        bounds: [[-23, -53], [-20, -50]], mode: 'radio', resolutionKm: 0.5, powerSamples: grid.serialize()
+    }));
+    const leaflet = { imageOverlay() {
+        return { on(name, callback) { this[name] = callback; }, bindPopup(content) { this.popup = content; }, setPopupContent(content) { this.popup = content; }, openPopup() {} };
+    } };
+    const overlay = coverage.fromFeature({ properties: { coverageImage: data } }, leaflet);
+    const click = (distance, bearing) => {
+        const [lng, lat] = realTurf.destination([center.lng, center.lat], distance, bearing, { units: 'kilometers' }).geometry.coordinates;
+        overlay.click({ latlng: { lat, lng } });
+        return overlay.popup;
+    };
+    assert.match(click(10, 0), /-86\.13 dBm/);
+    assert.match(click(50, 90), /-103\.43 dBm/);
+    assert.match(click(99.9, 348.75), /-77\.51 dBm/);
+    assert.match(click(25, 0), /Sem potência disponível/);
+    assert.match(click(100.1, 0), /Sem potência disponível/);
+    assert.doesNotMatch(click(10, 0), /Resolução radial/);
+    assert.throws(() => coverage.fromFeature({ properties: { coverageImage: { ...data, powerSamples: { ...data.powerSamples, values: 'inválido' } } } }, leaflet), /inválidas/);
+    assert.throws(() => coverage.fromFeature({ properties: { coverageImage: { ...data, powerSamples: null } } }, leaflet), /inválidas/);
+    assert.throws(() => grid.set(0, 0, -30), /inválida/);
+    assert.throws(() => coverage.createPowerSamples(center, 100, 999, 200), /inválida/);
 });

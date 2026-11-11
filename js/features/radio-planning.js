@@ -619,6 +619,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         progressBar.value = 0;
                         await yieldCoverageProgress();
                         let validCells = 0;
+                        const powerSamples = p.isOptical ? null : window.PlanMilT.coverageImage.createPowerSamples(center, p.radius, radiais, maxPassos);
                         let halfAngle = (360 / radiais) / 2;
                         let halfDist = resolucaoKm / 2;
                         
@@ -636,6 +637,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 const result = window.PlanMilT.coveragePropagation.evaluate(profile, p, p.penetration);
                                 if (!result.isViable) continue;
                                 const rxPower = result.rxPower;
+                                if (powerSamples) powerSamples.set(r, i, rxPower);
 
                                 let currentPoint = pointReqArray[idx];
                                 let dist1 = i === 1 ? 0 : currentPoint.distKm - halfDist;
@@ -675,7 +677,8 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     mapImage: result.mapImage,
                                     bounds: result.bounds,
                                     resolutionKm: resolucaoKm,
-                                    mode: p.isOptical ? 'optical' : 'radio'
+                                    mode: p.isOptical ? 'optical' : 'radio',
+                                    ...(powerSamples ? { powerSamples: powerSamples.serialize() } : {})
                                 } }
                             }, L);
                             

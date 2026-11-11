@@ -53,6 +53,96 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
     }
 
     /**
+     * Cria uma grade compacta de potências para as células RF viáveis.
+     * @param {Object} center - Coordenada do transmissor.
+     * @param {number} radius - Raio da cobertura em quilômetros.
+     * @param {number} radialCount - Quantidade de radiais.
+     * @param {number} steps - Quantidade de amostras por radial.
+     * @returns {Object} Grade com operações de gravação e serialização.
+     */
+    function createPowerSamples(center, radius, radialCount, steps) {
+        if (!center || !Number.isFinite(center.lat) || Math.abs(center.lat) > 85 ||
+            !Number.isFinite(center.lng) || Math.abs(center.lng) > 180 ||
+            !Number.isFinite(radius) || radius <= 0 || !radialCounts.includes(radialCount) ||
+            !Number.isInteger(steps) || steps < 1 || steps > maxSteps) {
+            throw new Error('Grade de potência de cobertura inválida.');
+        }
+        const values = new DataView(new ArrayBuffer(radialCount * steps * 4));
+        for (let index = 0; index < radialCount * steps; index++) values.setFloat32(index * 4, NaN, true);
+        return {
+            set(radial, step, power) {
+                if (!Number.isInteger(radial) || radial < 0 || radial >= radialCount ||
+                    !Number.isInteger(step) || step < 1 || step > steps || !Number.isFinite(power)) {
+                    throw new Error('Amostra de potência de cobertura inválida.');
+                }
+                values.setFloat32((radial * steps + step - 1) * 4, power, true);
+            },
+            serialize() {
+                const bytes = new Uint8Array(values.buffer);
+                let binary = '';
+                for (let index = 0; index < bytes.length; index += 8192) {
+                    binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+                }
+                return { center: [center.lat, center.lng], radiusKm: radius, radialCount, steps, values: btoa(binary) };
+            }
+        };
+    }
+
+    /**
+     * Decodifica e valida os valores guardados para consulta sem recalcular o relevo.
+     * @param {Object} samples - Metadados e valores da grade RF.
+     * @returns {DataView} Valores em ponto flutuante little-endian.
+     */
+    function decodePowerSamples(samples) {
+        if (!samples || !Array.isArray(samples.center) || samples.center.length !== 2 ||
+            !samples.center.every(Number.isFinite) || Math.abs(samples.center[0]) > 85 ||
+            Math.abs(samples.center[1]) > 180 || !Number.isFinite(samples.radiusKm) || samples.radiusKm <= 0 ||
+            !radialCounts.includes(samples.radialCount) || !Number.isInteger(samples.steps) ||
+            samples.steps < 1 || samples.steps > maxSteps || typeof samples.values !== 'string' ||
+            samples.values.length !== Math.ceil(samples.radialCount * samples.steps * 4 / 3) * 4 ||
+            !/^[A-Za-z0-9+/]*={0,2}$/.test(samples.values)) {
+            throw new Error('Amostras de potência da cobertura são inválidas.');
+        }
+        let binary;
+        try {
+            binary = atob(samples.values);
+        } catch (error) {
+            throw new Error('Amostras de potência da cobertura são inválidas.');
+        }
+        if (binary.length !== samples.radialCount * samples.steps * 4) {
+            throw new Error('Amostras de potência da cobertura são inválidas.');
+        }
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+        return new DataView(bytes.buffer);
+    }
+
+    /**
+     * Localiza a célula polar mais próxima de um ponto geográfico.
+     * @param {Object} samples - Metadados da grade RF.
+     * @param {DataView} values - Amostras decodificadas.
+     * @param {Object} point - Latitude e longitude do clique.
+     * @returns {number|null} Potência em dBm ou ausência de cobertura.
+     */
+    function powerAt(samples, values, point) {
+        if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng) || Math.abs(point.lat) > 90) return null;
+        const radians = Math.PI / 180;
+        const lat1 = samples.center[0] * radians;
+        const lat2 = point.lat * radians;
+        const deltaLat = lat2 - lat1;
+        const deltaLon = (point.lng - samples.center[1]) * radians;
+        const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+        const distance = 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+        if (distance > samples.radiusKm) return null;
+        const bearing = Math.atan2(Math.sin(deltaLon) * Math.cos(lat2),
+            Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon));
+        const radial = (Math.round((bearing / (2 * Math.PI) + 1) * samples.radialCount) % samples.radialCount);
+        const step = Math.min(samples.steps, Math.max(1, Math.round(distance / samples.radiusKm * samples.steps)));
+        const value = values.getFloat32((radial * samples.steps + step - 1) * 4, true);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    /**
      * Verifica se os limites podem ser usados na projeção do mapa.
      * @param {*} bounds - Limites geográficos.
      * @returns {boolean} Indica se os limites são válidos.
@@ -183,10 +273,34 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
             console.error('[PlanMilT][Cobertura] Falha ao exibir a imagem.');
             window.Swal.fire('Erro', 'Não foi possível exibir a imagem de cobertura.', 'error');
         });
-        overlay.bindPopup(`<b>Cobertura estimada</b><br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.${onRemove ? '<br><button type="button" data-coverage-remove>Remover cobertura</button>' : ''}`);
+        const samples = data.mode === 'radio' && Object.prototype.hasOwnProperty.call(data, 'powerSamples')
+            ? decodePowerSamples(data.powerSamples) : null;
+        const removal = onRemove ? '<br><button type="button" data-coverage-remove>Remover cobertura</button>' : '';
+        /**
+         * Liga o botão após cada atualização do conteúdo do popup.
+         * @param {Object} popup - Popup Leaflet aberto.
+         */
+        function bindRemoveButton(popup) {
+            const button = popup.getElement().querySelector('[data-coverage-remove]');
+            button.onclick = () => onRemove(overlay);
+        }
+        if (data.mode === 'radio') {
+            overlay.bindPopup(`<b>Cobertura estimada</b><br>Potência indisponível neste ponto.${removal}`);
+            overlay.on('click', event => {
+                const value = samples ? powerAt(data.powerSamples, samples, event.latlng) : null;
+                const message = samples
+                    ? (value === null ? 'Sem potência disponível neste ponto.' : `Potência recebida aproximada: ${value.toFixed(2)} dBm.`)
+                    : 'Potência indisponível nesta cobertura; execute a predição novamente.';
+                overlay.setPopupContent(`<b>Cobertura estimada</b><br>${message}${removal}`);
+                if (onRemove && overlay.isPopupOpen()) bindRemoveButton(overlay.getPopup());
+                overlay.openPopup(event.latlng);
+            });
+        } else {
+            overlay.bindPopup(`<b>Cobertura estimada</b><br>Resolução radial: ${data.resolutionKm.toPrecision(3)} km.${removal}`);
+        }
         if (onRemove) {
             overlay.on('popupopen', event => {
-                event.popup.getElement().querySelector('[data-coverage-remove]').addEventListener('click', () => onRemove(overlay));
+                bindRemoveButton(event.popup);
             });
         }
         overlay.toGeoJSON = () => feature;
@@ -224,5 +338,5 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
      */
     function getGroup() { return editableGroup; }
 
-    return { attach, resolution, signalColor, createRaster, projectGeographic, fromFeature, add, clear, remove, getGroup };
+    return { attach, resolution, signalColor, createPowerSamples, createRaster, projectGeographic, fromFeature, add, clear, remove, getGroup };
 })());

@@ -21,8 +21,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
     assert.match(documentSource, /app\.css\?v=20261111-toolbar-toggle/);
-    assert.match(documentSource, /radio-planning\.js\?v=20261114-radial-resolution/);
-    assert.match(documentSource, /coverage-image\.js\?v=20261114-radial-resolution/);
+    assert.match(documentSource, /radio-planning\.js\?v=20261115-rx-power/);
+    assert.match(documentSource, /coverage-image\.js\?v=20261115-rx-power/);
     assert.match(documentSource, /task-parameters\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
