@@ -7,13 +7,16 @@ window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.militarySymbols = (() => {
     const storageKey = `planmilt.military-symbols.br.v1:${new URL('.', window.location.href).pathname}`;
-    const fields = ['uniqueDesignation', 'higherFormation', 'additionalInformation', 'staffComments', 'quantity',
-        'type', 'location', 'dtg', 'altitudeDepth', 'speed', 'reinforcedReduced', 'specialDesignator',
+    const amplifierFields = ['uniqueDesignation', 'higherFormation', 'staffComments', 'dtg',
+        'hostile', 'location', 'altitudeDepth', 'speed'];
+    const otherFields = ['additionalInformation', 'quantity',
+        'type', 'reinforcedReduced', 'specialDesignator',
         'specialHeadquarters', 'combatEffectiveness', 'evaluationRating', 'iffSif', 'signatureEquipment', 'platformType'];
+    const fields = [...amplifierFields, ...otherFields];
     const labels = {
-        uniqueDesignation: 'Designação', higherFormation: 'Escalão superior',
-        additionalInformation: 'Informações adicionais', staffComments: 'Observações',
-        quantity: 'Quantidade', type: 'Tipo', location: 'Localização', dtg: 'Data e hora',
+        uniqueDesignation: 'Designação', higherFormation: 'Subordinação',
+        additionalInformation: 'Informações complementares', staffComments: 'Informações adicionais',
+        hostile: 'Credibilidade', quantity: 'Quantidade', type: 'Tipo', location: 'Localização', dtg: 'GDH (grupo data-hora)',
         altitudeDepth: 'Altitude / profundidade', speed: 'Velocidade', reinforcedReduced: 'Reforçado / reduzido',
         specialDesignator: 'Designação especial', specialHeadquarters: 'Comando especial',
         combatEffectiveness: 'Efetividade de combate', evaluationRating: 'Avaliação', iffSif: 'IFF / SIF',
@@ -156,6 +159,8 @@ window.PlanMilT.militarySymbols = (() => {
 .swal2-popup.military-symbol-modal{width:min(820px,calc(100vw - 28px))!important;padding:20px!important}
 #militarySymbolEditor{font:14px/1.45 sans-serif;text-align:left;color:#27364a}
 #militarySymbolEditor .symbol-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#militarySymbolEditor fieldset{margin:12px 0;padding:12px;border:1px solid #d3d8e0;border-radius:6px}
+#militarySymbolEditor legend{font-weight:600}
 #militarySymbolEditor label{display:block;font-weight:600;margin-bottom:4px}
 #militarySymbolEditor input,#militarySymbolEditor select{box-sizing:border-box;width:100%;height:40px;margin:0;padding:6px;border:1px solid #c5cad2;border-radius:6px;font:inherit}
 #militarySymbolEditor .symbol-preview{min-height:110px;display:flex;align-items:center;justify-content:center;overflow:auto;background:#f4f6f9;border:1px solid #d3d8e0;border-radius:6px;margin:12px 0}
@@ -183,10 +188,14 @@ window.PlanMilT.militarySymbols = (() => {
 <div><label for="symbolModifier1">Modificador 1</label><select id="symbolModifier1"></select></div>
 <div><label for="symbolModifier2">Modificador 2</label><select id="symbolModifier2"></select></div>
 </div>
-<details><summary>SIDC e informações adicionais</summary>
+<fieldset><legend>Amplificadores textuais</legend>
+<p>Textos opcionais posicionados ao redor da calunga; a posição depende do tipo de símbolo.</p>
+<div class="symbol-grid">${amplifierFields.map(field => `<div><label for="symbol-${field}">${labels[field]}</label><input id="symbol-${field}" maxlength="50"></div>`).join('')}</div>
+</fieldset>
+<details><summary>SIDC e outros campos</summary>
 <p>O SIDC numérico permite usar outras combinações suportadas pela biblioteca. Ao mudar os seletores, os respectivos campos do SIDC serão atualizados.</p>
 <label for="symbolSidc">SIDC (20 ou 30 dígitos)</label><input id="symbolSidc" maxlength="30" inputmode="numeric">
-<div class="symbol-grid">${fields.map(field => `<div><label for="symbol-${field}">${labels[field]}</label><input id="symbol-${field}" maxlength="50"></div>`).join('')}</div>
+<div class="symbol-grid">${otherFields.map(field => `<div><label for="symbol-${field}">${labels[field]}</label><input id="symbol-${field}" maxlength="50"></div>`).join('')}</div>
 </details>
 <div class="symbol-preview"><img id="symbolPreview" alt="Prévia da calunga"></div>
 <p id="symbolError" role="status"></p>

@@ -35,7 +35,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
     }
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
-    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261121-brasil'));
+    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261122-amplificadores'));
     assert.ok(documentSource.indexOf('chunk-vendors.4e5d8119.js') < documentSource.indexOf('planmilt-generator.js'));
     assert.ok(documentSource.indexOf('brazilian-symbol-catalog.js') < documentSource.indexOf('military-symbols.js'));
     for (const script of ['welcome']) {

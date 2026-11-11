@@ -111,6 +111,71 @@ test('Brazilian entity extensions preserve distinct SIDCs and generated graphics
     assert.equal(b.config.sidc, pathfinder);
 });
 
+test('text amplifiers use the portal positions and expand the icon bounds', () => {
+    const { symbols } = setup();
+    const sidc = '10031000001211000000';
+    const options = {
+        uniqueDesignation: 'DESIG', higherFormation: 'SUBOR', staffComments: 'INFOR',
+        dtg: 'GDH42', hostile: 'CRED', location: 'LOCAL', altitudeDepth: 'ALTIT', speed: 'VELOC'
+    };
+    const plain = symbols.render({ sidc, options: {} });
+    const rendered = symbols.render({ sidc, options });
+    const svg = decodeURIComponent(rendered.iconUrl);
+    for (const [text, x, y, alignment] of [
+        ['GDH42', 5, 40, 'end'], ['ALTIT/LOCAL', 5, 80, 'end'], ['DESIG', 5, 160, 'end'],
+        ['VELOC', 5, 200, 'end'], ['INFOR', 195, 80, 'start'], ['SUBOR', 195, 160, 'start'],
+        ['CRED', 195, 200, 'start']
+    ]) {
+        assert.match(svg, new RegExp(`<text x="${x}" y="${y}" text-anchor="${alignment}"[^>]*>${text}</text>`));
+    }
+    assert.ok(rendered.iconSize[0] > plain.iconSize[0]);
+    assert.ok(rendered.iconAnchor[0] > plain.iconAnchor[0]);
+    assert.equal(rendered.config.options.hostile, 'CRED');
+    assert.doesNotMatch(decodeURIComponent(plain.iconUrl), /DESIG|SUBOR|INFOR|CRED/);
+});
+
+test('amplifiers update the preview and survive saving, loading and editing', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    const options = {
+        uniqueDesignation: '1 Btl', higherFormation: 'Brigada', staffComments: 'Informações',
+        dtg: '121200Z', hostile: 'A1', location: 'Ponte', altitudeDepth: '300 m', speed: '20 km/h'
+    };
+    assert.match(fixture.active().html, /<legend>Amplificadores textuais<\/legend>/);
+    for (const [field, value] of Object.entries(options)) {
+        assert.ok(fixture.active().html.includes(`id="symbol-${field}"`), field);
+        e[`symbol-${field}`].value = value;
+        e[`symbol-${field}`].dispatch('input');
+    }
+    let svg = decodeURIComponent(e.symbolPreview.src);
+    for (const value of Object.values(options)) assert.ok(svg.includes(value), value);
+    e.symbolName.value = 'Amplificada';
+    e.symbolSave.dispatch('click');
+    const saved = JSON.parse(fixture.values.get('planmilt.military-symbols.br.v1:/plan/'))[0];
+    for (const [field, value] of Object.entries(options)) assert.equal(saved.config.options[field], value);
+    e['symbol-hostile'].value = '';
+    e['symbol-hostile'].dispatch('input');
+    e.symbolLibrary.value = saved.id;
+    e.symbolLoad.dispatch('click');
+    assert.equal(e['symbol-hostile'].value, 'A1');
+    const result = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: result });
+    const selected = await pending;
+    const layer = { feature: { properties: { militarySymbol: selected, iconUrl: selected.iconUrl } }, setIcon(icon) { this.icon = icon; } };
+    const editing = fixture.symbols.edit(layer, { icon: data => ({ options: data }) });
+    for (const [field, value] of Object.entries(options)) assert.equal(e[`symbol-${field}`].value, value);
+    e['symbol-hostile'].value = 'B2';
+    e['symbol-hostile'].dispatch('input');
+    const changed = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: changed });
+    await editing;
+    assert.equal(layer.feature.properties.militarySymbol.config.options.hostile, 'B2');
+    svg = decodeURIComponent(layer.feature.properties.iconUrl);
+    assert.ok(svg.includes('B2'));
+    assert.ok(svg.includes('Informações'));
+});
+
 test('editor searches Brazilian names and preserves extension bits on changes', async () => {
     const fixture = setup();
     const pending = fixture.symbols.open();

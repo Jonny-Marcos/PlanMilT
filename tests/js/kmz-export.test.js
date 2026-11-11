@@ -109,6 +109,7 @@ test('exports multiple embedded military symbols as distinct PNG files reference
     let handler;
     let archive;
     let downloaded = false;
+    const rasterizedImages = [];
     const previousDocument = global.document;
     const previousCreate = URL.createObjectURL;
     const isolatedWindow = { navigator: { userAgent: 'node' }, addEventListener() {}, removeEventListener() {} };
@@ -120,7 +121,7 @@ test('exports multiple embedded military symbols as distinct PNG files reference
     }
     const generator = isolatedWindow.PlanMilTBrazilian.ms;
     const icons = ['100310000012189900000760000000', '100310000012189900000760016384']
-        .map(sidc => new generator.Symbol(sidc, { size: 35 }).toDataURL());
+        .map(sidc => new generator.Symbol(sidc, { size: 35, uniqueDesignation: '1 Btl', hostile: 'A1' }).toDataURL());
     assert.notEqual(icons[0], icons[1]);
     const features = icons.map(iconUrl => ({ type: 'Feature',
         properties: { iconUrl, militarySymbol: { iconSize: [100, 50], iconAnchor: [75, 20] } },
@@ -130,7 +131,7 @@ test('exports multiple embedded military symbols as distinct PNG files reference
     global.document = {
         createElement(tag) {
             if (tag === 'img') return { width: 80, height: 40, set src(value) { this.url = value; queueMicrotask(() => this.onload()); } };
-            if (tag === 'canvas') return { getContext: () => ({ drawImage() {} }), toBlob(callback) { callback({ png: true }); } };
+            if (tag === 'canvas') return { getContext: () => ({ drawImage(image) { rasterizedImages.push(image.url); } }), toBlob(callback) { callback({ png: true }); } };
             return { click() { downloaded = true; }, set innerHTML(value) { this.textContent = value; } };
         }
     };
@@ -151,6 +152,11 @@ test('exports multiple embedded military symbols as distinct PNG files reference
         assert.equal(downloaded, true);
         assert.ok(archive.files['files/planmilt-symbol-1.png']);
         assert.ok(archive.files['files/planmilt-symbol-2.png']);
+        assert.equal(rasterizedImages.length, 2);
+        for (const image of rasterizedImages) {
+            assert.match(decodeURIComponent(image), />1 Btl<\/text>/);
+            assert.match(decodeURIComponent(image), />A1<\/text>/);
+        }
         assert.match(archive.files['doc.kml'], /#m_files\/planmilt-symbol-1\.png/);
         assert.match(archive.files['doc.kml'], /#m_files\/planmilt-symbol-2\.png/);
         assert.match(archive.files['doc.kml'], /<hotSpot x="0\.75" y="0\.6"/);
