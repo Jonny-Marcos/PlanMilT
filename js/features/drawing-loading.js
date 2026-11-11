@@ -17,8 +17,16 @@
                     }
                 });
 
-                if (!usuario) return; // Sai se o usuário cancelar ou não preencher
+                if (!usuario) return;
+                await window.PlanMilT.drawingLoading.load(usuario);
+            });
 
+            window.PlanMilT.drawingLoading = Object.freeze({
+                /**
+                 * Carrega um planejamento pelo identificador usado no servidor.
+                 * @param {string} usuario - Identificador do planejamento.
+                 */
+                async load(usuario) {
                 const urlCompleta = window.location.href;
                 const padraoDiretorio = /https:\/\/methodux\.online\/(.*?)\//;
                 const resultado = padraoDiretorio.exec(urlCompleta);
@@ -258,8 +266,12 @@
                         map.fitBounds(drawnItems.getBounds());
                     }
 
+                    if (!window.PlanMilT.welcome.record(usuario)) {
+                        Swal.fire('Aviso', 'Desenhos carregados, mas não foi possível atualizar a lista de recentes neste navegador.', 'warning');
+                    }
                 } catch (error) {
                     console.error("Erro ao carregar desenhos:", error);
                     Swal.fire('Erro HTTP', `Erro: ${error.message}`, 'error');
+                }
                 }
             });

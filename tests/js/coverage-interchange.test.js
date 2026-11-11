@@ -4,6 +4,33 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
+test('shared-resource readiness waits for protected images', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
+    let start;
+    let release;
+    let completed = false;
+    const imageReady = new Promise(resolve => { release = resolve; });
+    const context = {
+        URL, URLSearchParams,
+        document: {
+            addEventListener(name, callback) { if (name === 'DOMContentLoaded') start = callback; },
+            getElementById: () => ({ addEventListener() {} }),
+            querySelector: () => ({}), querySelectorAll: () => []
+        },
+        window: { location: { href: 'https://example.test/?calco=1' }, PlanMilT: {} },
+        loadImageFromId: () => imageReady,
+        console
+    };
+    vm.runInNewContext(source, context);
+    start().then(() => { completed = true; });
+    await Promise.resolve();
+    assert.equal(completed, false);
+    release();
+    await context.window.PlanMilT.sharedLayersReady;
+    await Promise.resolve();
+    assert.equal(completed, true);
+});
+
 test('shared planning restores raster coverages to its overlay', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
     let load;

@@ -119,7 +119,7 @@
                             });
 
                             if (!senha) {
-                                Swal.fire('Erro!', 'Nenhuma senha foi fornecida.', 'error');
+                                await Swal.fire('Erro!', 'Nenhuma senha foi fornecida.', 'error');
                                 continue;
                             }
 
@@ -154,7 +154,7 @@
                             addNewOverlayLayer(`${imageData.descricao}`, imageLayer);
                             console.info('[PlanMilT][Imagens] Imagem compartilhada carregada.', { id: id.trim() });
                         } else if (imageData.error) {
-                            Swal.fire('Erro', imageData.error, 'error');
+                            await Swal.fire('Erro', imageData.error, 'error');
                         } else {
                             console.error("Imagem não encontrada ou dados incompletos.");
                         }

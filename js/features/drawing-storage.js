@@ -47,7 +47,9 @@
                     success: function(response) {
                         // Verifica se a resposta contém a frase "Desenho atualizado com sucesso!"
                         if (response.includes("Desenho atualizado com sucesso!") || response.includes("Desenho salvo com sucesso!")) {
-                            Swal.fire('Sucesso!', 'Desenhos salvos com sucesso!', 'success');
+                            const recorded = window.PlanMilT.welcome.record(usuario);
+                            Swal.fire('Sucesso!', recorded ? 'Desenhos salvos com sucesso!' :
+                                'Desenhos salvos, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
                             console.info('[PlanMilT][Desenhos] Salvamento concluído.', {
                                 featureCount: drawnData.features.length
                             });

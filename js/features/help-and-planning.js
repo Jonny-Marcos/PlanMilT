@@ -2,7 +2,10 @@
  * @fileoverview Apresenta a ajuda da interface e envia a camada de sugestão de planejamento ao servidor.
  * @requires DOM, Swal, jQuery, mapa e planejamentoLayer no escopo legado.
  */
-                document.getElementById('helpButton').addEventListener('click', function() {
+                /**
+                 * Apresenta o guia de controles a partir da tela de boas-vindas.
+                 */
+                function showButtonGuide() {
                     Swal.fire({
                         title: 'Ajuda - Guia de Botões',
                         html: `
@@ -74,6 +77,18 @@
                         sections.forEach(section => section.style.display = 'none');
                         document.getElementById(sectionId).style.display = 'block';
                     }
+                }
+
+                document.getElementById('helpButton').addEventListener('click', () => window.PlanMilT.welcome.show());
+                window.PlanMilT.showButtonGuide = showButtonGuide;
+                document.addEventListener('DOMContentLoaded', async () => {
+                    try {
+                        await window.PlanMilT.sharedLayersReady;
+                    } catch (error) {
+                        console.error('[PlanMilT][Boas-vindas] Falha ao concluir o carregamento compartilhado.', error);
+                        return;
+                    }
+                    if (!Swal.isVisible()) window.PlanMilT.welcome.show(true);
                 });
 
                 document.getElementById('savePlanningButton').addEventListener('click', function() {
@@ -160,7 +175,9 @@
                                 data: data,
                                 success: function(response) {
                                     if (response.includes('Desenho atualizado com sucesso!') || response.includes('Desenho salvo com sucesso!')) {
-                                        Swal.fire('Sucesso!', 'Sugestão de Planejamento salva com sucesso!', 'success');
+                                        const recorded = window.PlanMilT.welcome.record(usuario);
+                                        Swal.fire('Sucesso!', recorded ? 'Sugestão de Planejamento salva com sucesso!' :
+                                            'Sugestão salva, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
                                         console.info('[PlanMilT][Planejamento] Sugestão salva.', {
                                             featureCount: planejamentoData.features.length
                                         });

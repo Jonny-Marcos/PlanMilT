@@ -2,7 +2,15 @@
  * @fileoverview Carrega camadas por usuário a partir dos parâmetros do link e constrói links compartilháveis com imagens.
  * @requires Endpoints de desenhos/imagens, Leaflet, DOM e Swal no escopo legado.
  */
-            document.addEventListener('DOMContentLoaded', async function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                return window.PlanMilT.sharedLayersReady = loadSharedLayers();
+            });
+
+            /**
+             * Carrega os recursos do link antes de apresentar a tela inicial.
+             * @returns {Promise<void>} Concluída após o processamento dos recursos compartilhados.
+             */
+            async function loadSharedLayers() {
                 // Cria um objeto URL com a URL atual
                 const url = new URL(window.location.href);
 
@@ -15,7 +23,7 @@
 
                 const calco = params.get('calco');
                 if (calco) {
-                    loadImageFromId(calco);
+                    await loadImageFromId(calco);
                 }
 
                 var toolbar = document.querySelector('.map-toolbar');
@@ -129,9 +137,9 @@
                     }
                 } catch (error) {
                     console.error("Falha ao carregar desenhos:", error);
-                    Swal.fire('Erro', 'Não foi possível carregar a camada compartilhada.', 'error');
+                    await Swal.fire('Erro', 'Não foi possível carregar a camada compartilhada.', 'error');
                 }
-            });
+            }
 
 
 
@@ -279,8 +287,6 @@
                     }
                 }
             });
-
-
 
 
 

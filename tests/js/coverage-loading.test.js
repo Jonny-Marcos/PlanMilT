@@ -9,6 +9,7 @@ const source = fs.readFileSync(path.join(__dirname, '../../js/features/drawing-l
 for (const editable of [true, false]) {
     test(`saved coverage keeps its color and opacity when loaded ${editable ? 'for editing' : 'as overlay'}`, async () => {
         let click;
+        const recent = [];
         const styles = [];
         const added = [];
         const feature = {
@@ -37,6 +38,7 @@ for (const editable of [true, false]) {
             window: {
                 location: { href: 'https://example.test/' },
                 PlanMilT: {
+                    welcome: { record(name) { recent.push(name); return true; } },
                     coverageImage: { clear() {}, fromFeature() { throw new Error('unexpected raster'); } },
                     apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) }
                 }
@@ -48,13 +50,19 @@ for (const editable of [true, false]) {
             console: { info() {}, error() {} }
         };
         vm.runInNewContext(source, context);
-        await click();
+        if (editable) {
+            await click();
+        } else {
+            prompt = 1;
+            await context.window.PlanMilT.drawingLoading.load('teste');
+        }
         assert.equal(added.length, 1);
         assert.equal(styles.length, 1);
         assert.equal(styles[0].color, '#ff9900');
         assert.equal(styles[0].fillColor, '#ff9900');
         assert.equal(styles[0].fillOpacity, 0.6);
         assert.equal(feature.properties.rxPower, '-92.50');
+        assert.deepEqual(recent, ['teste']);
     });
 }
 
@@ -70,6 +78,7 @@ for (const editable of [true, false]) {
             window: {
                 location: { href: 'https://example.test/' },
                 PlanMilT: {
+                    welcome: { record() { return true; } },
                     apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [raster] }) }) },
                     coverageImage: {
                         fromFeature(feature) { assert.equal(feature, raster); return { raster: true }; },
@@ -96,3 +105,25 @@ for (const editable of [true, false]) {
         assert.equal(cleared, editable);
     });
 }
+
+test('direct recent loading does not record invalid or failed responses', async () => {
+    let response = { ok: true, json: async () => ({ error: 'not found' }) };
+    const recent = [];
+    const alerts = [];
+    const context = {
+        document: { getElementById: () => ({ addEventListener() {} }) },
+        window: { location: { href: 'https://example.test/' }, PlanMilT: {
+            apiClient: { request: async () => response },
+            welcome: { record(name) { recent.push(name); return true; } }
+        } },
+        Swal: { fire(...args) { alerts.push(args); } },
+        isValidGeoJson: () => false,
+        console: { info() {}, error() {} }
+    };
+    vm.runInNewContext(source, context);
+    await context.window.PlanMilT.drawingLoading.load('teste');
+    response = { ok: false, status: 500 };
+    await context.window.PlanMilT.drawingLoading.load('teste');
+    assert.deepEqual(recent, []);
+    assert.equal(alerts.length, 2);
+});

@@ -10,6 +10,7 @@ function setup(serializer) {
     let click;
     let request;
     const alerts = [];
+    const recent = [];
     const drawnItems = { getLayer: () => null };
     const coverageGroup = {};
     const context = {
@@ -17,6 +18,7 @@ function setup(serializer) {
         document: { getElementById: () => ({ addEventListener(name, callback) { click = callback; } }) },
         sessionStorage: { getItem: () => '', setItem() {} },
         window: { location: { href: 'https://example.test/' }, PlanMilT: {
+            welcome: { record(name) { recent.push(name); return true; } },
             coverageImage: { getGroup: () => coverageGroup },
             geoJsonSerialization: { toFeatureCollection: group => serializer(group, coverageGroup) }
         } },
@@ -30,7 +32,7 @@ function setup(serializer) {
         console: { info() {}, error() {} }
     };
     vm.runInNewContext(source, context);
-    return { click, alerts, getRequest: () => request, drawnItems };
+    return { click, alerts, recent, getRequest: () => request, drawnItems };
 }
 
 test('save sends the serialized collection and displays actionable server-size errors', async () => {
@@ -42,6 +44,19 @@ test('save sends the serialized collection and displays actionable server-size e
     assert.deepEqual(JSON.parse(request.data.leaflet).features, [feature]);
     request.error({ status: 413 }, 'error', 'too large');
     assert.match(fixture.alerts.at(-1)[1], /post_max_size/);
+});
+
+test('only successful saves are registered as recent', async () => {
+    const fixture = setup(() => ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: null }] }));
+    fixture.click();
+    await new Promise(resolve => setImmediate(resolve));
+    const request = fixture.getRequest();
+    request.success('Senha incorreta');
+    request.error({ status: 500 }, 'error', 'failure');
+    assert.deepEqual(fixture.recent, []);
+    request.success('Desenho salvo com sucesso!');
+    request.success('Desenho atualizado com sucesso!');
+    assert.deepEqual(fixture.recent, ['teste', 'teste']);
 });
 
 test('save includes raster coverage even when there are no vector drawings', async () => {
