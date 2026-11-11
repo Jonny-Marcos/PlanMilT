@@ -47,7 +47,6 @@
 
                 // Seleciona os elementos necessários
                 var toolbar = document.querySelector('.map-toolbar');
-                var drawToolbar = document.querySelectorAll('.leaflet-draw-toolbar');
                 var printButton = document.querySelector('.leaflet-control-browser-print');
                 var layersControl = document.querySelector('.leaflet-control-layers'); // Seleciona o controle de camadas
                 var toggleControlsBtn = document.getElementById('toggleControlsBtn'); // Seleciona o botão de desativar controles
@@ -55,61 +54,34 @@
                 var tacticalGraphicButton = tacticalGraphicsControl.getContainer();
                 var measureToggleButton; // Botão de medir distâncias e áreas
                 var translateButton = document.querySelector('.google-translate-control'); // Seleciona o botão de tradução
+                var toggleControlsLabel = document.getElementById('toggleControlsLabel');
+                var toggleControlsIcon = document.getElementById('toggleControlsIcon');
+                var controlsHidden = window.innerWidth <= 600;
 
-                if (window.innerWidth <= 600) {
-                    toolbar.style.display = 'none';
-                    drawToolbar.forEach(function(toolbar) {
-                        toolbar.style.display = 'none';
+                /**
+                 * Atualiza a visibilidade dos controles e o estado acessível do botão.
+                 * @param {boolean} hidden - Indica se os controles devem ficar ocultos.
+                 */
+                function setControlsHidden(hidden) {
+                    controlsHidden = hidden;
+                    toolbar.style.display = hidden ? 'none' : 'flex';
+                    document.querySelectorAll('.leaflet-draw-toolbar').forEach(function(drawToolbar) {
+                        drawToolbar.style.display = hidden ? 'none' : 'block';
                     });
-                    if (printButton) printButton.style.display = 'none';
-                    if (layersControl) layersControl.style.display = 'none'; // Ocultar controle de camadas
-                    if (freehandButton) freehandButton.style.display = 'none'; // Ocultar botão de desenho à mão livre
-                    if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'none';
-                    if (measureToggleButton) measureToggleButton.style.display = 'none'; // Ocultar botão de medição
-                    if (translateButton) translateButton.style.display = 'none'; // Ocultar botão de tradução
-                } else {
-                    toolbar.style.display = 'flex';
-                    drawToolbar.forEach(function(toolbar) {
-                        toolbar.style.display = 'block';
-                    });
-                    if (printButton) printButton.style.display = 'block';
-                    if (layersControl) layersControl.style.display = 'block'; // Mostrar controle de camadas
-                    if (freehandButton) freehandButton.style.display = 'block'; // Mostrar botão de desenho à mão livre
-                    if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'block';
-                    if (measureToggleButton) measureToggleButton.style.display = 'block'; // Mostrar botão de medição
-                    if (translateButton) translateButton.style.display = 'block'; // Mostrar botão de tradução
-                    if (toggleControlsBtn) {
-                        toggleControlsBtn.style.display = 'block';
-                        toggleControlsBtn.textContent = 'Ocultar Controles';
-                    }
+                    [printButton, layersControl, freehandButton, tacticalGraphicButton, measureToggleButton, translateButton]
+                        .forEach(function(control) {
+                            if (control) control.style.display = hidden ? 'none' : 'block';
+                        });
+                    var label = hidden ? 'Mostrar controles' : 'Ocultar controles';
+                    toggleControlsLabel.textContent = label;
+                    toggleControlsIcon.className = hidden ? 'fas fa-eye' : 'fas fa-eye-slash';
+                    toggleControlsBtn.title = label;
+                    toggleControlsBtn.setAttribute('aria-pressed', String(hidden));
                 }
 
-                document.getElementById('toggleControlsBtn').addEventListener('click', function() {
-                    if (toolbar.style.display === 'none' || toolbar.style.display === '') {
-                        toolbar.style.display = 'flex';
-                        drawToolbar.forEach(function(toolbar) {
-                            toolbar.style.display = 'block'; // Mostrar controles de desenho
-                        });
-                        if (printButton) printButton.style.display = 'block'; // Mostrar botão de imprimir
-                        if (layersControl) layersControl.style.display = 'block'; // Mostrar controle de camadas
-                        if (freehandButton) freehandButton.style.display = 'block'; // Mostrar botão de desenho à mão livre
-                        if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'block';
-                        if (measureToggleButton) measureToggleButton.style.display = 'block'; // Mostrar botão de medição
-                        if (translateButton) translateButton.style.display = 'block'; // Mostrar botão de tradução
-                        this.textContent = 'Ocultar Controles';
-                    } else {
-                        toolbar.style.display = 'none';
-                        drawToolbar.forEach(function(toolbar) {
-                            toolbar.style.display = 'none'; // Ocultar controles de desenho
-                        });
-                        if (printButton) printButton.style.display = 'none'; // Ocultar botão de imprimir
-                        if (layersControl) layersControl.style.display = 'none'; // Ocultar controle de camadas
-                        if (freehandButton) freehandButton.style.display = 'none'; // Ocultar botão de desenho à mão livre
-                        if (tacticalGraphicButton) tacticalGraphicButton.style.display = 'none';
-                        if (measureToggleButton) measureToggleButton.style.display = 'none'; // Ocultar botão de medição
-                        if (translateButton) translateButton.style.display = 'none'; // Ocultar botão de tradução
-                        this.textContent = 'Mostrar Controles';
-                    }
+                setControlsHidden(controlsHidden);
+                toggleControlsBtn.addEventListener('click', function() {
+                    setControlsHidden(!controlsHidden);
                 });
 
 

@@ -62,6 +62,7 @@ Não há um arquivo de configuração PHP específico do projeto: ajuste os limi
 ## Funcionalidades
 
 ### Interface do Usuário
+- **Mapa:** Ocupa a área disponível da janela, sem ocultar as barras do navegador. Use “Ocultar controles” ou “Mostrar controles” para alternar as ferramentas; em telas pequenas elas começam ocultas.
 - **Desenho:** Adicione polígonos, linhas, círculos e marcadores diretamente no mapa.
 - **Gráficos táticos:** Use o botão “Gráfico tático” para abrir o seletor com busca, filtro por seção e uma prévia do símbolo escolhido, no padrão do catálogo de camadas. A designação é opcional e pode ser digitada no próprio seletor, abaixo de “Selecionado:”; durante o desenho, a simbologia e a designação acompanham os vértices e o cursor em uma prévia temporária. O catálogo mantém gráficos com simbologia própria, omite os símbolos simples indicados como substituíveis pelas ferramentas nativas e, nas medidas de coordenação do espaço aéreo, mantém somente “Corredor aéreo”.
 - **Personalização:** Escolha cores, ícones e estilos para os elementos do mapa.
