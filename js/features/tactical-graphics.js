@@ -380,6 +380,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 }
 
                 if (boundaryData) {
+                    features.push(...createBoundaryMarkFeatures(rendered.graphic.geometry || geometry, boundaryData, pendingGraphic.color));
                     const boundaryLabels = [boundaryData.leftText, boundaryData.rightText];
                     const labelCoordinates = collectPointCoordinates(rendered.labels.geometry);
                     boundaryLabels.forEach((labelText, index) => {
@@ -419,7 +420,10 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     }),
                     pointToLayer: (feature, latlng) => {
                         if (feature.properties.role === 'label' || feature.properties.role === 'boundaryLabel') {
-                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8]);
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8], feature.properties.color || '#1a1a1a');
+                        }
+                        if (feature.properties.role === 'boundaryMark') {
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 0], feature.properties.color || '#1a1a1a');
                         }
                         return leaflet.circleMarker(latlng, {
                             color: feature.properties.color,
@@ -471,7 +475,21 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             #tacticalGraphicPicker .tactical-graphic-boundary-edit .tactical-graphic-boundary-row>label{display:grid;gap:5px;min-width:0}
         `;
 
-        const BOUNDARY_ECHELONS = ['Pelotão', 'Companhia', 'Unidade', 'Brigada', 'Divisão', 'Exército'];
+        const BOUNDARY_ECHELONS = ['Pelotão', 'Companhia', 'Batalhão', 'Regimento', 'Brigada', 'Divisão', 'Exército'];
+
+        function getBoundaryPattern(type) {
+            const boundaryType = BOUNDARY_ECHELONS.includes(type) ? type : 'Companhia';
+            const patterns = {
+                Pelotão: { glyphs: ['●', '●', '●'], display: '●●●' },
+                Companhia: { glyphs: ['—'], display: '—' },
+                Batalhão: { glyphs: ['—', '—'], display: '——' },
+                Regimento: { glyphs: ['—', '—', '—'], display: '———' },
+                Brigada: { glyphs: ['X'], display: 'X' },
+                Divisão: { glyphs: ['X', 'X'], display: 'XX' },
+                Exército: { glyphs: ['X', 'X', 'X'], display: 'XXX' }
+            };
+            return patterns[boundaryType] || patterns.Companhia;
+        }
 
         function normalizeBoundaryData(boundary) {
             if (!boundary || typeof boundary !== 'object') return null;
@@ -482,11 +500,77 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             return { type, leftText, rightText };
         }
 
-        function createBoundaryLabelMarker(latlng, text, anchor) {
+        function flattenBoundaryLine(geometry) {
+            if (!geometry) return [];
+            if (geometry.type === 'LineString') return geometry.coordinates;
+            if (geometry.type === 'MultiLineString') return geometry.coordinates.flat();
+            if (geometry.type === 'GeometryCollection') {
+                return geometry.geometries.flatMap(item => flattenBoundaryLine(item));
+            }
+            return [];
+        }
+
+        function getPointAlongLine(points, targetDistance) {
+            if (points.length < 2) return null;
+            let distanceTravelled = 0;
+            for (let index = 0; index < points.length - 1; index += 1) {
+                const start = points[index];
+                const end = points[index + 1];
+                const segmentLength = Math.hypot(end[0] - start[0], end[1] - start[1]);
+                const nextDistance = distanceTravelled + segmentLength;
+                if (targetDistance <= nextDistance || index === points.length - 2) {
+                    if (segmentLength === 0) return [...start];
+                    const ratio = segmentLength === 0 ? 0 : (targetDistance - distanceTravelled) / segmentLength;
+                    return [
+                        start[0] + (end[0] - start[0]) * ratio,
+                        start[1] + (end[1] - start[1]) * ratio
+                    ];
+                }
+                distanceTravelled = nextDistance;
+            }
+            return null;
+        }
+
+        function createBoundaryMarkFeatures(geometry, boundaryData, color) {
+            if (!geometry || !boundaryData) return [];
+            const points = flattenBoundaryLine(geometry);
+            if (points.length < 2) return [];
+            const pattern = getBoundaryPattern(boundaryData.type);
+            const totalDistance = points.slice(1).reduce((sum, point, index) => {
+                const previous = points[index];
+                return sum + Math.hypot(point[0] - previous[0], point[1] - previous[1]);
+            }, 0);
+            const targetMarks = Math.max(3, pattern.glyphs.length * 4);
+            const step = totalDistance / Math.max(1, targetMarks - 1);
+            const features = [];
+            for (let index = 0; index < targetMarks; index += 1) {
+                const targetDistance = index * step;
+                const point = getPointAlongLine(points, targetDistance);
+                if (!point) continue;
+                const text = pattern.glyphs[index % pattern.glyphs.length];
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        tacticalGraphic: { boundary: boundaryData, designation: text },
+                        name: text,
+                        text,
+                        color,
+                        role: 'boundaryMark'
+                    },
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [point[0], point[1]]
+                    }
+                });
+            }
+            return features;
+        }
+
+        function createBoundaryLabelMarker(latlng, text, anchor, color = '#1a1a1a') {
             return leaflet.marker(latlng, {
                 icon: leaflet.divIcon({
                     className: 'tactical-graphic-label',
-                    html: escapeHtml(text),
+                    html: '<span style="color:' + color + ';font-size:12px;font-weight:700;white-space:nowrap;line-height:1;">' + escapeHtml(text) + '</span>',
                     iconAnchor: anchor
                 })
             });
@@ -869,7 +953,11 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         fillColor: graphic.color
                     }
                 };
-                const graphicLayer = leaflet.geoJSON(graphicFeature, {
+                const boundaryMarkFeatures = boundaryData ? createBoundaryMarkFeatures(rendered.graphic.geometry || baseFeature.geometry, boundaryData, graphic.color) : [];
+                const graphicLayer = leaflet.geoJSON({
+                    type: 'FeatureCollection',
+                    features: [graphicFeature, ...boundaryMarkFeatures]
+                }, {
                     style: feature => ({
                         color: feature.properties.color,
                         fillColor: feature.properties.fillColor,
@@ -878,7 +966,10 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     }),
                     pointToLayer: (feature, latlng) => {
                         if (feature.properties.role === 'label' || feature.properties.role === 'boundaryLabel') {
-                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8]);
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8], feature.properties.color || '#1a1a1a');
+                        }
+                        if (feature.properties.role === 'boundaryMark') {
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 0], feature.properties.color || '#1a1a1a');
                         }
                         return leaflet.circleMarker(latlng, {
                             color: feature.properties.color,

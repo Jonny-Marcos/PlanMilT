@@ -326,6 +326,10 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.drawTools[0].options.shapeOptions.color, '#123456');
     assert.match(harness.alerts[0].html, /tacticalGraphicPicker/);
     assert.match(harness.alerts[0].html, /Designação \(opcional\)/);
+    assert.match(harness.alerts[0].html, /Batalhão/);
+    assert.match(harness.alerts[0].html, /Regimento/);
+    assert.match(harness.alerts[0].html, /Brigada/);
+    assert.match(harness.alerts[0].html, /Exército/);
     assert.match(harness.alerts[0].html, /tacticalGraphicSelection[\s\S]*tacticalGraphicDesignation/);
     assert.equal(harness.popupElements.get('tacticalGraphicDesignation').value, '1ª Cia');
     assert.equal(harness.alerts.length, 1);
