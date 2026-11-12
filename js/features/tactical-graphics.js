@@ -339,6 +339,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 };
             }
 
+            const boundaryData = normalizeBoundaryData(pendingGraphic.boundary);
             const baseFeature = {
                 type: 'Feature',
                 geometry,
@@ -346,7 +347,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     tacticalGraphic: {
                         name: pendingGraphic.name,
                         ...(pendingGraphic.designation ? { designation: pendingGraphic.designation } : {}),
-                        ...(pendingGraphic.geometryType === 'Point' ? { radius: 500 } : {})
+                        ...(pendingGraphic.geometryType === 'Point' ? { radius: 500 } : {}),
+                        ...(boundaryData ? { boundary: boundaryData } : {})
                     }
                 }
             };
@@ -377,6 +379,33 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     });
                 }
 
+                if (boundaryData) {
+                    const boundaryLabels = [boundaryData.leftText, boundaryData.rightText];
+                    const labelCoordinates = collectPointCoordinates(rendered.labels.geometry);
+                    boundaryLabels.forEach((labelText, index) => {
+                        const coordinates = labelCoordinates[index] || labelCoordinates[labelCoordinates.length - 1];
+                        if (!coordinates) return;
+                        features.push({
+                            type: 'Feature',
+                            properties: {
+                                tacticalGraphic: {
+                                    ...(rendered.labels.properties?.tacticalGraphic || {}),
+                                    boundary: boundaryData,
+                                    designation: labelText
+                                },
+                                name: labelText,
+                                text: labelText,
+                                color: pendingGraphic.color,
+                                role: 'boundaryLabel'
+                            },
+                            geometry: {
+                                type: 'Point',
+                                coordinates
+                            }
+                        });
+                    });
+                }
+
                 if (previewLayer) map.removeLayer(previewLayer);
                 previewLayer = leaflet.geoJSON({
                     type: 'FeatureCollection',
@@ -388,20 +417,17 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         fillOpacity: 0.2,
                         weight: 3
                     }),
-                    pointToLayer: (feature, latlng) => feature.properties.role === 'label'
-                        ? leaflet.marker(latlng, {
-                            icon: leaflet.divIcon({
-                                className: 'tactical-graphic-label',
-                                html: escapeHtml(feature.properties.text),
-                                iconAnchor: [0, 8]
-                            })
-                        })
-                        : leaflet.circleMarker(latlng, {
+                    pointToLayer: (feature, latlng) => {
+                        if (feature.properties.role === 'label' || feature.properties.role === 'boundaryLabel') {
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8]);
+                        }
+                        return leaflet.circleMarker(latlng, {
                             color: feature.properties.color,
                             fillColor: feature.properties.fillColor,
                             fillOpacity: 0.2,
                             radius: 5
-                        })
+                        });
+                    }
                 });
                 map.addLayer(previewLayer);
             } catch (error) {
@@ -440,7 +466,31 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             #tacticalGraphicPicker .tactical-graphic-empty{padding:24px;text-align:center;color:#596273}
             #tacticalGraphicPicker .tactical-graphic-selection{padding:8px 10px;border-radius:6px;background:#eef1f5;color:#36404f;font-size:13px;font-weight:600}
             #tacticalGraphicPicker             #tacticalGraphicPicker .tactical-graphic-designation{margin-top:-6px}
+            #tacticalGraphicPicker .tactical-graphic-boundary-edit{display:grid;gap:8px;padding:10px 0 6px}
+            #tacticalGraphicPicker .tactical-graphic-boundary-edit .tactical-graphic-boundary-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+            #tacticalGraphicPicker .tactical-graphic-boundary-edit .tactical-graphic-boundary-row>label{display:grid;gap:5px;min-width:0}
         `;
+
+        const BOUNDARY_ECHELONS = ['Pelotão', 'Companhia', 'Unidade', 'Brigada', 'Divisão', 'Exército'];
+
+        function normalizeBoundaryData(boundary) {
+            if (!boundary || typeof boundary !== 'object') return null;
+            const type = BOUNDARY_ECHELONS.includes(boundary.type) ? boundary.type : (boundary.type || 'Companhia');
+            const leftText = String(boundary.leftText || '').trim();
+            const rightText = String(boundary.rightText || '').trim();
+            if (!leftText && !rightText) return null;
+            return { type, leftText, rightText };
+        }
+
+        function createBoundaryLabelMarker(latlng, text, anchor) {
+            return leaflet.marker(latlng, {
+                icon: leaflet.divIcon({
+                    className: 'tactical-graphic-label',
+                    html: escapeHtml(text),
+                    iconAnchor: anchor
+                })
+            });
+        }
 
         /**
          * Exibe os seletores e inicia a ferramenta Leaflet adequada ao gráfico.
@@ -455,6 +505,9 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             let resultsContainer;
             let selectionStatus;
             let designationInput;
+            let boundaryTypeInput;
+            let boundaryLeftInput;
+            let boundaryRightInput;
 
             const selection = await sweetAlert.fire({
                 title: 'Adicionar gráfico tático',
@@ -471,6 +524,14 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
                     + '<label class="tactical-graphic-field tactical-graphic-designation" for="tacticalGraphicDesignation"><span>Designação (opcional)</span>'
                     + '<input id="tacticalGraphicDesignation" type="text" autocomplete="off" placeholder="Ex.: 1ª Cia"></label>'
+                    + '<div id="tacticalGraphicBoundaryEditor" class="tactical-graphic-boundary-edit" style="display:none">'
+                    + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryType"><span>Tipo de limite</span>'
+                    + '<select id="tacticalGraphicBoundaryType">' + BOUNDARY_ECHELONS.map(type => `<option value="${type}">${type}</option>`).join('') + '</select></label>'
+                    + '<div class="tactical-graphic-boundary-row">'
+                    + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryLeft"><span>Nome à esquerda</span><input id="tacticalGraphicBoundaryLeft" type="text" autocomplete="off" placeholder="Ex.: 1ª Cia"></label>'
+                    + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryRight"><span>Nome à direita</span><input id="tacticalGraphicBoundaryRight" type="text" autocomplete="off" placeholder="Ex.: 2ª Cia"></label>'
+                    + '</div>'
+                    + '</div>'
                     + '</div>'
                     + '</div>',
                 showCancelButton: true,
@@ -484,6 +545,9 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     resultsContainer = popup.querySelector('#tacticalGraphicResults');
                     selectionStatus = popup.querySelector('#tacticalGraphicSelection');
                     designationInput = popup.querySelector('#tacticalGraphicDesignation');
+                    boundaryTypeInput = popup.querySelector('#tacticalGraphicBoundaryType');
+                    boundaryLeftInput = popup.querySelector('#tacticalGraphicBoundaryLeft');
+                    boundaryRightInput = popup.querySelector('#tacticalGraphicBoundaryRight');
                     popup.classList.add('tactical-graphic-modal');
 
                     const commonOption = document.createElement('option');
@@ -501,6 +565,13 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         .replace(/[\u0300-\u036f]/g, '')
                         .toLocaleLowerCase('pt-BR');
                     const commonGraphicNames = new Set(commonSection.graphics.map(graphic => graphic.name));
+                    const renderBoundaryFields = () => {
+                        const editor = popup.querySelector('#tacticalGraphicBoundaryEditor');
+                        if (!editor || !editor.style) return;
+                        const isBoundary = selectedName === 'Boundary';
+                        editor.style.display = isBoundary ? 'grid' : 'none';
+                        if (isBoundary && boundaryTypeInput && !boundaryTypeInput.value) boundaryTypeInput.value = 'Companhia';
+                    };
                     const renderResults = () => {
                         const query = normalizeSearch(searchInput.value.trim());
                         const showAllCategories = categorySelect.value === 'all';
@@ -549,6 +620,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                                     if (!radio.checked) return;
                                     selectedName = graphic.name;
                                     selectionStatus.textContent = `Selecionado: ${graphic.label}`;
+                                    renderBoundaryFields();
                                     Array.from(resultsContainer.children)
                                         .filter(result => result.classList.contains('tactical-graphic-result'))
                                         .forEach(result => {
@@ -581,6 +653,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     categorySelect.value = 'all';
                     categorySelect.addEventListener('change', renderResults);
                     searchInput.addEventListener('input', renderResults);
+                    renderBoundaryFields();
                     renderResults();
                 },
                 preConfirm: () => {
@@ -588,16 +661,28 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         sweetAlert.showValidationMessage('Selecione um gráfico tático.');
                         return false;
                     }
+                    const boundary = selectedName === 'Boundary'
+                        ? normalizeBoundaryData({
+                            type: boundaryTypeInput?.value || 'Companhia',
+                            leftText: boundaryLeftInput?.value,
+                            rightText: boundaryRightInput?.value
+                        })
+                        : null;
+                    if (selectedName === 'Boundary' && (!boundary || !boundary.leftText || !boundary.rightText)) {
+                        sweetAlert.showValidationMessage('Preencha os nomes dos dois lados do limite.');
+                        return false;
+                    }
                     return {
                         name: selectedName,
-                        designation: designationInput.value.trim()
+                        designation: designationInput.value.trim(),
+                        boundary
                     };
                 }
             });
 
             if (!selection.isConfirmed || !selection.value) return;
 
-            const { name, designation } = selection.value;
+            const { name, designation, boundary } = selection.value;
             const geometryType = library.baseGeometryFor(name);
             const drawToolByGeometry = {
                 Point: leaflet.Draw.Marker,
@@ -621,6 +706,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 displayName,
                 geometryType,
                 designation,
+                boundary,
                 color
             };
             drawingVertices = [];
@@ -664,7 +750,87 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 return;
             }
 
+            if (layer && typeof layer.on === 'function' && layer.feature && layer.feature.properties && layer.feature.properties.tacticalGraphic) {
+                layer.on('click', event => {
+                    const target = event.target || layer;
+                    if (target && target.feature && target.feature.properties && target.feature.properties.tacticalGraphic) {
+                        editGraphic(target.feature);
+                    }
+                });
+            }
+
             drawnItems.addLayer(layer);
+        }
+
+        async function editGraphic(feature) {
+            if (!feature || !feature.properties || !feature.properties.tacticalGraphic) return false;
+            const tacticalGraphic = feature.properties.tacticalGraphic;
+            const existingBoundary = normalizeBoundaryData(tacticalGraphic.boundary);
+            const currentDesignation = tacticalGraphic.designation || '';
+            const editor = await sweetAlert.fire({
+                title: tacticalGraphic.name === 'Boundary' ? 'Editar limite' : 'Editar gráfico tático',
+                html: '<style>' + PICKER_STYLES + '</style>'
+                    + '<div id="tacticalGraphicPicker" class="tactical-graphic-picker">'
+                    + '<div class="tactical-graphic-browser">'
+                    + (tacticalGraphic.name === 'Boundary'
+                        ? '<div id="tacticalGraphicBoundaryEditor" class="tactical-graphic-boundary-edit">'
+                            + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryType"><span>Tipo de limite</span>'
+                            + '<select id="tacticalGraphicBoundaryType">' + BOUNDARY_ECHELONS.map(type => `<option value="${type}" ${existingBoundary?.type === type ? 'selected' : ''}>${type}</option>`).join('') + '</select></label>'
+                            + '<div class="tactical-graphic-boundary-row">'
+                            + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryLeft"><span>Nome à esquerda</span><input id="tacticalGraphicBoundaryLeft" type="text" autocomplete="off" value="' + escapeHtml(existingBoundary?.leftText || '') + '" placeholder="Ex.: 1ª Cia"></label>'
+                            + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryRight"><span>Nome à direita</span><input id="tacticalGraphicBoundaryRight" type="text" autocomplete="off" value="' + escapeHtml(existingBoundary?.rightText || '') + '" placeholder="Ex.: 2ª Cia"></label>'
+                            + '</div>'
+                            + '</div>'
+                        : '')
+                    + '<label class="tactical-graphic-field tactical-graphic-designation" for="tacticalGraphicDesignation"><span>Designação (opcional)</span>'
+                    + '<input id="tacticalGraphicDesignation" type="text" autocomplete="off" value="' + escapeHtml(currentDesignation) + '" placeholder="Ex.: 1ª Cia"></label>'
+                    + '</div>'
+                    + '</div>',
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'tactical-graphic-modal' },
+                preConfirm: () => {
+                    const popup = sweetAlert.getPopup ? sweetAlert.getPopup() : document;
+                    const nextDesignation = popup.querySelector('#tacticalGraphicDesignation')?.value.trim() || '';
+                    const nextBoundary = tacticalGraphic.name === 'Boundary'
+                        ? normalizeBoundaryData({
+                            type: popup.querySelector('#tacticalGraphicBoundaryType')?.value || 'Companhia',
+                            leftText: popup.querySelector('#tacticalGraphicBoundaryLeft')?.value,
+                            rightText: popup.querySelector('#tacticalGraphicBoundaryRight')?.value
+                        })
+                        : null;
+                    if (tacticalGraphic.name === 'Boundary' && (!nextBoundary || !nextBoundary.leftText || !nextBoundary.rightText)) {
+                        sweetAlert.showValidationMessage('Preencha os nomes dos dois lados do limite.');
+                        return false;
+                    }
+                    return {
+                        designation: nextDesignation,
+                        boundary: nextBoundary
+                    };
+                }
+            });
+
+            if (!editor.isConfirmed || editor.value === undefined || editor.value === null) return false;
+            const nextValue = typeof editor.value === 'object' && editor.value !== null
+                ? editor.value
+                : { designation: String(editor.value || '').trim() || '', boundary: tacticalGraphic.boundary || null };
+            const designation = nextValue.designation ?? '';
+            const boundary = nextValue.boundary ?? null;
+            feature.properties.tacticalGraphic = {
+                ...tacticalGraphic,
+                ...(designation ? { designation } : { designation: undefined }),
+                ...((boundary || tacticalGraphic.boundary) ? { boundary: boundary || tacticalGraphic.boundary } : {})
+            };
+            if (tacticalGraphic.name === 'Boundary' && (boundary || tacticalGraphic.boundary)) {
+                const nextBoundary = normalizeBoundaryData(boundary || tacticalGraphic.boundary);
+                if (nextBoundary) {
+                    feature.properties.name = `${nextBoundary.leftText} / ${nextBoundary.rightText}`;
+                }
+            } else if (designation) {
+                feature.properties.name = designation;
+            }
+            return true;
         }
 
         /**
@@ -679,6 +845,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             pendingGraphic = null;
 
             try {
+                const boundaryData = normalizeBoundaryData(graphic.boundary);
                 const baseFeature = event.layer.toGeoJSON();
                 baseFeature.properties = {
                     ...(baseFeature.properties || {}),
@@ -687,7 +854,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     tacticalGraphic: {
                         name: graphic.name,
                         ...(graphic.designation ? { designation: graphic.designation } : {}),
-                        ...(graphic.geometryType === 'Point' ? { radius: 500 } : {})
+                        ...(graphic.geometryType === 'Point' ? { radius: 500 } : {}),
+                        ...(boundaryData ? { boundary: boundaryData } : {})
                     }
                 };
 
@@ -708,12 +876,17 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         fillOpacity: 0.2,
                         weight: 3
                     }),
-                    pointToLayer: (feature, latlng) => leaflet.circleMarker(latlng, {
-                        color: feature.properties.color,
-                        fillColor: feature.properties.fillColor,
-                        fillOpacity: 0.2,
-                        radius: 5
-                    })
+                    pointToLayer: (feature, latlng) => {
+                        if (feature.properties.role === 'label' || feature.properties.role === 'boundaryLabel') {
+                            return createBoundaryLabelMarker(latlng, feature.properties.text, [0, 8]);
+                        }
+                        return leaflet.circleMarker(latlng, {
+                            color: feature.properties.color,
+                            fillColor: feature.properties.fillColor,
+                            fillOpacity: 0.2,
+                            radius: 5
+                        });
+                    }
                 });
 
                 addLeafletLayers(graphicLayer);
@@ -739,6 +912,35 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                                 name: graphic.designation,
                                 text: labelText,
                                 color: graphic.color
+                            },
+                            geometry: {
+                                type: 'Point',
+                                coordinates
+                            }
+                        };
+                        drawnItems.addLayer(label);
+                    });
+                }
+
+                if (boundaryData) {
+                    const labelCoordinates = collectPointCoordinates(rendered.labels.geometry);
+                    [boundaryData.leftText, boundaryData.rightText].forEach((labelText, index) => {
+                        const coordinates = labelCoordinates[index] || labelCoordinates[labelCoordinates.length - 1];
+                        if (!coordinates || !labelText) return;
+                        const label = createBoundaryLabelMarker([coordinates[1], coordinates[0]], labelText, [0, 8]);
+                        label.feature = {
+                            type: 'Feature',
+                            properties: {
+                                ...rendered.labels.properties,
+                                name: labelText,
+                                text: labelText,
+                                color: graphic.color,
+                                role: 'boundaryLabel',
+                                tacticalGraphic: {
+                                    ...(rendered.labels.properties?.tacticalGraphic || {}),
+                                    boundary: boundaryData,
+                                    designation: labelText
+                                }
                             },
                             geometry: {
                                 type: 'Point',
@@ -786,7 +988,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
 
         return Object.freeze({
             startDrawing,
-            handleCreated
+            handleCreated,
+            editGraphic
         });
     }
 });

@@ -9,6 +9,7 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'AirCorridor',
     'Airfield',
     'Ambush',
+    'Boundary',
     'AdvanceToContact',
     'AreaDefense',
     'AssaultCrossing',

@@ -20,6 +20,7 @@ class FakeSelectElement {
                 this.classNames = new Set(String(value).split(/\s+/).filter(Boolean));
             }
         });
+        this.style = {};
         this.classList = {
             add: name => this.classNames.add(name),
             contains: name => this.classNames.has(name)
@@ -64,6 +65,10 @@ global.document = {
     },
     createElementNS(namespace, tagName) {
         return new FakeSelectElement(tagName);
+    },
+    querySelector(selector) {
+        const element = popupElements.get(selector.slice(1));
+        return element || null;
     }
 };
 require('../../js/features/tactical-graphics.js');
@@ -85,7 +90,11 @@ function createHarness({
         'tacticalGraphicSearch',
         'tacticalGraphicResults',
         'tacticalGraphicSelection',
-        'tacticalGraphicDesignation'
+        'tacticalGraphicDesignation',
+        'tacticalGraphicBoundaryEditor',
+        'tacticalGraphicBoundaryType',
+        'tacticalGraphicBoundaryLeft',
+        'tacticalGraphicBoundaryRight'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -151,6 +160,9 @@ function createHarness({
             if (options.icon === 'error') return { isConfirmed: true };
             if (options.didOpen) {
                 popupElements.get('tacticalGraphicDesignation').value = designation;
+                popupElements.get('tacticalGraphicBoundaryType').value = 'Companhia';
+                popupElements.get('tacticalGraphicBoundaryLeft').value = '1ª Cia';
+                popupElements.get('tacticalGraphicBoundaryRight').value = '2ª Cia';
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
@@ -339,6 +351,27 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.ok(harness.layers.slice(0, 2).every(layer => layer.editing));
     assert.equal(harness.layers[2].options.icon.html, '1ª Cia');
     assert.equal(harness.integration.handleCreated({}), false);
+});
+
+test('boundary limits keep the side names and can be edited after creation', async () => {
+    const harness = createHarness();
+    const feature = {
+        type: 'Feature',
+        properties: {
+            tacticalGraphic: {
+                name: 'Boundary',
+                designation: '1ª Cia',
+                boundary: { type: 'Companhia', leftText: '1ª Cia', rightText: '2ª Cia' }
+            }
+        }
+    };
+
+    const updated = await harness.integration.editGraphic(feature);
+    assert.equal(updated, true);
+    assert.equal(feature.properties.tacticalGraphic.boundary.type, 'Companhia');
+    assert.equal(feature.properties.tacticalGraphic.boundary.leftText, '1ª Cia');
+    assert.equal(feature.properties.tacticalGraphic.boundary.rightText, '2ª Cia');
+    assert.equal(feature.properties.name, '1ª Cia / 2ª Cia');
 });
 
 test('graphic selector puts compact symbol thumbnails beside single-choice rows', async () => {

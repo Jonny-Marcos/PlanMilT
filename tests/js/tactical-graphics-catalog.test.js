@@ -61,10 +61,10 @@ test('the curated catalog contains only distinct tactical graphics, grouped once
     const graphics = sections.slice(1).flatMap(section => section.graphics);
     const names = graphics.map(graphic => graphic.name);
 
-    assert.equal(names.length, 85);
+    assert.equal(names.length, 86);
     assert.equal(new Set(names).size, names.length);
     assert.ok(names.every(name => library.listTacticalGraphicNames().includes(name)));
-    assert.ok(names.every(name => addsDistinctiveGeometry(library, name)));
+    assert.ok(names.every(name => name === 'Boundary' || addsDistinctiveGeometry(library, name)));
     assert.equal(sections[0].name, 'common');
     assert.equal(sections[0].label, '10 mais comuns');
     assert.equal(sections[0].graphics.length, 10);
@@ -90,7 +90,7 @@ test('redundant basic geometry is omitted and the ten common graphics remain cat
         'MineCluster'
     ]);
     assert.ok(common.every(name => categorized.includes(name)));
-    assert.ok(!categorized.includes('Boundary'));
+    assert.ok(categorized.includes('Boundary'));
     assert.ok(!categorized.includes('PhaseLine'));
     assert.ok(!categorized.includes('LimitOfAdvance'));
     assert.ok(!categorized.includes('ObjectiveArea'));
