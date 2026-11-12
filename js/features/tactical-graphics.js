@@ -1166,6 +1166,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             } else if (designation) {
                 feature.properties.name = designation;
             }
+            map.fire?.('planmilt:changed');
             return true;
         }
 

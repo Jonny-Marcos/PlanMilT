@@ -3,7 +3,10 @@
  * @requires Endpoints de desenhos/imagens, Leaflet, DOM e Swal no escopo legado.
  */
             document.addEventListener('DOMContentLoaded', function() {
-                return window.PlanMilT.sharedLayersReady = loadSharedLayers();
+                return window.PlanMilT.sharedLayersReady = (async () => {
+                    await window.PlanMilT.localSessionReady;
+                    return loadSharedLayers();
+                })();
             });
 
             /**
@@ -148,7 +151,9 @@
                         });
 
                         // Adiciona 'newLayer' ao controle do mapa, assumindo que 'addNewOverlayLayer' está definido corretamente
-                        addNewOverlayLayer(newLayerName, newLayer);
+                        let overlayName = newLayerName;
+                        for (let copy = 2; layerRegistry[overlayName]; copy++) overlayName = `${newLayerName} (${copy})`;
+                        addNewOverlayLayer(overlayName, newLayer);
                     }
                 } catch (error) {
                     console.error("Falha ao carregar desenhos:", error);

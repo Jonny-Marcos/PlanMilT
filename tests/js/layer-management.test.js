@@ -29,25 +29,26 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['elevation-tools']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
+    for (const script of ['elevation-tools', 'drawing-loading', 'shared-layers', 'kmz-import', 'tactical-graphics', 'local-session']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
     }
     assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-coordination-point'));
-    for (const script of ['kmz-import', 'map-tools']) {
+    for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }
     assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261112-drawing-patterns'));
-    for (const script of ['drawing-patterns', 'kmz-tactical-images', 'shared-layers', 'drawing-loading', 'main', 'layer-management']) {
+    for (const script of ['drawing-patterns', 'kmz-tactical-images', 'layer-management']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261129-area-patterns`));
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
+        assert.ok(documentSource.includes('js/features/main.js?v=20261112-dot-label'));
+        assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
     for (const script of ['icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
     assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));
-    assert.ok(documentSource.includes('js/features/tactical-graphics.js?v=20261112-coordination-circle'));
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));

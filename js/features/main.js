@@ -374,7 +374,7 @@
                             solid: 'Cor Sólida',
                             patternX: 'Padrão "X"',
                             patternSlash: 'Padrão "\\"',
-                            patternDots: 'Pontos (visual)'
+                            patternDots: 'Padrão "."'
                         },
                         inputPlaceholder: 'Selecione um preenchimento',
                         showCancelButton: true

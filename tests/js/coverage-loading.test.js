@@ -6,6 +6,33 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/drawing-loading.js'), 'utf8');
 
+test('local restoration reuses editable drawing loading without a server request or dialog', async () => {
+    const feature = { type: 'Feature', properties: { color: '#123456', fillPattern: 'patternDots' },
+        geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } };
+    const restored = [];
+    const pattern = {};
+    const context = {
+        document: { getElementById: () => ({ addEventListener() {} }) },
+        window: { location: { href: 'https://example.test/' }, PlanMilT: {
+            drawingPatterns: { get: () => pattern },
+            coverageImage: { clear() {} }
+        } },
+        L: { geoJson(data, options) {
+            const layer = { feature, setStyle(style) { this.style = style; } };
+            options.onEachFeature(data.features[0], layer);
+            return { addTo() {} };
+        } },
+        map: {}, drawnItems: { clearLayers() {}, addLayer(layer) { restored.push(layer); } },
+        isValidGeoJson: () => true,
+        console: { info() {}, error(error) { throw error; } }
+    };
+    vm.runInNewContext(source, context);
+    await context.window.PlanMilT.drawingLoading.restore({ type: 'FeatureCollection', features: [feature] });
+    assert.equal(restored.length, 1);
+    assert.equal(restored[0].feature, feature);
+    assert.equal(restored[0].style.fillPattern, pattern);
+});
+
 for (const editable of [true, false]) {
     test(`saved coverage keeps its color and opacity when loaded ${editable ? 'for editing' : 'as overlay'}`, async () => {
         let click;

@@ -36,7 +36,7 @@
                     return;
                 }
                 if (layer.feature && layer.feature.properties && layer.feature.properties.militarySymbol) {
-                    window.PlanMilT.militarySymbols.edit(layer, L).catch(error => {
+                    window.PlanMilT.militarySymbols.edit(layer, L).then(() => map.fire('planmilt:changed')).catch(error => {
                         console.error('[PlanMilT][Ícones] Falha ao editar símbolo.', error);
                         Swal.fire('Erro', 'Não foi possível editar este ícone.', 'error');
                     });
@@ -139,6 +139,7 @@
                     tinymce.remove('#tiny-editor');
                     map.closePopup(popup);
                     callback(content);
+                    map.fire('planmilt:changed');
                 });
 
                 document.getElementById('cancel-text').addEventListener('click', function () {
@@ -170,7 +171,7 @@
                             if (kmlFile) {
                                 kmlFile.async("string").then(function(kmlContent) {
                                     // Criar a camada de importação
-                                    var importLayer = L.layerGroup().addTo(map);
+                                    var importLayer = L.layerGroup();
 
                                     // Processar imagens e adicioná-las à camada de importação
                                     processImagesFromKML(kmlContent, zip, importLayer);
@@ -182,7 +183,9 @@
                                     var fileName = file.name.replace(/\.kmz$/i, '');
 
                                     // Adicionar a camada de importação ao controle de camadas com o nome do arquivo KMZ
-                                    layerControl.addOverlay(importLayer, fileName);
+                                    let layerName = fileName;
+                                    for (let copy = 2; layerRegistry[layerName]; copy++) layerName = `${fileName} (${copy})`;
+                                    addNewOverlayLayer(layerName, importLayer);
                                 }).catch(error => console.error('Falha ao ler o KML do arquivo KMZ:', error));
                             } else {
                                 console.error("Nenhum arquivo KML encontrado no ZIP.");

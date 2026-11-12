@@ -49,7 +49,7 @@ for (const type of ['polygon', 'rectangle', 'circle']) {
             const original = h.makeLayer();
             await h.handler({ layerType: type, layer: original });
             assert.equal(h.added.length, 1);
-            assert.equal(h.alerts[0].inputOptions.patternDots, 'Pontos (visual)');
+            assert.equal(h.alerts[0].inputOptions.patternDots, 'Padrão "."');
             const layer = h.added[0];
             const saved = layer.toGeoJSON();
             assert.equal(saved.geometry.type, 'Polygon');

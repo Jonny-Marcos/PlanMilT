@@ -232,7 +232,7 @@
         <script src="js/features/task-radio-links.js?v=20261016-antenna-height"></script>
         <script src="js/features/task-radio-operations.js?v=20261111-propagation-scenarios"></script>
         <script src="js/features/tactical-graphics-catalog.js?v=20261112-coordination-point"></script>
-        <script src="js/features/tactical-graphics.js?v=20261112-coordination-circle"></script>
+        <script src="js/features/tactical-graphics.js?v=20261112-session"></script>
 
 
 
@@ -245,14 +245,14 @@
 
 
 
-        <script src="js/features/main.js?v=20261129-area-patterns"></script>
-        <script src="js/features/kmz-import.js?v=20261112-tactical-images"></script>
+        <script src="js/features/main.js?v=20261112-dot-label"></script>
+        <script src="js/features/kmz-import.js?v=20261112-session"></script>
         <script src="js/features/map-popups.js"></script>
         <script src="js/features/drawing-storage.js?v=20261112-coordination-point"></script>
-        <script src="js/features/shared-layers.js?v=20261129-area-patterns"></script>
+        <script src="js/features/shared-layers.js?v=20261112-session"></script>
         <script src="js/features/image-overlays.js"></script>
-        <script src="js/features/drawing-loading.js?v=20261129-area-patterns"></script>
-        <script src="js/features/elevation-tools.js?v=20261117-welcome"></script>
+        <script src="js/features/drawing-loading.js?v=20261112-session"></script>
+        <script src="js/features/elevation-tools.js?v=20261112-session"></script>
         <script src="js/features/map-tools.js?v=20261112-tactical-images"></script>
         <script src="js/features/task-execution.js?v=20261113-auto-download"></script>
         <script src="js/features/task-terrain-analysis.js"></script>
@@ -263,5 +263,11 @@
         <script src="js/features/layer-management.js?v=20261129-area-patterns"></script>
         <script src="js/features/help-and-planning.js?v=20261127-icon-tray"></script>
         <script src="js/features/image-editor.js?v=20261019-edit-saved-themes"></script>
+        <script src="js/features/local-session.js?v=20261112-session"></script>
+        <script>
+            window.PlanMilT.localSessionReady = window.PlanMilT.localSession.start({
+                map, leaflet: L, drawnItems, layerRegistry, addNewOverlayLayer, tacticalGraphics
+            });
+        </script>
     </body>
 </html>

@@ -26,24 +26,26 @@
                  * Carrega um planejamento pelo identificador usado no servidor.
                  * @param {string} usuario - Identificador do planejamento.
                  */
-                async load(usuario) {
+                async load(usuario, localData) {
                 const urlCompleta = window.location.href;
                 const padraoDiretorio = /https:\/\/methodux\.online\/(.*?)\//;
                 const resultado = padraoDiretorio.exec(urlCompleta);
                 const diretorio = resultado ? resultado[1] : '';
 
                 try {
-                    const response = await window.PlanMilT.apiClient.request("/carregar.php", {
-                        method: "POST",
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: `usuario=${encodeURIComponent(usuario)}&link=${encodeURIComponent(diretorio)}`
-                    });
-
-                    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
-
-                    const geoJsonData = await response.json();
+                    let geoJsonData = localData;
+                    if (!localData) {
+                        const response = await window.PlanMilT.apiClient.request("/carregar.php", {
+                            method: "POST",
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: `usuario=${encodeURIComponent(usuario)}&link=${encodeURIComponent(diretorio)}`
+                        });
+                        if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                        geoJsonData = await response.json();
+                    }
 
                     if (!isValidGeoJson(geoJsonData)) {
+                        if (localData) throw new Error('Rascunho local inválido.');
                         console.error('[PlanMilT][Desenhos] Resposta inválida ao carregar desenhos.');
                         Swal.fire('Erro', 'Erro ao carregar os desenhos. Verifique o usuário e o link!', 'error');
                         return;
@@ -53,7 +55,7 @@
                         featureCount: geoJsonData.features.length
                     });
 
-                    const { isConfirmed: escolha } = await Swal.fire({
+                    const { isConfirmed: escolha } = localData ? { isConfirmed: true } : await Swal.fire({
                         title: 'Como deseja carregar os desenhos?',
                         text: "Escolha 'Edição' para edição ou 'Camada não-editável' para carregá-los como uma nova camada.",
                         icon: 'question',
@@ -114,6 +116,7 @@
                                         fillOpacity: 0.5,
                                         radius: feature.properties.radius
                                     });
+                                    newCircle.feature = feature;
                                     newLayer.addLayer(newCircle);
                                 } else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
                                     var customIcon = createTextLabelIcon(feature);
@@ -194,6 +197,7 @@
                                         fillOpacity: 0.5,
                                         radius: feature.properties.radius
                                     });
+                                    newCircle.feature = feature;
                                     drawnItems.addLayer(newCircle);
                                 } else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
                                     var customIcon = createTextLabelIcon(feature);
@@ -253,6 +257,7 @@
                         }
                     }
 
+                    if (localData) return;
                     if (escolha && coverageFeatures.length) {
                         const bounds = window.PlanMilT.coverageImage.getGroup().getBounds();
                         if (drawnItems.getLayers().length) bounds.extend(drawnItems.getBounds());
@@ -267,8 +272,17 @@
                         Swal.fire('Aviso', 'Desenhos carregados, mas não foi possível atualizar a lista de recentes neste navegador.', 'warning');
                     }
                 } catch (error) {
+                    if (localData) throw error;
                     console.error("Erro ao carregar desenhos:", error);
                     Swal.fire('Erro HTTP', `Erro: ${error.message}`, 'error');
                 }
+                },
+                /**
+                 * Restaura desenhos locais editáveis sem consultar o servidor.
+                 * @param {Object} data - Coleção GeoJSON previamente armazenada.
+                 * @returns {Promise<void>} Restauração concluída.
+                 */
+                async restore(data) {
+                    await this.load('', data);
                 }
             });

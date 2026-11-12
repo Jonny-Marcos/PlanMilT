@@ -31,6 +31,37 @@ test('shared-resource readiness waits for protected images', async () => {
     assert.equal(completed, true);
 });
 
+test('shared-resource loading waits for local restoration and keeps duplicate names separate', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
+    let start;
+    let release;
+    let loaded = false;
+    let name;
+    const ready = new Promise(resolve => { release = resolve; });
+    const context = {
+        URL, URLSearchParams,
+        document: {
+            addEventListener(event, callback) { if (event === 'DOMContentLoaded') start = callback; },
+            getElementById: () => ({ addEventListener() {} }),
+            querySelector: () => ({}), querySelectorAll: () => []
+        },
+        window: { location: { href: 'https://example.test/?camada=teste' }, PlanMilT: {
+            localSessionReady: ready,
+            apiClient: { request: async () => { loaded = true; return { ok: true, json: async () => ({ type: 'FeatureCollection', features: [] }) }; } }
+        } },
+        L: { geoJson(data) { return data ? {} : { addTo() { return this; }, addLayer() {} }; } },
+        map: {}, layerRegistry: { teste: {} }, addNewOverlayLayer(value) { name = value; },
+        isValidGeoJson: () => true, console: { info() {}, error(error) { throw error; } }
+    };
+    vm.runInNewContext(source, context);
+    const loading = start();
+    await Promise.resolve();
+    assert.equal(loaded, false);
+    release();
+    await loading;
+    assert.equal(name, 'teste (2)');
+});
+
 test('shared planning restores raster coverages to its overlay', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
     let load;
@@ -52,7 +83,7 @@ test('shared planning restores raster coverages to its overlay', async () => {
             assert.equal(data.features.length, 0);
             return {};
         } },
-        map: {}, addNewOverlayLayer(name) { assert.equal(name, 'teste'); },
+        map: {}, layerRegistry: {}, addNewOverlayLayer(name) { assert.equal(name, 'teste'); },
         isValidGeoJson: () => true,
         console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
     };
@@ -85,7 +116,7 @@ test('shared planning restores the military symbol icon and its original dimensi
             options.onEachFeature(feature, { setIcon(value) { icon = value; } });
             return {};
         } },
-        map: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
+        map: {}, layerRegistry: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
         console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
     };
     vm.runInNewContext(source, context);
@@ -125,7 +156,7 @@ test('shared planning preserves tactical boundary label offsets', async () => {
             },
             divIcon(options) { return options; }
         },
-        map: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
+        map: {}, layerRegistry: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
         console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
     };
 
@@ -190,6 +221,33 @@ test('KMZ coverage import reprojects the geographic PNG and restores coverage me
     assert.equal(data.image, 'data:image/png;base64,AQ==');
     assert.equal(data.resolutionKm, 0.5);
     assert.equal(data.mode, 'radio');
+});
+
+test('KMZ imports are registered as uniquely named map overlays', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/kmz-import.js'), 'utf8');
+    let change;
+    let added;
+    const group = { getLayers: () => [] };
+    const context = {
+        document: { getElementById(id) { return { addEventListener(name, callback) {
+            if (id === 'fileInput' && name === 'change') change = callback;
+        } }; } },
+        drawnItems: { on() {} },
+        L: { Hash: class {}, layerGroup: () => group },
+        map: { attributionControl: { setPrefix() {} } },
+        Autolinker: class {},
+        FileReader: class { readAsArrayBuffer() { this.onload({ target: { result: {} } }); } },
+        JSZip: { loadAsync: async () => ({ file: () => ({ async: async () => '<kml/>' }) }) },
+        DOMParser: class { parseFromString() { return { querySelectorAll: () => [] }; } },
+        layerRegistry: { mapa: {} },
+        addNewOverlayLayer(name, layer) { added = { name, layer }; },
+        console: { info() {}, error(error) { throw new Error(error); } }
+    };
+    vm.runInNewContext(source, context);
+    change({ target: { files: [{ name: 'mapa.kmz' }] } });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    assert.equal(added.name, 'mapa (2)');
+    assert.equal(added.layer, group);
 });
 
 test('KMZ imports a military symbol with its image dimensions and geographic anchor', async () => {

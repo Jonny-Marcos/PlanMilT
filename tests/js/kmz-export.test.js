@@ -285,7 +285,7 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
                 geometry: { type: 'LineString', coordinates: [[-51, -21], [-50, -21]] } };
             const dashed = { type: 'Feature', properties: { dashArray: '2, 6', color: '#000000' },
                 geometry: { type: 'LineString', coordinates: [[-52, -20], [-51, -20]] } };
-            const patterned = { type: 'Feature', properties: { fillPattern: 'patternX', color: '#000000' },
+            const patterned = { type: 'Feature', properties: { fillPattern: 'patternDots', color: '#000000' },
                 geometry: { type: 'Polygon', coordinates: [[[-52, -20], [-51, -20], [-51, -21], [-52, -20]]] } };
             const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
             const map = {};
