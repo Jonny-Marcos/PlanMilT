@@ -1,19 +1,20 @@
 /**
- * @fileoverview Monta uma textura Mercator a partir dos tiles OpenTopo ou BDGEx.
+ * @fileoverview Monta uma textura Mercator com tiles e desenhos visíveis.
  * @exports window.PlanMilT.map3dTexture
- * @requires Mapa Leaflet e cliente HTTP.
+ * @requires Mapa Leaflet, cliente HTTP e html2canvas.
  */
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.map3dTexture = Object.freeze({
     /**
-     * Busca e posiciona somente os tiles da camada selecionada sobre a área do mapa.
+     * Busca tiles da camada selecionada e sobrepõe os desenhos visíveis.
      * @param {Object} map - Mapa Leaflet usado para projetar coordenadas.
      * @param {number[]} bounds - Limites sul, oeste, norte e leste.
      * @param {string} source - Camada "opentopo" ou "bdgex".
+     * @param {Object[]} groups - Grupos de desenhos e marcadores a incluir.
      * @returns {Promise<string>} Textura PNG em projeção Web Mercator.
      */
-    async create(map, bounds, source) {
+    async create(map, bounds, source, groups = []) {
         if (!['opentopo', 'bdgex'].includes(source)) throw new Error('Camada 3D inválida.');
         const [south, west, north, east] = bounds;
         if (![south, west, north, east].every(Number.isFinite)
@@ -112,6 +113,77 @@ window.PlanMilT.map3dTexture = Object.freeze({
         });
         await Promise.all(workers);
         if (failed) throw new Error('Não foi possível carregar a camada escolhida. Verifique a conexão e tente novamente.');
+        const elements = new Set();
+        const seen = new Set();
+        const stack = groups.slice();
+        while (stack.length) {
+            const layer = stack.pop();
+            if (!layer || seen.has(layer) || !map.hasLayer(layer)) continue;
+            seen.add(layer);
+            if (typeof layer.eachLayer === 'function') {
+                layer.eachLayer(child => stack.push(child));
+            } else if (typeof layer.getElement === 'function') {
+                const element = layer.getElement();
+                if (element && (element.closest('.leaflet-overlay-pane svg') || element.closest('.leaflet-marker-pane'))) {
+                    elements.add(element);
+                }
+            }
+        }
+        if (elements.size) {
+            if (typeof window.html2canvas !== 'function') throw new Error('Não foi possível preparar os desenhos para o 3D.');
+            const marked = [];
+            try {
+                for (const element of elements) {
+                    const images = element.tagName.toLowerCase() === 'img' ? [element] : [...element.querySelectorAll('img')];
+                    for (const image of images) {
+                        const url = new URL(image.src, window.location.href);
+                        if (!['data:', 'blob:'].includes(url.protocol) && url.origin !== window.location.origin) {
+                            throw new Error('Um ícone externo não pode ser incluído no 3D. Use um ícone local.');
+                        }
+                        if (!image.complete || !image.naturalWidth) {
+                            await image.decode();
+                        }
+                    }
+                    marked.push([element, element.getAttribute('data-planmilt-3d')]);
+                    element.setAttribute('data-planmilt-3d', 'visible');
+                }
+                const mapElement = map.getContainer();
+                const overlay = await window.html2canvas(mapElement, {
+                    scale, backgroundColor: null, useCORS: true,
+                    onclone(clonedDocument) {
+                        const clonedMap = clonedDocument.getElementById(mapElement.id);
+                        clonedMap.style.background = 'transparent';
+                        clonedMap.querySelectorAll('.leaflet-control-container').forEach(element => element.remove());
+                        clonedMap.querySelectorAll('.leaflet-pane').forEach(pane => {
+                            if (!pane.classList.contains('leaflet-map-pane')
+                                && !pane.classList.contains('leaflet-overlay-pane')
+                                && !pane.classList.contains('leaflet-marker-pane')) pane.remove();
+                        });
+                        clonedMap.querySelectorAll('.leaflet-overlay-pane svg path').forEach(path => {
+                            if (!path.closest('defs') && path.getAttribute('data-planmilt-3d') !== 'visible') path.remove();
+                        });
+                        clonedMap.querySelectorAll('.leaflet-overlay-pane svg').forEach(svg => {
+                            // O html2canvas aplica a transformação também ao serializar o SVG.
+                            const transform = new DOMMatrixReadOnly(svg.style.transform);
+                            svg.style.transform = 'none';
+                            svg.style.left = `${transform.e}px`;
+                            svg.style.top = `${transform.f}px`;
+                        });
+                        clonedMap.querySelectorAll('.leaflet-overlay-pane img, .leaflet-overlay-pane canvas')
+                            .forEach(element => element.remove());
+                        clonedMap.querySelectorAll('.leaflet-marker-pane > *').forEach(marker => {
+                            if (marker.getAttribute('data-planmilt-3d') !== 'visible') marker.remove();
+                        });
+                    }
+                });
+                context.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+            } finally {
+                for (const [element, previous] of marked) {
+                    if (previous === null) element.removeAttribute('data-planmilt-3d');
+                    else element.setAttribute('data-planmilt-3d', previous);
+                }
+            }
+        }
         return canvas.toDataURL('image/png');
     }
 });

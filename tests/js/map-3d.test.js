@@ -35,6 +35,8 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
                 return { view3DButton: button, map3DOverlay: overlay, map3DFrame: frame }[id];
             }
         },
+        drawnItems: {},
+        layerRegistry: {},
         map: {
             getBounds: () => ({
                 getSouth: () => -21.7,
@@ -48,8 +50,9 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
             location: { origin: 'https://plan.test', href: 'https://plan.test/index.html' },
             addEventListener(name, callback) { listeners.set(name, callback); },
             PlanMilT: {
-                map3dTexture: { async create(map, bounds, source) {
+                map3dTexture: { async create(map, bounds, source, groups) {
                     textures.push(source);
+                    context.lastGroups = Array.from(groups);
                     return 'data:image/png;base64,AA==';
                 } },
                 elevationFiles: {
@@ -82,7 +85,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-base-terrain');
+    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-drawings');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
@@ -100,6 +103,22 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     h.click();
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 2);
+});
+
+test('passes drawings and registered overlays but not base and utility layers to texture capture', async () => {
+    const h = setup();
+    const drawings = h.context.drawnItems;
+    const suggestions = {};
+    const imported = {};
+    h.context.layerRegistry = {
+        OpenTopo: {}, 'BDGEx - CTM50': {}, 'Google Satellite': {},
+        Infraestruturas: {}, 'Quadrículas - UTM': {},
+        'Sugestão de Planejamento': suggestions, 'Desenhos importados': imported
+    };
+    h.click();
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(h.context.lastGroups, [drawings, suggestions, imported]);
 });
 
 test('only accepts OpenTopo or BDGEx from the embedded viewer', async () => {
@@ -202,6 +221,7 @@ test('the embedded renderer communicates only with its parent and provides a ret
     assert.equal(elements.viewerStatus.textContent, 'erro');
     elements.terrainCanvas.events.wheel({ preventDefault() {}, deltaY: 1 });
     assert.match(viewerHtml, /id="closeViewer"/);
+    assert.match(viewerHtml, /id="verticalExaggeration"[^>]*max="10"[^>]*value="5"/);
     assert.match(indexSource, /id="map3DOverlay"[\s\S]*id="map3DFrame"/);
 });
 

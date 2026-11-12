@@ -23,7 +23,15 @@ test('builds a Mercator mesh with terrain heights, image texture coordinates and
     assert.equal(mesh.vertices[3], 0);
     assert.equal(mesh.vertices[4], 0);
     assert.equal(mesh.vertices[14], 1);
+    assert.ok(mesh.vertices[2] < 0 && mesh.vertices[12] > 0, 'north must face away from the initial camera');
+    assert.ok(mesh.vertices[0] < mesh.vertices[5], 'west must remain left of east');
     assert.ok(mesh.width > 0 && mesh.depth > 0);
+});
+
+test('supports the requested maximum vertical exaggeration', () => {
+    const mesh = geometry.createMesh({ bounds: [-1, -1, 1, 1], elevations: [[100, 120], [140, 160]] }, 10);
+    assert.equal(mesh.vertices[1], -300);
+    assert.throws(() => geometry.createMesh({ bounds: [-1, -1, 1, 1], elevations: [[0, 0], [0, 0]] }, 10.5), /inválida/);
 });
 
 test('aligns the latitude rows of the texture to Mercator rather than a linear latitude fraction', () => {

@@ -57,7 +57,14 @@
                     return data;
                 };
                 const [image, initialTerrain] = await Promise.all([
-                    window.PlanMilT.map3dTexture.create(map, bounds, source), requestTerrain()
+                    window.PlanMilT.map3dTexture.create(map, bounds, source, [
+                        drawnItems,
+                        ...Object.entries(layerRegistry)
+                            .filter(([name]) => !['OpenTopo', 'Google Satellite', 'BDGEx - CTM50',
+                                'Infraestruturas', 'Quadrículas - UTM'].includes(name))
+                            .map(([, layer]) => layer)
+                    ]),
+                    requestTerrain()
                 ]);
                 let terrain = initialTerrain;
                 if (!overlay.hidden && version === sceneVersion && terrain.missingTiles.length) {
@@ -112,7 +119,7 @@
         sceneVersion++;
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
-        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-base-terrain';
+        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-drawings';
         else if (viewerReady) sendScene();
         frame.focus();
     });
