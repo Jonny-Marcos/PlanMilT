@@ -57,6 +57,13 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 .rf-form input, .rf-form select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
                                 .rf-form .row { display: flex; gap: 15px; }
                                 .rf-form .col { flex: 1; }
+                                .rf-form .sensitivity-row { align-items: flex-start; }
+                                .rf-form .sensitivity-row #rfPenetrationField { min-width: 0; }
+                                .rf-form .sensitivity-row #rfPenetrationField small { display: block; margin-top: 5px; line-height: 1.35; }
+                                @media (max-width: 520px) {
+                                    .rf-form .sensitivity-row { flex-direction: column; }
+                                    .rf-form .sensitivity-row .col { width: 100%; }
+                                }
                                 .watts-display { color: #007bff; font-size: 11px; margin-left: 5px; font-weight: normal; }
                                 .btn-clear-rf { margin-top: 15px; width: 100%; background-color: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
                                 .btn-clear-rf:hover { background-color: #c82333; }
@@ -90,9 +97,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                         <div class="col"><label>Ganho Tx (dBi)</label><input id="rfTxGain" type="number" value="2"></div>
                                         <div class="col"><label>Ganho Rx (dBi)</label><input id="rfRxGain" type="number" value="2"></div>
                                     </div>
-                                    <div class="row">
+                                    <div class="row sensitivity-row">
                                         <div class="col"><label>Sensibilidade (dBm)</label><input id="rfRxSens" type="number" value="-105"></div>
-                                        <div class="col"></div>
+                                        <div class="col" id="rfPenetrationField">
+                                            <label for="rfPenetration">Penetração/Difração (cobertura RF)</label>
+                                            <select id="rfPenetration">
+                                                <option value="high">Alta (Otimista)</option>
+                                                <option value="medium" selected>Média (Equilibrada)</option>
+                                                <option value="low">Baixa (Pessimista)</option>
+                                            </select>
+                                            <small>Estimativa terrestre simplificada; não representa construções, vegetação ou propagação ionosférica HF.</small>
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -106,20 +121,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     <div class="col">
                                         <label for="rfResolution">Resolução (Precisão)</label>
                                         <select id="rfResolution">
-                                            <option value="32">Pequena (Rápida) — 32 radiais</option>
-                                            <option value="72" selected>Média (Padrão) — 72 radiais</option>
-                                            <option value="180">Alta (Lenta) — 180 radiais</option>
+                                            <option value="72">Pequena (Rápida) — 72 radiais</option>
+                                            <option value="180" selected>Média (Padrão) — 180 radiais</option>
+                                            <option value="360">Alta (Lenta) — 360 radiais</option>
                                         </select>
                                     </div>
-                                </div>
-                                <div id="rfPenetrationField">
-                                    <label for="rfPenetration">Penetração/Difração (cobertura RF)</label>
-                                    <select id="rfPenetration">
-                                        <option value="high">Alta (Otimista)</option>
-                                        <option value="medium" selected>Média (Equilibrada)</option>
-                                        <option value="low">Baixa (Pessimista)</option>
-                                    </select>
-                                    <small>Estimativa terrestre simplificada; não representa construções, vegetação ou propagação ionosférica HF.</small>
                                 </div>
                                 
                                 <button type="button" id="btnClearRFLayers" class="btn-clear-rf"><i class="fas fa-trash"></i> Limpar Simulações Anteriores</button>
@@ -212,7 +218,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 penetration: document.getElementById('rfPenetration').value
                             };
                             if (values.mode === 'coverage') {
-                                if (![32, 72, 180].includes(values.radialCount)) {
+                                if (![72, 180, 360].includes(values.radialCount)) {
                                     Swal.showValidationMessage('Selecione uma resolução de cobertura válida.');
                                     return false;
                                 }

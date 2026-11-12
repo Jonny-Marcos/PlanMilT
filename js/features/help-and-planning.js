@@ -50,7 +50,7 @@
 </div></details>
 <details><summary>Elevação e rádio</summary><div>
 <p>Quando um arquivo de elevação estiver faltando, o PlanMilT tenta baixá-lo automaticamente e oferece envio manual se houver falha. O provedor recebe a região aproximada solicitada.</p>
-<p><b>Predição de Enlace:</b> analise enlaces ou áreas de cobertura RF e ótica. Na área de cobertura, a resolução angular usa 32, 72 ou 180 radiais; a barra de progresso acompanha o cálculo das radiais.</p>
+<p><b>Predição de Enlace:</b> analise enlaces ou áreas de cobertura RF e ótica. Na área de cobertura, escolha Pequena (Rápida), com 72 radiais; Média (Padrão), com 180; ou Alta (Lenta), com 360 radiais. A barra de progresso acompanha o cálculo das radiais.</p>
 <p>Na cobertura RF, escolha Penetração/Difração alta, média ou baixa. Clique em uma nova cobertura RF para consultar a potência recebida aproximada; coberturas antigas podem não ter esse dado. A visada ótica não usa esse ajuste.</p>
 <p>Os resultados são estimativas e não garantem cobertura real; valide-os em campo.</p>
 </div></details>

@@ -6,7 +6,7 @@
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.coverageImage = Object.freeze((() => {
-    const radialCounts = [32, 72, 180];
+    const radialCounts = [32, 72, 180, 360];
     const maxSteps = 200;
     const pixels = 1024;
     let editableGroup;
@@ -30,7 +30,7 @@ window.PlanMilT.coverageImage = Object.freeze((() => {
      * @param {number} [radialCount=72] - Quantidade de radiais da análise.
      * @returns {Object} Número de passos e distância entre amostras.
      */
-    function resolution(radius, radialCount = 72) {
+    function resolution(radius, radialCount = 180) {
         if (!Number.isFinite(radius) || radius <= 0) throw new Error('Informe um raio de cobertura válido.');
         if (!radialCounts.includes(radialCount)) throw new Error('Informe uma resolução de cobertura válida.');
         const steps = Math.min(maxSteps, Math.ceil(radius / 0.05));

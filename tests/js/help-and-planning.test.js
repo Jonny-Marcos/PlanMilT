@@ -74,7 +74,7 @@ test('help groups current tools in accessible expandable sections', () => {
     fixture.handlers.helpButton();
     const html = fixture.alerts.at(-1).html;
     for (const term of ['<details', '<summary>', 'Dados do ponto', 'Simbologia militar',
-        'Recentes', 'KMZ', 'Criar tema', 'Predição de Enlace', '32, 72 ou 180',
+        'Recentes', 'KMZ', 'Criar tema', 'Predição de Enlace', 'Pequena (Rápida), com 72 radiais; Média (Padrão), com 180; ou Alta (Lenta), com 360 radiais',
         'Penetração/Difração', 'Planejamento automático', 'Aparecer mensagem de boas-vindas']) {
         assert.ok(html.includes(term), term);
     }

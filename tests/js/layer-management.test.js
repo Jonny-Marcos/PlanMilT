@@ -22,7 +22,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
     assert.match(documentSource, /app\.css\?v=20261112-autosave-indicator/);
-    assert.match(documentSource, /radio-planning\.js\?v=20261115-rx-power/);
+    assert.match(documentSource, /radio-planning\.js\?v=20261112-radial-resolution/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
     assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
@@ -46,7 +46,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         assert.ok(documentSource.includes('js/features/main.js?v=20261112-dot-label'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
-    for (const script of ['icon-selector', 'help-and-planning']) {
+    assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-radial-resolution'));
+    for (const script of ['icon-selector']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
     assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));

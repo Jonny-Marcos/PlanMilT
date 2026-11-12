@@ -36,15 +36,15 @@ function fakeDocument() {
     };
 }
 
-test('adaptive sampling caps a 100 km coverage at 14,472 points and never exceeds its radius', () => {
+test('adaptive sampling caps a 100 km coverage at 36,180 points by default and never exceeds its radius', () => {
     const { radialCount, steps, resolutionKm } = coverage.resolution(100);
-    assert.equal(radialCount, 72);
+    assert.equal(radialCount, 180);
     assert.equal(steps, 200);
-    assert.equal(radialCount * (steps + 1), 14472);
+    assert.equal(radialCount * (steps + 1), 36180);
     assert.equal(resolutionKm, 0.5);
     assert.equal(steps * resolutionKm, 100);
-    assert.deepEqual(coverage.resolution(1), { radialCount: 72, steps: 20, resolutionKm: 0.05 });
-    for (const [count, points] of [[32, 6432], [72, 14472], [180, 36180]]) {
+    assert.deepEqual(coverage.resolution(1), { radialCount: 180, steps: 20, resolutionKm: 0.05 });
+    for (const [count, points] of [[72, 14472], [180, 36180], [360, 72360]]) {
         const result = coverage.resolution(100, count);
         assert.equal(result.radialCount, count);
         assert.equal(result.radialCount * (result.steps + 1), points);

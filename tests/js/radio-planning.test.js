@@ -100,9 +100,10 @@ test('manual coverage form offers the three scenarios and validates supported fr
         assert.match(form.html, /Alta \(Otimista\)/);
         assert.match(form.html, /Média \(Equilibrada\)/);
         assert.match(form.html, /Baixa \(Pessimista\)/);
-        assert.match(form.html, /Pequena \(Rápida\).*32 radiais/);
-        assert.match(form.html, /value="72" selected>Média \(Padrão\).*72 radiais/);
-        assert.match(form.html, /Alta \(Lenta\).*180 radiais/);
+        assert.match(form.html, /Pequena \(Rápida\).*72 radiais/);
+        assert.match(form.html, /value="180" selected>Média \(Padrão\).*180 radiais/);
+        assert.match(form.html, /Alta \(Lenta\).*360 radiais/);
+        assert.match(form.html, /<div class="row sensitivity-row">[\s\S]*<div class="col">[\s\S]*Sensibilidade[\s\S]*<div class="col" id="rfPenetrationField">[\s\S]*Penetração\/Difração/);
         form.didOpen();
         assert.equal(fields.rfPenetrationField.style.display, 'block');
         fields.rfMode.value = 'ptp';
@@ -119,7 +120,7 @@ test('manual coverage form offers the three scenarios and validates supported fr
         fields.rfPreset.change({ target: fields.rfPreset });
         assert.equal(fields.rfPenetrationField.style.display, 'block');
         assert.equal(form.preConfirm().penetration, 'low');
-        for (const count of [32, 72, 180]) {
+        for (const count of [72, 180, 360]) {
             fields.rfResolution.value = String(count);
             assert.equal(form.preConfirm().radialCount, count);
         }
@@ -219,10 +220,11 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
     });
 
     for (const { radialCount, optical } of [
-        { radialCount: 32, optical: false },
-        { radialCount: 32, optical: true },
-        { radialCount: 72, optical: true },
-        { radialCount: 180, optical: true }
+    { radialCount: 72, optical: false },
+    { radialCount: 72, optical: true },
+    { radialCount: 180, optical: true },
+    { radialCount: 360, optical: false },
+    { radialCount: 360, optical: true }
     ]) {
     await test(`manual ${optical ? 'optical' : 'RF'} coverage computes and reports progress for ${radialCount} radials`, async () => {
         const listeners = new Map();
