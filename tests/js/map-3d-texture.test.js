@@ -53,7 +53,9 @@ function setup(fail = false) {
 
 test('builds only OpenTopo tiles within the texture bounds', async () => {
     const h = setup();
-    assert.equal(await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo'), 'data:image/png;base64,terrain');
+    const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo');
+    assert.equal(result.image, 'data:image/png;base64,terrain');
+    assert.equal(result.zoom, 10);
     assert.ok(h.urls.length > 0 && h.urls.length <= 64);
     assert.ok(h.urls.every(url => /^https:\/\/tile\.opentopomap\.org\/\d+\/\d+\/\d+\.png$/.test(url)));
     assert.equal(h.draws.length, h.urls.length);
@@ -64,6 +66,20 @@ test('builds only OpenTopo tiles within the texture bounds', async () => {
     const southeast = h.map.project([-21.7, -51.1], zoom);
     assert.ok(Math.abs(h.draws[0][1] - (x * 256 - northwest.x) / (southeast.x - northwest.x) * 800) < 1e-8);
     assert.ok(Math.abs(h.draws[0][2] - (y * 256 - northwest.y) / (southeast.y - northwest.y) * 600) < 1e-8);
+});
+
+test('uses the requested tile zoom and increases texture resolution within the tile limit', async () => {
+    const h = setup();
+    const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 11);
+    assert.equal(result.zoom, 11);
+    assert.ok(h.urls.every(url => /\/11\/\d+\/\d+\.png$/.test(url)));
+    assert.deepEqual([h.canvas.width, h.canvas.height], [1600, 1200]);
+    await h.texture.create(h.map, [-21.60, -51.30, -21.59, -51.29], 'opentopo', [], 14);
+    assert.deepEqual([h.canvas.width, h.canvas.height], [2048, 1536]);
+    await assert.rejects(h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 18), /mais de 64 tiles/);
+    await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo', [], 19), /entre 0 e 18/);
+    const automatic = await h.texture.create(h.map, [-2, -2, 2, 2], 'opentopo');
+    assert.ok(automatic.zoom < h.map.getZoom());
 });
 
 test('composites only visible drawing paths and icons and restores original DOM attributes', async () => {

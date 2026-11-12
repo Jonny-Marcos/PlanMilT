@@ -12,10 +12,14 @@ window.PlanMilT.map3dTexture = Object.freeze({
      * @param {number[]} bounds - Limites sul, oeste, norte e leste.
      * @param {string} source - Camada "opentopo" ou "bdgex".
      * @param {Object[]} groups - Grupos de desenhos e marcadores a incluir.
-     * @returns {Promise<string>} Textura PNG em projeção Web Mercator.
+     * @param {number|null} requestedZoom - Zoom escolhido, ou null para automático.
+     * @returns {Promise<Object>} Textura PNG e zoom efetivo.
      */
-    async create(map, bounds, source, groups = []) {
+    async create(map, bounds, source, groups = [], requestedZoom = null) {
         if (!['opentopo', 'bdgex'].includes(source)) throw new Error('Camada 3D inválida.');
+        if (requestedZoom !== null && (!Number.isInteger(requestedZoom) || requestedZoom < 0 || requestedZoom > 18)) {
+            throw new Error('O zoom da camada-base deve estar entre 0 e 18.');
+        }
         const [south, west, north, east] = bounds;
         if (![south, west, north, east].every(Number.isFinite)
             || south >= north || west >= east || south < -85 || north > 85
@@ -23,7 +27,7 @@ window.PlanMilT.map3dTexture = Object.freeze({
             throw new Error('Aproxime o mapa e enquadre uma área de até cinco graus para consultar o terreno.');
         }
         const tileSize = source === 'bdgex' ? 96 : 256;
-        let zoom = Math.max(0, Math.min(18, Math.floor(map.getZoom())));
+        let zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
         let left, top, right, bottom, minX, maxX, minY, maxY;
         do {
             const northwest = map.project([north, west], zoom);
@@ -35,12 +39,16 @@ window.PlanMilT.map3dTexture = Object.freeze({
             minY = Math.floor(top / tileSize);
             maxY = Math.ceil(bottom / tileSize) - 1;
             if ((maxX - minX + 1) * (maxY - minY + 1) <= 64 || zoom === 0) break;
+            if (requestedZoom !== null) {
+                throw new Error('O zoom escolhido exige mais de 64 tiles. Reduza o zoom da camada-base ou enquadre uma área menor no mapa 2D.');
+            }
             zoom--;
         } while (true);
 
         const canvas = document.createElement('canvas');
         const dimensions = map.getSize();
-        const scale = Math.min(1, 1400 / Math.max(dimensions.x, dimensions.y));
+        const detailScale = Math.pow(2, Math.max(0, zoom - map.getZoom()));
+        const scale = Math.min(detailScale, 2048 / Math.max(dimensions.x, dimensions.y));
         canvas.width = Math.max(1, Math.round(dimensions.x * scale));
         canvas.height = Math.max(1, Math.round(dimensions.y * scale));
         const context = canvas.getContext('2d');
@@ -184,6 +192,6 @@ window.PlanMilT.map3dTexture = Object.freeze({
                 }
             }
         }
-        return canvas.toDataURL('image/png');
+        return { image: canvas.toDataURL('image/png'), zoom };
     }
 });

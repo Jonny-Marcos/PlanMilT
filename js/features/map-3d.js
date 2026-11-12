@@ -8,6 +8,7 @@
     const frame = document.getElementById('map3DFrame');
     let viewerReady = false;
     let selectedSource = 'opentopo';
+    let selectedZoom = null;
     let sceneVersion = 0;
     let capturing = false;
     let recapture = false;
@@ -39,6 +40,7 @@
                 const mapBounds = map.getBounds();
                 const bounds = [mapBounds.getSouth(), mapBounds.getWest(), mapBounds.getNorth(), mapBounds.getEast()];
                 const source = selectedSource;
+                const mapZoom = Math.max(0, Math.min(18, Math.floor(map.getZoom())));
                 const requestTerrain = async () => {
                     const response = await window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
                         method: 'POST',
@@ -56,14 +58,14 @@
                     }
                     return data;
                 };
-                const [image, initialTerrain] = await Promise.all([
+                const [texture, initialTerrain] = await Promise.all([
                     window.PlanMilT.map3dTexture.create(map, bounds, source, [
                         drawnItems,
                         ...Object.entries(layerRegistry)
                             .filter(([name]) => !['OpenTopo', 'Google Satellite', 'BDGEx - CTM50',
                                 'Infraestruturas', 'Quadrículas - UTM'].includes(name))
                             .map(([, layer]) => layer)
-                    ]),
+                    ], selectedZoom),
                     requestTerrain()
                 ]);
                 let terrain = initialTerrain;
@@ -76,7 +78,8 @@
                     post({
                         type: 'planmilt-3d-data',
                         payload: {
-                            image, bounds,
+                            image: texture.image, zoom: texture.zoom, zoomRequested: selectedZoom,
+                            mapZoom, bounds,
                             elevations: terrain.elevations,
                             missingTiles: terrain.missingTiles,
                             source
@@ -107,19 +110,21 @@
         if (event.data.type === 'planmilt-3d-ready') viewerReady = true;
         if (!overlay.hidden && (event.data.type === 'planmilt-3d-ready' || event.data.type === 'planmilt-3d-refresh')) {
             if (!['opentopo', 'bdgex'].includes(event.data.source)) return;
-            if (selectedSource !== event.data.source) {
-                selectedSource = event.data.source;
-                sceneVersion++;
-            }
+            if (event.data.zoom !== undefined && event.data.zoom !== null
+                && (!Number.isInteger(event.data.zoom) || event.data.zoom < 0 || event.data.zoom > 18)) return;
+            selectedSource = event.data.source;
+            selectedZoom = event.data.zoom ?? null;
+            sceneVersion++;
             sendScene();
         }
     });
 
     button.addEventListener('click', () => {
         sceneVersion++;
+        selectedZoom = null;
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
-        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-drawings';
+        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-navigation';
         else if (viewerReady) sendScene();
         frame.focus();
     });

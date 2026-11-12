@@ -9,18 +9,21 @@
     const exaggeration = document.getElementById('verticalExaggeration');
     const exaggerationValue = document.getElementById('verticalExaggerationValue');
     const baseLayer = document.getElementById('baseLayer3D');
+    const baseZoom = document.getElementById('baseZoom3D');
     const attribution = document.getElementById('viewerAttribution');
     const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
     const origin = window.location.origin;
     const host = window.parent !== window ? window.parent : null;
     let activeData;
     let mesh;
-    let camera = { yaw: -0.65, pitch: 0.7, distance: 1 };
+    let camera = { yaw: -0.65, pitch: 0.7, distance: 1, x: 0, z: 0 };
     let initialCamera;
     let texture;
     let vertexBuffer;
     let indexBuffer;
     let pointer;
+    const touches = new Map();
+    let zoomOverride = null;
     let textureReady = false;
 
     /**
@@ -164,6 +167,7 @@ void main() {
      * @param {Object} data - Snapshot recebido da janela principal.
      */
     function setScene(data) {
+        const sameBounds = activeData && activeData.bounds.every((value, index) => value === data.bounds[index]);
         activeData = data;
         updateMesh(data);
         const revision = activeData;
@@ -175,20 +179,27 @@ void main() {
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
             textureReady = true;
-            const span = Math.max(mesh.width, mesh.depth);
-            const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-            camera = { ...camera, distance: span * Math.max(1.9, 1.3 / aspect) };
-            initialCamera = { ...camera };
+            if (!sameBounds || !initialCamera) {
+                const span = Math.max(mesh.width, mesh.depth);
+                const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+                camera = { ...camera, x: 0, z: 0, distance: span * Math.max(1.9, 1.3 / aspect) };
+                initialCamera = { ...camera };
+            }
+            baseZoom.value = String(data.zoom);
+            zoomOverride = data.zoomRequested;
             draw();
             const missing = data.missingTiles || [];
             const messages = [];
             if (missing.length) messages.push(`Sem elevação local em ${missing.join(', ')}; o relevo dessas áreas foi interpolado localmente.`);
+            if (data.zoomRequested === null && data.zoom < data.mapZoom) {
+                messages.push(`Zoom da camada reduzido para ${data.zoom} para limitar a 64 tiles. Enquadre uma área menor no mapa 2D para usar o zoom ${data.mapZoom}.`);
+            }
             attribution.textContent = data.source === 'bdgex'
                 ? 'Mapa: BDGEx – CTM50. Elevação: SRTM local.'
                 : 'Mapa: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Elevação: SRTM local.';
             warnings.textContent = messages.join(' ');
             warnings.hidden = messages.length === 0;
-            showStatus('Visualização atualizada. Arraste para orbitar e use a roda do mouse para aproximar.');
+            showStatus('Arraste para orbitar; botão do meio ou dois dedos deslocam. Use a roda ou pince para aproximar.');
         };
         image.onerror = () => showStatus('Não foi possível carregar a imagem capturada do mapa.');
         image.src = data.image;
@@ -228,12 +239,12 @@ void main() {
         gl.viewport(0, 0, width, height);
         gl.clearColor(0.06, 0.09, 0.12, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        const center = [0, 0, 0];
+        const center = [camera.x, 0, camera.z];
         const horizontal = Math.cos(camera.pitch) * camera.distance;
         const eye = [
-            Math.sin(camera.yaw) * horizontal,
+            camera.x + Math.sin(camera.yaw) * horizontal,
             Math.sin(camera.pitch) * camera.distance,
-            Math.cos(camera.yaw) * horizontal
+            camera.z + Math.cos(camera.yaw) * horizontal
         ];
         const near = Math.max(mesh.width, mesh.depth) / 10000;
         const far = camera.distance * 10;
@@ -257,7 +268,7 @@ void main() {
             showStatus('O mapa principal não está disponível. Abra o visualizador pelo botão 3D do PlanMilT.');
             return;
         }
-        host.postMessage({ type: 'planmilt-3d-refresh', source: baseLayer.value }, origin);
+        host.postMessage({ type: 'planmilt-3d-refresh', source: baseLayer.value, zoom: zoomOverride }, origin);
         showStatus('Atualizando camada-base e terreno local…');
     }
 
@@ -280,6 +291,15 @@ void main() {
     });
 
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
+    document.getElementById('applyBaseZoom').addEventListener('click', () => {
+        const zoom = baseZoom.value === '' ? NaN : Number(baseZoom.value);
+        if (!Number.isInteger(zoom) || zoom < 0 || zoom > 18) {
+            showStatus('Informe um zoom inteiro entre 0 e 18.');
+            return;
+        }
+        zoomOverride = zoom;
+        requestRefresh();
+    });
     baseLayer.addEventListener('change', requestRefresh);
     document.getElementById('closeViewer').addEventListener('click', () => {
         if (host) host.postMessage({ type: 'planmilt-3d-close' }, origin);
@@ -297,25 +317,87 @@ void main() {
             if (textureReady) draw();
         }
     });
+    /**
+     * Desloca a câmera no plano do terreno conforme a orientação e a escala da vista.
+     * @param {number} dx - Deslocamento horizontal em pixels.
+     * @param {number} dy - Deslocamento vertical em pixels.
+     */
+    function pan(dx, dy) {
+        if (!mesh) return;
+        const scale = 2 * camera.distance * Math.tan(Math.PI / 8) / Math.max(1, canvas.clientHeight);
+        const vertical = dy / Math.max(0.2, Math.sin(camera.pitch));
+        camera.x += scale * (-dx * Math.cos(camera.yaw) - vertical * Math.sin(camera.yaw));
+        camera.z += scale * (dx * Math.sin(camera.yaw) - vertical * Math.cos(camera.yaw));
+    }
+
+    /**
+     * Aproxima ou afasta a câmera respeitando os limites do terreno.
+     * @param {number} factor - Multiplicador da distância atual.
+     */
+    function zoomCamera(factor) {
+        if (!mesh) return;
+        const span = Math.max(mesh.width, mesh.depth);
+        camera.distance = Math.max(span * 0.2, Math.min(span * 8, camera.distance * factor));
+    }
+
     canvas.addEventListener('pointerdown', event => {
-        pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        if (event.pointerType === 'touch') {
+            touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            pointer = touches.size === 1 ? { id: event.pointerId, x: event.clientX, y: event.clientY, mode: 'orbit' } : undefined;
+        } else {
+            if (event.button !== 0 && event.button !== 1) return;
+            event.preventDefault();
+            pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, mode: event.button === 1 ? 'pan' : 'orbit' };
+        }
         canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener('pointermove', event => {
+        if (event.pointerType === 'touch' && touches.has(event.pointerId)) {
+            const before = [...touches.values()];
+            touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            const after = [...touches.values()];
+            if (after.length === 2) {
+                pan((after[0].x + after[1].x - before[0].x - before[1].x) / 2,
+                    (after[0].y + after[1].y - before[0].y - before[1].y) / 2);
+                const oldDistance = Math.hypot(before[0].x - before[1].x, before[0].y - before[1].y);
+                const newDistance = Math.hypot(after[0].x - after[1].x, after[0].y - after[1].y);
+                if (oldDistance > 0 && newDistance > 0) zoomCamera(oldDistance / newDistance);
+                draw();
+                return;
+            }
+            if (after.length !== 1) return;
+        }
         if (!pointer || pointer.id !== event.pointerId) return;
-        camera.yaw += (event.clientX - pointer.x) * 0.008;
-        camera.pitch = Math.max(0.08, Math.min(1.48, camera.pitch + (event.clientY - pointer.y) * 0.006));
+        const dx = event.clientX - pointer.x;
+        const dy = event.clientY - pointer.y;
+        if (pointer.mode === 'pan') pan(dx, dy);
+        else {
+            camera.yaw += dx * 0.008;
+            camera.pitch = Math.max(0.08, Math.min(1.48, camera.pitch + dy * 0.006));
+        }
         pointer.x = event.clientX;
         pointer.y = event.clientY;
         draw();
     });
-    canvas.addEventListener('pointerup', () => { pointer = undefined; });
-    canvas.addEventListener('pointercancel', () => { pointer = undefined; });
+    /**
+     * Encerra o gesto e mantém o dedo restante pronto para orbitar.
+     * @param {PointerEvent} event - Evento de liberação ou cancelamento.
+     */
+    function endPointer(event) {
+        if (event.pointerType === 'touch') {
+            touches.delete(event.pointerId);
+            if (touches.size === 1) {
+                const [id, point] = touches.entries().next().value;
+                pointer = { id, ...point, mode: 'orbit' };
+            } else pointer = undefined;
+        } else if (pointer && pointer.id === event.pointerId) pointer = undefined;
+    }
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+    canvas.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
     canvas.addEventListener('wheel', event => {
         event.preventDefault();
-        if (!mesh) return;
-        const span = Math.max(mesh.width, mesh.depth);
-        camera.distance = Math.max(span * 0.2, Math.min(span * 8, camera.distance * Math.exp(event.deltaY * 0.001)));
+        zoomCamera(Math.exp(event.deltaY * 0.001));
         draw();
     }, { passive: false });
     window.addEventListener('resize', draw);

@@ -38,6 +38,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
         drawnItems: {},
         layerRegistry: {},
         map: {
+            getZoom: () => 12,
             getBounds: () => ({
                 getSouth: () => -21.7,
                 getWest: () => -51.4,
@@ -50,10 +51,11 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
             location: { origin: 'https://plan.test', href: 'https://plan.test/index.html' },
             addEventListener(name, callback) { listeners.set(name, callback); },
             PlanMilT: {
-                map3dTexture: { async create(map, bounds, source, groups) {
+                map3dTexture: { async create(map, bounds, source, groups, zoom) {
                     textures.push(source);
                     context.lastGroups = Array.from(groups);
-                    return 'data:image/png;base64,AA==';
+                    context.lastZoom = zoom;
+                    return { image: 'data:image/png;base64,AA==', zoom: zoom ?? 12 };
                 } },
                 elevationFiles: {
                     async ensure(tiles) {
@@ -85,7 +87,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-drawings');
+    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-navigation');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
@@ -93,6 +95,8 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     const dataMessage = h.messages.find(entry => entry.message.type === 'planmilt-3d-data');
     assert.equal(dataMessage.origin, 'https://plan.test');
     assert.equal(dataMessage.message.payload.image, 'data:image/png;base64,AA==');
+    assert.equal(dataMessage.message.payload.zoom, 12);
+    assert.equal(dataMessage.message.payload.zoomRequested, null);
     assert.deepEqual(Array.from(dataMessage.message.payload.bounds), [-21.7, -51.4, -21.4, -51.1]);
     assert.deepEqual(Array.from(dataMessage.message.payload.missingTiles), []);
     assert.deepEqual(h.requests.map(request => request.url), ['php/endpoints/elevation-terrain.php']);
@@ -119,6 +123,30 @@ test('passes drawings and registered overlays but not base and utility layers to
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.deepEqual(h.context.lastGroups, [drawings, suggestions, imported]);
+});
+
+test('passes the requested base zoom and rejects invalid values', async () => {
+    const h = setup();
+    h.click();
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-refresh', source: 'opentopo', zoom: 14 } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(h.context.lastZoom, 14);
+    assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-data').at(-1).message.payload.zoom, 14);
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-refresh', source: 'opentopo', zoom: 19 } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(h.requests.length, 2);
+});
+
+test('reports when the selected zoom exceeds the texture limit', async () => {
+    const h = setup();
+    h.context.window.PlanMilT.map3dTexture.create = async () => { throw new Error('O zoom exige mais de 64 tiles.'); };
+    h.click();
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo', zoom: 18 } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.match(h.messages.find(entry => entry.message.type === 'planmilt-3d-error').message.message, /mais de 64 tiles/);
+    assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-data').length, 0);
 });
 
 test('only accepts OpenTopo or BDGEx from the embedded viewer', async () => {
@@ -198,11 +226,12 @@ test('the embedded renderer communicates only with its parent and provides a ret
     const messages = [];
     const events = {};
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'viewerAttribution']) {
+    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution']) {
         elements[id] = { events: {}, addEventListener(name, callback) { this.events[name] = callback; } };
     }
     elements.terrainCanvas.getContext = () => null;
     elements.baseLayer3D.value = 'opentopo';
+    elements.baseZoom3D.value = '';
     const host = { postMessage: (message, origin) => messages.push({ message, origin }) };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
@@ -215,6 +244,13 @@ test('the embedded renderer communicates only with its parent and provides a ret
     elements.baseLayer3D.value = 'bdgex';
     elements.baseLayer3D.events.change();
     assert.equal(messages[2].message.source, 'bdgex');
+    elements.baseZoom3D.value = '14';
+    elements.applyBaseZoom.events.click();
+    assert.equal(messages[3].message.zoom, 14);
+    elements.baseZoom3D.value = '19';
+    elements.applyBaseZoom.events.click();
+    assert.equal(messages.length, 4);
+    assert.match(elements.viewerStatus.textContent, /entre 0 e 18/);
     events.message({ origin: 'https://attacker.test', source: host, data: { type: 'planmilt-3d-error', message: 'malicioso' } });
     assert.notEqual(elements.viewerStatus.textContent, 'malicioso');
     events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-error', message: 'erro' } });
@@ -228,4 +264,67 @@ test('the embedded renderer communicates only with its parent and provides a ret
 test('places the 3D button beside Help and loads its controller after map initialization', () => {
     assert.match(mainSource, /id="helpButton"[\s\S]*id="view3DButton"/);
     assert.match(indexSource, /main\.js[\s\S]*map-3d\.js/);
+});
+
+test('middle drag and two-finger gestures move the view and reset restores it', () => {
+    const elements = {};
+    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution']) {
+        elements[id] = { events: {}, addEventListener(name, callback) { this.events[name] = callback; } };
+    }
+    let matrix;
+    const gl = new Proxy({
+        getShaderParameter: () => true,
+        getProgramParameter: () => true,
+        uniformMatrix4fv(location, transpose, value) { matrix = Array.from(value); }
+    }, { get(target, key) { return key in target ? target[key] : () => ({}); } });
+    const canvas = elements.terrainCanvas;
+    canvas.getContext = () => gl;
+    canvas.setPointerCapture = () => {};
+    canvas.clientWidth = 800;
+    canvas.clientHeight = 600;
+    elements.baseLayer3D.value = 'opentopo';
+    elements.baseZoom3D.value = '';
+    elements.verticalExaggeration.value = '5';
+    const host = { postMessage() {} };
+    const events = {};
+    const window = {
+        parent: host, location: { origin: 'https://plan.test' },
+        addEventListener(name, callback) { events[name] = callback; },
+        PlanMilT: { map3dGeometry: { createMesh: () => ({
+            width: 1000, depth: 1000, vertices: new Float32Array(20), indices: new Uint16Array([0, 1, 2])
+        }) } }
+    };
+    class Image { set src(value) { this.onload(); } }
+    vm.runInNewContext(viewerSource, { window, document: { getElementById: id => elements[id] }, Image });
+    events.message({ origin: 'https://plan.test', source: host, data: {
+        type: 'planmilt-3d-data',
+        payload: { image: 'data:image/png;base64,AA==', bounds: [-1, -1, 1, 1], zoom: 12, zoomRequested: null, missingTiles: [] }
+    } });
+    const initial = matrix;
+    let prevented = false;
+    canvas.events.pointerdown({ pointerType: 'mouse', pointerId: 1, button: 1, clientX: 100, clientY: 100, preventDefault() { prevented = true; } });
+    canvas.events.pointermove({ pointerType: 'mouse', pointerId: 1, clientX: 160, clientY: 120 });
+    canvas.events.pointerup({ pointerType: 'mouse', pointerId: 1 });
+    assert.ok(prevented);
+    assert.notDeepEqual(matrix, initial);
+    const panned = matrix;
+    events.message({ origin: 'https://plan.test', source: host, data: {
+        type: 'planmilt-3d-data',
+        payload: { image: 'data:image/png;base64,BB==', bounds: [-1, -1, 1, 1], zoom: 14, zoomRequested: 14, missingTiles: [] }
+    } });
+    assert.deepEqual(matrix, panned);
+    assert.equal(elements.baseZoom3D.value, '14');
+    events.message({ origin: 'https://plan.test', source: host, data: {
+        type: 'planmilt-3d-data',
+        payload: { image: 'data:image/png;base64,CC==', bounds: [-1, -1, 1, 1], zoom: 10, zoomRequested: null, mapZoom: 12, missingTiles: [] }
+    } });
+    assert.match(elements.viewerWarnings.textContent, /reduzido para 10/);
+    elements.resetCamera.events.click();
+    assert.deepEqual(matrix, initial);
+    canvas.events.pointerdown({ pointerType: 'touch', pointerId: 2, clientX: 100, clientY: 100 });
+    canvas.events.pointerdown({ pointerType: 'touch', pointerId: 3, clientX: 200, clientY: 100 });
+    canvas.events.pointermove({ pointerType: 'touch', pointerId: 3, clientX: 240, clientY: 120 });
+    assert.notDeepEqual(matrix, initial);
+    elements.resetCamera.events.click();
+    assert.deepEqual(matrix, initial);
 });
