@@ -199,6 +199,49 @@
                 display: none;
             }
 
+            #map .map-toolbar {
+                width: calc(100vw - 20px);
+                max-width: calc(100vw - 20px);
+                box-sizing: border-box;
+                flex-wrap: nowrap;
+            }
+
+            #map .map-toolbar .icon-tools,
+            #map .map-toolbar .color-picker-label {
+                flex: 0 0 auto;
+            }
+
+            #map .map-toolbar .icon-tools,
+            #map .map-toolbar .toolbar-icons {
+                flex-wrap: nowrap;
+            }
+
+            #map .map-toolbar .toolbar-icons i {
+                margin: 0 clamp(3px, 0.6vw, 10px);
+            }
+
+            #map .map-toolbar .layer-transparency-selection {
+                flex: 1 1 160px;
+                min-width: 0;
+            }
+
+            #map .map-toolbar .layer-transparency-control {
+                flex: 0 1 200px;
+                min-width: 0;
+            }
+
+            #map .layer-transparency-control label {
+                white-space: nowrap;
+            }
+
+            #map .layer-transparency-control #transparencySlider {
+                min-width: 0;
+            }
+
+            #map .map-toolbar.controls-hidden {
+                width: auto;
+            }
+
             #close-btn {
                 padding: 5px 10px;
                 cursor: pointer;
@@ -1732,4 +1775,120 @@
                     padding: 5px;
                 }
 
+            }
+
+            @media (max-width: 1200px) {
+                #map .map-toolbar {
+                    display: grid;
+                    grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1.3fr) max-content;
+                    gap: 3px;
+                    padding: 4px;
+                }
+
+                #map .map-toolbar .toolbar-icons {
+                    grid-column: 1 / 4;
+                    grid-row: 1;
+                    width: 100%;
+                    justify-content: space-between;
+                }
+
+                #map .map-toolbar .icon-tools,
+                #map .map-toolbar .layer-transparency-selection,
+                #map .map-toolbar .layer-transparency-control {
+                    grid-row: 2;
+                }
+
+                #map .map-toolbar .color-picker-label {
+                    grid-column: 4;
+                    grid-row: 1;
+                }
+
+                #map .map-toolbar .layer-transparency-control {
+                    grid-column: 3 / 5;
+                    justify-self: start;
+                    width: min(100%, 200px);
+                }
+
+                #map .map-toolbar .icon-tools,
+                #map .map-toolbar .color-picker-label,
+                #map .map-toolbar .layer-transparency-selection,
+                #map .map-toolbar .layer-transparency-control {
+                    min-width: 0;
+                    margin: 0;
+                    padding: 2px;
+                }
+
+                #map .map-toolbar .icon-tools,
+                #map .icon-selection-group {
+                    gap: 3px;
+                }
+
+                #map .map-toolbar .icon-preview-frame {
+                    flex-basis: clamp(26px, 6vw, 36px);
+                    width: clamp(26px, 6vw, 36px);
+                    height: clamp(26px, 6vw, 32px);
+                    font-size: clamp(6px, 1.8vw, 8px);
+                }
+
+                #map .map-toolbar #iconSelectorToggle,
+                #map .map-toolbar #createMilitarySymbol {
+                    padding: 4px 3px;
+                    font-size: clamp(8px, 2.4vw, 12px);
+                    white-space: nowrap;
+                }
+
+                #map .map-toolbar .toolbar-icons i {
+                    margin: 0 2px;
+                    font-size: clamp(9px, 2vw, 14px);
+                }
+
+                #map .map-toolbar .toggle-controls {
+                    width: 26px;
+                    min-height: 26px;
+                }
+
+                #map .map-toolbar #layerSelector,
+                #map .layer-transparency-control #transparencySlider {
+                    width: 100%;
+                    max-width: 100%;
+                    padding: 0;
+                }
+
+                #map .layer-transparency-control #transparencySlider {
+                    max-width: 120px;
+                }
+
+                #map .map-toolbar #layerSelector,
+                #map .layer-transparency-control label {
+                    font-size: clamp(8px, 2.4vw, 11px);
+                }
+
+                #map .layer-transparency-control label {
+                    margin: 0 2px 0 0;
+                }
+
+                #map .map-toolbar.controls-hidden {
+                    display: flex;
+                }
+            }
+
+            @media (max-width: 900px) {
+                #map .layer-transparency-control label {
+                    font-size: 0;
+                }
+
+                #map .layer-transparency-control label::after {
+                    content: "Transp.";
+                    font-size: 8px;
+                }
+            }
+
+            @media (min-width: 768px) and (max-width: 1200px) {
+                #map .map-toolbar {
+                    display: flex;
+                }
+
+                #map .map-toolbar .toolbar-icons {
+                    width: auto;
+                }
             }
