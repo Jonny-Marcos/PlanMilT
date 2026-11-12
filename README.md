@@ -7,7 +7,7 @@
 O PlanMilT utiliza a biblioteca **Leaflet** e ferramentas de **Sistema de Informação Geográfica (SIG)** para oferecer funcionalidades interativas, como:
 
 - Criação de desenhos no mapa (linhas, polígonos, círculos e marcadores);
-- Inclusão de gráficos táticos doutrinários (FM 1-02.2 / APP-06) com apoio da biblioteca `@zaes/tactical-graphics`, preservando as ferramentas nativas do Leaflet Draw; limites permitem escolher de 1 a 100 símbolos igualmente espaçados e editar seus nomes, escalão e quantidade clicando na linha. Em zooms afastados, símbolos próximos podem se sobrepor e as lacunas podem se unir;
+- Inclusão de gráficos táticos doutrinários (FM 1-02.2 / APP-06) com apoio da biblioteca `@zaes/tactical-graphics`, preservando as ferramentas nativas do Leaflet Draw; limites permitem escolher de 1 a 100 símbolos igualmente espaçados e editar seus nomes, escalão e quantidade clicando na linha. Para aproveitar uma linha desenhada à mão livre ou pela ferramenta de linha, selecione “Limite” no menu de estilo e configure o limite; ao cancelar a configuração, a linha é mantida. Em zooms afastados, símbolos próximos podem se sobrepor e as lacunas podem se unir;
 - Importação e exportação de arquivos no formato **KMZ**;
 - Edição de textos diretamente no mapa;
 - Medições de áreas e distâncias;

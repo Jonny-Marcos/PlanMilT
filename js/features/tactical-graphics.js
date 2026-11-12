@@ -739,6 +739,10 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             layer.on('remove', () => {
                 map.off('zoomend', updateStyle);
             });
+            if (map.hasLayer(layer)) {
+                map.on('zoomend', updateStyle);
+                layer.redraw();
+            }
             if (editable) {
                 layer.on('click', () => {
                     editGraphic(layer.feature).then(updated => {
@@ -1045,7 +1049,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + (tacticalGraphic.name === 'Boundary'
                         ? '<div id="tacticalGraphicBoundaryEditor" class="tactical-graphic-boundary-edit">'
                             + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryType"><span>Tipo de limite</span>'
-                            + '<select id="tacticalGraphicBoundaryType">' + BOUNDARY_ECHELONS.map(type => `<option value="${type}" ${existingBoundary?.type === type ? 'selected' : ''}>${type}</option>`).join('') + '</select></label>'
+                            + '<select id="tacticalGraphicBoundaryType">' + BOUNDARY_ECHELONS.map(type => `<option value="${type}" ${(existingBoundary?.type || 'Companhia') === type ? 'selected' : ''}>${type}</option>`).join('') + '</select></label>'
                             + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryCount"><span>Quantidade de símbolos (1 a 100)</span><input id="tacticalGraphicBoundaryCount" type="number" min="1" max="100" step="1" value="' + (existingBoundary?.count || 1) + '"></label>'
                             + '<div class="tactical-graphic-boundary-row">'
                             + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryLeft"><span>Nome à esquerda</span><input id="tacticalGraphicBoundaryLeft" type="text" autocomplete="off" value="' + escapeHtml(existingBoundary?.leftText || '') + '" placeholder="Ex.: 1ª Cia"></label>'
@@ -1106,6 +1110,40 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             } else if (designation) {
                 feature.properties.name = designation;
             }
+            return true;
+        }
+
+        /**
+         * Configura uma linha já desenhada como limite, preservando sua geometria.
+         * @param {Object} layer - Linha Leaflet criada pelo usuário.
+         * @returns {Promise<boolean>} True quando o limite foi confirmado e adicionado.
+         */
+        async function convertLineToBoundary(layer) {
+            const feature = layer.toGeoJSON(false);
+            if (feature.geometry?.type !== 'LineString') {
+                throw new Error('O limite precisa ser desenhado como uma linha.');
+            }
+            const color = layer.options.color || getDefaultColor();
+            const draft = {
+                ...feature,
+                properties: {
+                    ...feature.properties,
+                    color,
+                    fillColor: color,
+                    role: 'graphic',
+                    boundaryId: createBoundaryId(),
+                    tacticalGraphic: { name: 'Boundary' }
+                }
+            };
+            if (!await editGraphic(draft)) return false;
+            const boundary = normalizeBoundaryData(draft.properties.tacticalGraphic.boundary);
+            if (!boundary || !getBoundaryLayout(feature.geometry, boundary.count)) {
+                throw new Error('Desenhe uma linha com pelo menos dois pontos distintos para criar um limite.');
+            }
+            layer.feature = draft;
+            registerBoundaryLayer(layer, true);
+            drawnItems.addLayer(layer);
+            refreshBoundary(layer);
             return true;
         }
 
@@ -1281,6 +1319,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             startDrawing,
             handleCreated,
             editGraphic,
+            convertLineToBoundary,
             registerBoundaryLayer,
             prepareLegacyBoundaries,
             refreshBoundary

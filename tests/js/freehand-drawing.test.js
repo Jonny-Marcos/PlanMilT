@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 global.window = {};
 require('../../js/features/freehand-drawing.js');
@@ -131,4 +134,64 @@ test('closed freehand path emits a polygon and removes the temporary line', asyn
     assert.equal(harness.createdEvents[0].event.layerType, 'polygon');
     assert.equal(harness.createdEvents[0].event.layer.type, 'polygon');
     assert.equal(harness.createdEvents[0].event.layer.options.color, '#123456');
+});
+
+function createLineHandler(convertLineToBoundary) {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+    const handlerSource = source.slice(source.indexOf('map.on(L.Draw.Event.CREATED,'));
+    const added = [];
+    const alerts = [];
+    const errors = [];
+    let handler;
+    vm.runInNewContext(handlerSource, {
+        map: { on(eventName, listener) { handler = listener; } },
+        L: { Draw: { Event: { CREATED: 'draw:created' } } },
+        tacticalGraphics: { handleCreated: () => false, convertLineToBoundary },
+        drawnItems: { addLayer: layer => added.push(layer) },
+        Swal: {
+            async fire(options) {
+                alerts.push(options);
+                return options.icon === 'error' ? {} : { value: 'boundary' };
+            }
+        },
+        console: { error: (...args) => errors.push(args) },
+        defaultColor: '#123456'
+    });
+    return { handler, added, alerts, errors };
+}
+
+test('freehand and Leaflet polylines offer boundary conversion using the original line', async () => {
+    const freehand = createHarness();
+    freehand.button.onclick();
+    freehand.mapEvents.get('mousedown')(event('mousedown', 0, 0));
+    freehand.mapEvents.get('mousemove')(event('mousemove', 0, 10));
+    freehand.mapEvents.get('mouseup')(event('mouseup', 0, 20));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    for (const created of [freehand.createdEvents[0].event, { layerType: 'polyline', layer: {} }]) {
+        const converted = [];
+        const harness = createLineHandler(async layer => { converted.push(layer); return true; });
+        await harness.handler(created);
+        assert.equal(harness.alerts[0].inputOptions.boundary, 'Limite');
+        assert.equal(converted[0], created.layer);
+        assert.equal(harness.added.length, 0);
+    }
+});
+
+test('cancelling boundary configuration keeps the drawn line', async () => {
+    const harness = createLineHandler(async () => false);
+    const line = {};
+    await harness.handler({ layerType: 'polyline', layer: line });
+    assert.deepEqual(harness.added, [line]);
+    assert.equal(harness.alerts.length, 1);
+});
+
+test('boundary conversion failure reports the error and keeps the drawn line', async () => {
+    const harness = createLineHandler(async () => { throw new Error('Conversão indisponível'); });
+    const line = {};
+    await harness.handler({ layerType: 'polyline', layer: line });
+    assert.deepEqual(harness.added, [line]);
+    assert.equal(harness.alerts[1].icon, 'error');
+    assert.equal(harness.alerts[1].text, 'Conversão indisponível');
+    assert.equal(harness.errors.length, 1);
 });

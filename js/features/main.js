@@ -195,7 +195,10 @@
                     getDefaultColor: () => defaultColor
                 })
                 : {
-                    handleCreated: () => false
+                    handleCreated: () => false,
+                    convertLineToBoundary: async () => {
+                        throw new Error('A biblioteca de gráficos táticos não está disponível.');
+                    }
                 };
 
             if (!window.PlanMilTTacticalGraphics) {
@@ -301,11 +304,30 @@
                         inputOptions: {
                             solid: 'Sólida',
                             dashed: 'Tracejada',
-                            dotted: 'Pontilhada'
+                            dotted: 'Pontilhada',
+                            boundary: 'Limite'
                         },
                         inputPlaceholder: 'Selecione um estilo',
                         showCancelButton: true
                     });
+
+                    if (dashOption === 'boundary') {
+                        try {
+                            if (await tacticalGraphics.convertLineToBoundary(layer)) return;
+                        } catch (error) {
+                            console.error('[PlanMilT][Gráficos táticos] Falha ao criar limite.', {
+                                message: error.message
+                            });
+                            await Swal.fire({
+                                title: 'Não foi possível criar o limite',
+                                text: error.message,
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                        drawnItems.addLayer(layer);
+                        return;
+                    }
 
                     if (dashOption !== undefined) {
                         let dashArrayValue;

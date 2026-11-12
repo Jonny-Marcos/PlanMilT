@@ -35,6 +35,7 @@ test('real Leaflet groups with 150,000 features serialize without exceeding the 
 test('real Leaflet preserves editable boundary geometry and its repeated annotations', () => {
     let zoom = 12;
     const map = new L.Evented();
+    map.hasLayer = () => false;
     map.project = latlng => L.CRS.EPSG3857.latLngToPoint(L.latLng(latlng), zoom);
     map.unproject = point => L.CRS.EPSG3857.pointToLatLng(L.point(point), zoom);
     const drawnItems = L.featureGroup();
@@ -60,6 +61,40 @@ test('real Leaflet preserves editable boundary geometry and its repeated annotat
     assert.equal(saved.features[0].properties.tacticalGraphic.boundary.count, 2);
     assert.equal(line.options.noClip, true);
     assert.equal(line.options.lineCap, 'butt');
+    const originalDash = line.options.dashArray;
+    zoom = 13;
+    map.fire('zoomend');
+    assert.notEqual(line.options.dashArray, originalDash);
+});
+
+test('real Leaflet converts an existing polyline without rounding its coordinates', async () => {
+    let zoom = 12;
+    const map = new L.Evented();
+    map.hasLayer = () => true;
+    map.project = latlng => L.CRS.EPSG3857.latLngToPoint(L.latLng(latlng), zoom);
+    map.unproject = point => L.CRS.EPSG3857.pointToLatLng(L.point(point), zoom);
+    const drawnItems = L.featureGroup();
+    const integration = window.PlanMilT.tacticalGraphics.attach({
+        map, leaflet: L, library: {}, catalog: {}, drawnItems,
+        button: { addEventListener() {} },
+        sweetAlert: {
+            async fire() {
+                return { isConfirmed: true, value: {
+                    designation: '',
+                    boundary: { type: 'Companhia', leftText: 'A', rightText: 'B', count: 2 }
+                } };
+            }
+        },
+        getDefaultColor: () => '#123456'
+    });
+    const line = L.polyline([[-20.123456789, -50.987654321], [-20.1, -49.9]], { color: '#abcdef' });
+    const originalGeometry = line.toGeoJSON(false).geometry;
+    assert.equal(await integration.convertLineToBoundary(line), true);
+    assert.ok(drawnItems.hasLayer(line));
+    const saved = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems, false);
+    assert.deepEqual(saved.features[0].geometry, originalGeometry);
+    assert.equal(saved.features[0].properties.color, '#abcdef');
+    assert.equal(saved.features.filter(item => item.properties.role === 'boundaryMark').length, 2);
     const originalDash = line.options.dashArray;
     zoom = 13;
     map.fire('zoomend');

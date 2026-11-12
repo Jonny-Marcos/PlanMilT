@@ -186,6 +186,8 @@ function createHarness({
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
+            if (sweetAlert.cancelEdit) return { isConfirmed: false };
+            if (sweetAlert.validateEdit) return { isConfirmed: true, value: options.preConfirm() };
             if (sweetAlert.editValue) return { isConfirmed: true, value: sweetAlert.editValue };
             return { isConfirmed: true, value: designation };
         },
@@ -244,6 +246,7 @@ function createHarness({
                     feature: sourceFeature,
                     options: {},
                     setStyle(style) { Object.assign(this.options, style); },
+                    redraw() { this.redrawn = true; },
                     toGeoJSON() { return this.feature; },
                     on(name, callback) { listeners.set(name, callback); },
                     fire(name) { return listeners.get(name)?.({ target: this }); },
@@ -295,6 +298,7 @@ function createHarness({
         },
         project([lat, lng]) { return { x: lng * this.scale, y: -lat * this.scale }; },
         unproject([x, y]) { return { lng: x / this.scale, lat: -y / this.scale }; },
+        hasLayer(layer) { return mapLayers.includes(layer) && !removedMapLayers.includes(layer); },
         addLayer(layer) {
             mapLayers.push(layer);
         },
@@ -305,7 +309,7 @@ function createHarness({
     const drawnItems = {
         addLayer(layer) {
             layers.push(layer);
-            layer.fire?.('add');
+            if (!map.hasLayer(layer)) layer.fire?.('add');
         },
         removeLayer(layer) {
             const index = layers.indexOf(layer);
@@ -560,6 +564,86 @@ test('a saved and reloaded boundary remains editable without altering another bo
     assert.ok(marks.some(layer => layer.feature.properties.text === 'XX'));
     assert.ok(marks.includes(otherMarker));
     assert.equal(line.feature.properties.tacticalGraphic.boundary.count, 1);
+});
+
+test('converts an already visible freehand line into an editable boundary without replacing it', async () => {
+    const harness = createHarness();
+    const geometry = { type: 'LineString', coordinates: [[0, 0], [0.031234567, 0.02], [0.12, 0]] };
+    const line = harness.leaflet.geoJSON({ type: 'Feature', properties: {}, geometry }, {});
+    line.options.color = '#aabbcc';
+    harness.map.addLayer(line);
+    harness.sweetAlert.editValue = {
+        designation: '',
+        boundary: { type: 'Pelotão', leftText: '1º Pel', rightText: '2º Pel', count: 2 }
+    };
+
+    assert.equal(await harness.integration.convertLineToBoundary(line), true);
+    assert.equal(harness.alerts[0].title, 'Editar limite');
+    assert.match(harness.alerts[0].html, /tacticalGraphicBoundaryCount/);
+    assert.equal(harness.layers[0], line);
+    assert.equal(line.redrawn, true);
+    assert.deepEqual(line.toGeoJSON(false).geometry, geometry);
+    assert.equal(line.feature.properties.color, '#aabbcc');
+    assert.equal(line.feature.properties.tacticalGraphic.boundary.count, 2);
+    assert.equal(harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryMark').length, 2);
+    const originalDash = line.options.dashArray;
+    harness.map.scale = 20000;
+    harness.mapListeners.get('zoomend')();
+    assert.notEqual(line.options.dashArray, originalDash);
+
+    harness.sweetAlert.editValue = {
+        designation: '',
+        boundary: { type: 'Companhia', leftText: 'A', rightText: 'B', count: 1 }
+    };
+    line.fire('click');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryMark')[0].feature.properties.text, 'I');
+});
+
+test('cancelling boundary configuration leaves the original line untouched', async () => {
+    const harness = createHarness();
+    const feature = { type: 'Feature', properties: { name: 'original' },
+        geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] } };
+    const line = harness.leaflet.geoJSON(feature, {});
+    harness.sweetAlert.cancelEdit = true;
+    assert.equal(await harness.integration.convertLineToBoundary(line), false);
+    assert.equal(line.feature, feature);
+    assert.deepEqual(line.feature.properties, { name: 'original' });
+    assert.equal(harness.layers.length, 0);
+});
+
+test('boundary conversion validates editor fields and uses the selected values', async () => {
+    const harness = createHarness();
+    const line = harness.leaflet.geoJSON({
+        type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] }
+    }, {});
+    harness.sweetAlert.validateEdit = true;
+    harness.popupElements.get('tacticalGraphicBoundaryType').value = 'Pelotão';
+    harness.popupElements.get('tacticalGraphicBoundaryLeft').value = '1º Pel';
+    harness.popupElements.get('tacticalGraphicBoundaryRight').value = '2º Pel';
+    harness.popupElements.get('tacticalGraphicBoundaryCount').value = '101';
+    await assert.rejects(harness.integration.convertLineToBoundary(line), /quantidade inteira/);
+    assert.match(harness.alerts[0].html, /value="Companhia" selected/);
+    assert.equal(harness.layers.length, 0);
+
+    harness.popupElements.get('tacticalGraphicBoundaryCount').value = '3';
+    assert.equal(await harness.integration.convertLineToBoundary(line), true);
+    assert.deepEqual(line.feature.properties.tacticalGraphic.boundary,
+        { type: 'Pelotão', leftText: '1º Pel', rightText: '2º Pel', count: 3 });
+});
+
+test('rejects degenerate boundary geometry without modifying the line', async () => {
+    const harness = createHarness();
+    const feature = { type: 'Feature', properties: {},
+        geometry: { type: 'LineString', coordinates: [[0, 0], [0, 0]] } };
+    const line = harness.leaflet.geoJSON(feature, {});
+    harness.sweetAlert.editValue = {
+        designation: '',
+        boundary: { type: 'Companhia', leftText: 'A', rightText: 'B', count: 1 }
+    };
+    await assert.rejects(harness.integration.convertLineToBoundary(line), /pelo menos dois pontos distintos/);
+    assert.equal(line.feature, feature);
+    assert.equal(harness.layers.length, 0);
 });
 
 test('boundary drawing preview shows all repetitions and gaps', async () => {

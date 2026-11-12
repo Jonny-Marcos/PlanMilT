@@ -35,9 +35,10 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['shared-layers', 'drawing-loading', 'layer-management', 'kmz-import']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-boundary-repeat`));
     }
-    for (const script of ['main', 'icon-selector', 'help-and-planning']) {
+    for (const script of ['icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
+    assert.ok(documentSource.includes('js/features/main.js?v=20261129-line-boundary'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
     assert.ok(documentSource.indexOf('chunk-vendors.4e5d8119.js') < documentSource.indexOf('planmilt-generator.js'));
@@ -48,7 +49,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
         assert.ok(documentSource.indexOf('js/features/welcome.js') < documentSource.indexOf(`js/features/${consumer}.js`));
     }
-    assert.match(documentSource, /tactical-graphics\.js\?v=20261112-boundary-repeat/);
+    assert.match(documentSource, /tactical-graphics\.js\?v=20261129-line-boundary/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);
     assert.match(source, /Carregando dados/);
