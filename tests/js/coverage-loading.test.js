@@ -39,6 +39,7 @@ for (const editable of [true, false]) {
         const recent = [];
         const styles = [];
         const added = [];
+        let pauses = 0;
         const feature = {
             type: 'Feature',
             properties: { color: '#ff9900', fillColor: '#ff9900', fillOpacity: 0.6, rxPower: '-92.50' },
@@ -47,7 +48,7 @@ for (const editable of [true, false]) {
         let prompt = 0;
         const map = { fitBounds() {} };
         const drawnItems = {
-            clearLayers() {},
+            clearLayers() { assert.equal(pauses, 1); },
             addLayer(layer) { added.push(layer); },
             getLayers() { return added; },
             getBounds() { return {}; }
@@ -66,6 +67,7 @@ for (const editable of [true, false]) {
                 location: { href: 'https://example.test/' },
                 PlanMilT: {
                     welcome: { record(name) { recent.push(name); return true; } },
+                    drawingAutoSave: { pauseForLoad() { pauses++; } },
                     coverageImage: { clear() {}, fromFeature() { throw new Error('unexpected raster'); } },
                     apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) }
                 }
@@ -84,6 +86,7 @@ for (const editable of [true, false]) {
             await context.window.PlanMilT.drawingLoading.load('teste');
         }
         assert.equal(added.length, 1);
+        assert.equal(pauses, editable ? 1 : 0);
         assert.equal(styles.length, 1);
         assert.equal(styles[0].color, '#ff9900');
         assert.equal(styles[0].fillColor, '#ff9900');

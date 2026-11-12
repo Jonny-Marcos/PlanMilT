@@ -29,10 +29,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['elevation-tools', 'drawing-loading', 'shared-layers', 'kmz-import', 'tactical-graphics', 'local-session']) {
+    for (const script of ['elevation-tools', 'shared-layers', 'kmz-import', 'tactical-graphics', 'local-session']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
     }
-    assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-coordination-point'));
+    for (const script of ['drawing-storage', 'drawing-loading']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-autosave`));
+    }
     for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }

@@ -171,6 +171,7 @@
 
                     } else {
                         // Carrega para edição
+                        if (!localData) window.PlanMilT.drawingAutoSave?.pauseForLoad();
                         drawnItems.clearLayers();
                         window.PlanMilT.coverageImage.clear();
                         coverageFeatures.forEach(feature => window.PlanMilT.coverageImage.add(feature, L));
