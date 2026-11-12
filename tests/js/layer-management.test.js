@@ -29,11 +29,15 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['drawing-storage', 'elevation-tools']) {
+    for (const script of ['elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    for (const script of ['kmz-export', 'kmz-import', 'kmz-tactical-images', 'map-tools']) {
+    assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-coordination-point'));
+    for (const script of ['kmz-import', 'map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
+    }
+    for (const script of ['kmz-export', 'kmz-tactical-images']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-drawing-patterns`));
     }
     for (const script of ['shared-layers', 'drawing-loading']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-boundary-repeat`));
@@ -41,8 +45,11 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
-    for (const script of ['main', 'layer-management', 'tactical-graphics', 'tactical-graphics-catalog']) {
+    for (const script of ['main', 'layer-management']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-catalog-history`));
+    }
+    for (const script of ['tactical-graphics', 'tactical-graphics-catalog']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-coordination-point`));
     }
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));

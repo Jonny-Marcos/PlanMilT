@@ -6,6 +6,10 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/drawing-storage.js'), 'utf8');
 
+test('drawing save retains full precision for small geographic symbols', () => {
+    assert.match(source, /toFeatureCollection\(drawnItems,\s*false\)/);
+});
+
 function setup(serializer) {
     let click;
     let request;

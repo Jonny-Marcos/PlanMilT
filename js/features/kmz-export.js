@@ -68,10 +68,12 @@ window.PlanMilT.kmzExport = Object.freeze({
                         }
                     }
 
-                    const tacticalFeatures = geoJsonData.features.filter(feature => feature.properties?.tacticalGraphic);
-                    geoJsonData.features = geoJsonData.features.filter(feature => !feature.properties?.tacticalGraphic);
-                    const tacticalImages = tacticalFeatures.length
-                        ? await window.PlanMilT.kmzTacticalImages.render(tacticalFeatures, map, boundaryLayout)
+                    const needsImage = feature => feature.properties?.tacticalGraphic
+                        || feature.properties?.dashArray || feature.properties?.fillPattern;
+                    const imageFeatures = geoJsonData.features.filter(needsImage);
+                    geoJsonData.features = geoJsonData.features.filter(feature => !needsImage(feature));
+                    const tacticalImages = imageFeatures.length
+                        ? await window.PlanMilT.kmzTacticalImages.render(imageFeatures, map, boundaryLayout)
                         : [];
 
                     // Função para inserir o Folder "Sugestão de Planejamento" no KML
@@ -114,7 +116,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                             const filename = `tactical/graphic-${index + 1}.png`;
                             zip.file(filename, image.blob);
                             const { north, south, east, west } = image.bounds;
-                            const overlay = `<GroundOverlay><name>Gráfico tático</name><ExtendedData><Data name="planmilt-tactical-image"><value>1</value></Data></ExtendedData><Icon><href>${filename}</href></Icon><LatLonBox><north>${north}</north><south>${south}</south><east>${east}</east><west>${west}</west></LatLonBox></GroundOverlay>`;
+                            const overlay = `<GroundOverlay><name>${image.name === 'Desenho com padrão' ? image.name : 'Gráfico tático'}</name><ExtendedData><Data name="planmilt-tactical-image"><value>1</value></Data></ExtendedData><Icon><href>${filename}</href></Icon><LatLonBox><north>${north}</north><south>${south}</south><east>${east}</east><west>${west}</west></LatLonBox></GroundOverlay>`;
                             kmlData = kmlData.replace('</Document>', `${overlay}\n</Document>`);
                         });
                         coverageFeatures.forEach((feature, index) => {
@@ -457,7 +459,9 @@ window.PlanMilT.kmzExport = Object.freeze({
                         const iconUrl = properties.iconUrl ? window.PlanMilT.kmzExport.iconPath(properties.iconUrl, uniqueIcons) : '';
                         const styleUrl = iconUrl ? `<styleUrl>#m_${iconUrl}</styleUrl>` : '';
                         const color = properties.color ? adjustColorOpacity(properties.color, 1.0) : 'ff000000';
-                        const fillColor = properties.color ? adjustColorOpacity(properties.color, 0.6) : '99000000';
+                        const fillColorValue = properties.fillColor || properties.color;
+                        const fillOpacity = Number.isFinite(properties.fillOpacity) ? properties.fillOpacity : 0.2;
+                        const fillColor = fillColorValue ? adjustColorOpacity(fillColorValue, fillOpacity) : '33000000';
                         const lineColor = properties.color ? adjustColorOpacity(properties.color, 1.0) : 'ff000000';
 
                         if (geometryType === "Point") {
@@ -522,7 +526,10 @@ ${styleUrl}
 <MultiGeometry>${lineStrings}</MultiGeometry>
             </Placemark>`;
                         } else if (geometryType === "Polygon") {
-                            const polygonCoordinates = coordinates.map(ring => ring.map(coord => coord.join(',')).join(' ')).join(' ');
+                            const polygonCoordinates = coordinates.map((ring, index) => {
+                                const boundary = index === 0 ? 'outerBoundaryIs' : 'innerBoundaryIs';
+                                return `<${boundary}><LinearRing><coordinates>${ring.map(coord => coord.join(',')).join(' ')}</coordinates></LinearRing></${boundary}>`;
+                            }).join('');
                             return `<Placemark>
 <name>${properties.name || ''}</name>
 <description>${properties.description || ''}</description>
@@ -535,22 +542,17 @@ ${styleUrl}
             </PolyStyle>
             </Style>
 <Polygon>
-<outerBoundaryIs>
-<LinearRing>
-<coordinates>${polygonCoordinates}</coordinates>
-            </LinearRing>
-            </outerBoundaryIs>
+${polygonCoordinates}
             </Polygon>
             </Placemark>`;
                         } else if (geometryType === "MultiPolygon") {
                             const polygons = coordinates.map(polygon => {
-                                const polygonCoordinates = polygon.map(ring => ring.map(coord => coord.join(',')).join(' ')).join(' ');
+                                const polygonCoordinates = polygon.map((ring, index) => {
+                                    const boundary = index === 0 ? 'outerBoundaryIs' : 'innerBoundaryIs';
+                                    return `<${boundary}><LinearRing><coordinates>${ring.map(coord => coord.join(',')).join(' ')}</coordinates></LinearRing></${boundary}>`;
+                                }).join('');
                                 return `<Polygon>
-<outerBoundaryIs>
-<LinearRing>
-<coordinates>${polygonCoordinates}</coordinates>
-            </LinearRing>
-            </outerBoundaryIs>
+${polygonCoordinates}
             </Polygon>`;
                             }).join('');
                             return `<Placemark>

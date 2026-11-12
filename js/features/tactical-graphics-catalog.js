@@ -1110,7 +1110,8 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
             .find(key => library.TacticalGraphicCategory[key] === library.GRAPHIC_CATEGORIES[name]);
         const toGraphic = name => ({
             name,
-            label: this.translateName(library.getDisplayName(name), name)
+            label: name === 'CoordinationPoint' ? 'Ponto de coordenação'
+                : this.translateName(library.getDisplayName(name), name)
         });
         const sections = [{
             name: 'frequent',
@@ -1146,6 +1147,15 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
                 section.graphics.sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'));
                 sections.push(section);
             });
+
+        let boundaries = sections.find(section => section.name === 'Boundaries');
+        if (!boundaries) {
+            boundaries = { name: 'Boundaries', label: tacticalGraphicCategoryTranslations.Boundaries, graphics: [] };
+            sections.push(boundaries);
+        }
+        boundaries.graphics.push({ name: 'CoordinationPoint', label: 'Ponto de coordenação' });
+        boundaries.graphics.sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'));
+        sections.splice(1, sections.length - 1, ...sections.slice(1).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')));
 
         const availableNames = new Set(sections.slice(1).flatMap(section => section.graphics.map(graphic => graphic.name)));
         sections[0].graphics = frequentNames.filter((name, index) =>

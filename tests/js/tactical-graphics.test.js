@@ -72,6 +72,7 @@ global.document = {
     }
 };
 require('../../js/features/tactical-graphics.js');
+require('../../js/features/drawing-geometry.js');
 window.PlanMilT.localHistory = { graphics: () => [], recordGraphic() {} };
 
 test('boundary label icon is centered with escaped text and its screen offset', () => {
@@ -96,6 +97,7 @@ function createHarness({
     graphicName = 'MainAxisOfAdvance',
     boundaryType = 'Companhia',
     boundaryCount = 1,
+    coordinationDiameter = 100,
     emptyFrequent = false
 } = {}) {
     const recordedGraphics = [];
@@ -117,7 +119,9 @@ function createHarness({
         'tacticalGraphicBoundaryType',
         'tacticalGraphicBoundaryLeft',
         'tacticalGraphicBoundaryRight',
-        'tacticalGraphicBoundaryCount'
+        'tacticalGraphicBoundaryCount',
+        'tacticalGraphicCoordinationField',
+        'tacticalGraphicCoordinationDiameter'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -187,6 +191,7 @@ function createHarness({
                 popupElements.get('tacticalGraphicBoundaryLeft').value = '1ª Cia';
                 popupElements.get('tacticalGraphicBoundaryRight').value = '2ª Cia';
                 popupElements.get('tacticalGraphicBoundaryCount').value = String(boundaryCount);
+                popupElements.get('tacticalGraphicCoordinationDiameter').value = String(coordinationDiameter);
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
@@ -757,8 +762,37 @@ test('point graphics use the native marker tool and carry the default range', as
             })
         }
     });
-
     assert.equal(harness.layers.length, 1);
+});
+
+test('coordination point uses a user-defined diameter and circle-touching diagonals', async () => {
+    const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '', coordinationDiameter: 200 });
+    await harness.integration.startDrawing();
+    assert.equal(harness.drawTools[0].geometryType, 'Point');
+    assert.equal(harness.popupElements.get('tacticalGraphicCoordinationField').style.display, 'grid');
+    assert.match(harness.alerts[0].html, /Diâmetro \(metros\)/);
+    harness.integration.handleCreated({ layer: { toGeoJSON: () => ({
+        type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [-50, -20] }
+    }) } });
+    const feature = harness.layers[0].feature;
+    assert.equal(feature.properties.tacticalGraphic.diameter, 200);
+    assert.equal(feature.geometry.type, 'LineString');
+    const points = feature.geometry.coordinates;
+    assert.equal(points.length, 84);
+    assert.deepEqual(points[0], points[64]);
+    assert.deepEqual(points[65], points[32]);
+    assert.deepEqual(points[83], points[16]);
+    assert.deepEqual(harness.recordedGraphics, ['CoordinationPoint']);
+    const radiusLat = 100 / 6378137 * 180 / Math.PI;
+    assert.ok(Math.abs((Math.max(...points.map(point => point[1])) + 20) - radiusLat) < 1e-10);
+});
+
+test('coordination point rejects invalid diameters before starting the draw tool', async () => {
+    for (const coordinationDiameter of [0, -1, 100001]) {
+        const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '', coordinationDiameter });
+        await assert.rejects(harness.integration.startDrawing(), /diâmetro entre/);
+        assert.equal(harness.drawTools.length, 0);
+    }
 });
 
 test('drawing displays a live tactical-symbol preview that is removed when drawing stops', async () => {

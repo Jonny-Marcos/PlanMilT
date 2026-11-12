@@ -109,7 +109,7 @@
                         // Gera o GeoJSON dos desenhos
                         let drawnData;
                         try {
-                            drawnData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
+                            drawnData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems, false);
                             for (const feature of window.PlanMilT.geoJsonSerialization.toFeatureCollection(window.PlanMilT.coverageImage.getGroup()).features) {
                                 drawnData.features.push(feature);
                             }

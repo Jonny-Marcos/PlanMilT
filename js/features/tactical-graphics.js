@@ -79,6 +79,54 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
         let previewErrorReported = false;
 
         /**
+         * Desenha a circunferência e duas diagonais contínuas, sem traços extras.
+         * @param {Object} feature - Ponto central e diâmetro em metros.
+         * @returns {Object} Geometria e rótulos compatíveis com o renderizador.
+         */
+        function renderCoordinationPoint(feature) {
+            const [lng, lat] = feature.geometry.coordinates;
+            const diameter = feature.properties.tacticalGraphic.diameter;
+            if (!Number.isFinite(diameter) || diameter <= 0 || diameter > 100000) {
+                throw new Error('Informe um diâmetro entre 1 e 100.000 metros.');
+            }
+            const ring = window.PlanMilT.drawingGeometry.createCirclePolygon({ lat, lng }, diameter / 2, 64)[0]
+                .map(([latitude, longitude]) => [longitude, latitude]);
+            if (ring.some(([longitude, latitude]) => Math.abs(longitude) > 180 || Math.abs(latitude) > 85)) {
+                throw new Error('O ponto de coordenação excede os limites geográficos suportados.');
+            }
+            const start = 8;
+            const circle = Array.from({ length: 65 }, (_, index) => ring[(start + index) % 64]);
+            const coordinates = [...circle, ring[40], ...Array.from({ length: 17 }, (_, index) => ring[(40 + index) % 64]), ring[24]];
+            return {
+                graphic: { type: 'Feature', geometry: { type: 'LineString', coordinates },
+                    properties: { ...feature.properties, role: 'graphic' } },
+                labels: { type: 'Feature', geometry: { type: 'MultiPoint', coordinates: [[lng, lat]] },
+                    properties: { tacticalGraphic: feature.properties.tacticalGraphic, role: 'label' } }
+            };
+        }
+
+        /**
+         * Renderiza o gráfico local ou delega à biblioteca tática.
+         * @param {Object} feature - Feição de entrada.
+         * @returns {Object} Geometria e rótulos do gráfico.
+         */
+        function renderGraphic(feature) {
+            return feature.properties.tacticalGraphic.name === 'CoordinationPoint'
+                ? renderCoordinationPoint(feature)
+                : library.renderTacticalGraphic(feature);
+        }
+
+        /**
+         * Obtém o nome localizado, incluindo o gráfico definido pela aplicação.
+         * @param {string} name - Identificador do gráfico.
+         * @returns {string} Nome exibido.
+         */
+        function graphicDisplayName(name) {
+            return name === 'CoordinationPoint' ? 'Ponto de coordenação'
+                : catalog.translateName(library.getDisplayName(name), name);
+        }
+
+        /**
          * Remove a prévia temporária sem alterar o grupo de desenhos persistentes.
          */
         function removePreview() {
@@ -158,7 +206,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          * @returns {Object} Feature GeoJSON de exemplo.
          */
         function createSampleFeature(name, includeDesignation = true) {
-            const geometryType = library.baseGeometryFor(name);
+            const geometryType = name === 'CoordinationPoint' ? 'Point' : library.baseGeometryFor(name);
             const sampleGeometries = {
                 Point: { type: 'Point', coordinates: [-50, -20] },
                 LineString: {
@@ -188,7 +236,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     tacticalGraphic: {
                         name,
                         ...(includeDesignation ? { designation: 'Exemplo' } : {}),
-                        ...(geometryType === 'Point' ? { radius: 500 } : {})
+                        ...(name === 'CoordinationPoint' ? { diameter: 500 }
+                            : geometryType === 'Point' ? { radius: 500 } : {})
                     }
                 }
             };
@@ -268,11 +317,11 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             svg.setAttribute('role', 'img');
             svg.setAttribute(
                 'aria-label',
-                `${includeDesignation ? 'Exemplo' : 'Símbolo'}: ${catalog.translateName(library.getDisplayName(name), name)}`
+                `${includeDesignation ? 'Exemplo' : 'Símbolo'}: ${graphicDisplayName(name)}`
             );
 
             try {
-                const rendered = library.renderTacticalGraphic(createSampleFeature(name, includeDesignation));
+                const rendered = renderGraphic(createSampleFeature(name, includeDesignation));
                 const positions = collectGeometryPositions(rendered.graphic.geometry);
                 const labelPositions = collectPointCoordinates(rendered.labels.geometry);
                 positions.push(...labelPositions);
@@ -375,14 +424,15 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     tacticalGraphic: {
                         name: pendingGraphic.name,
                         ...(pendingGraphic.designation ? { designation: pendingGraphic.designation } : {}),
-                        ...(pendingGraphic.geometryType === 'Point' ? { radius: 500 } : {}),
+                        ...(pendingGraphic.name === 'CoordinationPoint' ? { diameter: pendingGraphic.diameter }
+                            : pendingGraphic.geometryType === 'Point' ? { radius: 500 } : {}),
                         ...(boundaryData ? { boundary: boundaryData } : {})
                     }
                 }
             };
 
             try {
-                const rendered = library.renderTacticalGraphic(baseFeature);
+                const rendered = renderGraphic(baseFeature);
                 const graphicFeature = {
                     ...rendered.graphic,
                     ...(boundaryData ? { geometry } : {}),
@@ -771,6 +821,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             let boundaryLeftInput;
             let boundaryRightInput;
             let boundaryCountInput;
+            let coordinationDiameterInput;
 
             const selection = await sweetAlert.fire({
                 title: 'Adicionar gráfico tático',
@@ -787,6 +838,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     + '<div id="tacticalGraphicSelection" class="tactical-graphic-selection" role="status"></div>'
                     + '<label class="tactical-graphic-field tactical-graphic-designation" for="tacticalGraphicDesignation"><span>Designação (opcional)</span>'
                     + '<input id="tacticalGraphicDesignation" type="text" autocomplete="off" placeholder="Ex.: 1ª Cia"></label>'
+                    + '<label id="tacticalGraphicCoordinationField" class="tactical-graphic-field" style="display:none" for="tacticalGraphicCoordinationDiameter"><span>Diâmetro (metros)</span>'
+                    + '<input id="tacticalGraphicCoordinationDiameter" type="number" min="1" max="100000" step="any" value="100"></label>'
                     + '<div id="tacticalGraphicBoundaryEditor" class="tactical-graphic-boundary-edit" style="display:none">'
                     + '<label class="tactical-graphic-field" for="tacticalGraphicBoundaryType"><span>Tipo de limite</span>'
                     + '<select id="tacticalGraphicBoundaryType">' + BOUNDARY_ECHELONS.map(type => `<option value="${type}">${type}</option>`).join('') + '</select></label>'
@@ -813,6 +866,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     boundaryLeftInput = popup.querySelector('#tacticalGraphicBoundaryLeft');
                     boundaryRightInput = popup.querySelector('#tacticalGraphicBoundaryRight');
                     boundaryCountInput = popup.querySelector('#tacticalGraphicBoundaryCount');
+                    coordinationDiameterInput = popup.querySelector('#tacticalGraphicCoordinationDiameter');
                     popup.classList.add('tactical-graphic-modal');
 
                     if (commonSection.graphics.length) {
@@ -837,6 +891,8 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         if (!editor || !editor.style) return;
                         const isBoundary = selectedName === 'Boundary';
                         editor.style.display = isBoundary ? 'grid' : 'none';
+                        popup.querySelector('#tacticalGraphicCoordinationField').style.display =
+                            selectedName === 'CoordinationPoint' ? 'grid' : 'none';
                         if (isBoundary && boundaryTypeInput && !boundaryTypeInput.value) boundaryTypeInput.value = 'Companhia';
                     };
                     const renderResults = () => {
@@ -944,18 +1000,24 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         sweetAlert.showValidationMessage('Informe uma quantidade inteira de símbolos entre 1 e 100.');
                         return false;
                     }
+                    const diameter = selectedName === 'CoordinationPoint' ? Number(coordinationDiameterInput.value) : null;
+                    if (diameter !== null && (!Number.isFinite(diameter) || diameter < 1 || diameter > 100000)) {
+                        sweetAlert.showValidationMessage('Informe um diâmetro entre 1 e 100.000 metros.');
+                        return false;
+                    }
                     return {
                         name: selectedName,
                         designation: designationInput.value.trim(),
-                        boundary
+                        boundary,
+                        diameter
                     };
                 }
             });
 
             if (!selection.isConfirmed || !selection.value) return;
 
-            const { name, designation, boundary } = selection.value;
-            const geometryType = library.baseGeometryFor(name);
+            const { name, designation, boundary, diameter } = selection.value;
+            const geometryType = name === 'CoordinationPoint' ? 'Point' : library.baseGeometryFor(name);
             const drawToolByGeometry = {
                 Point: leaflet.Draw.Marker,
                 LineString: leaflet.Draw.Polyline,
@@ -967,7 +1029,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 throw new Error(`Geometria de desenho não suportada: ${geometryType || 'indefinida'}.`);
             }
 
-            const displayName = catalog.translateName(library.getDisplayName(name), name);
+            const displayName = graphicDisplayName(name);
             const color = getDefaultColor();
             const options = geometryType === 'Polygon' || geometryType === 'LineString'
                 ? { shapeOptions: { color } }
@@ -979,6 +1041,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 geometryType,
                 designation,
                 boundary,
+                diameter,
                 color
             };
             drawingVertices = [];
@@ -1172,12 +1235,13 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     tacticalGraphic: {
                         name: graphic.name,
                         ...(graphic.designation ? { designation: graphic.designation } : {}),
-                        ...(graphic.geometryType === 'Point' ? { radius: 500 } : {}),
+                        ...(graphic.name === 'CoordinationPoint' ? { diameter: graphic.diameter }
+                            : graphic.geometryType === 'Point' ? { radius: 500 } : {}),
                         ...(boundaryData ? { boundary: boundaryData } : {})
                     }
                 };
 
-                const rendered = library.renderTacticalGraphic(baseFeature);
+                const rendered = renderGraphic(baseFeature);
                 const graphicFeature = {
                     ...rendered.graphic,
                     ...(boundaryData ? { geometry: baseFeature.geometry } : {}),

@@ -61,10 +61,11 @@ test('the curated catalog contains only distinct tactical graphics, grouped once
     const graphics = sections.slice(1).flatMap(section => section.graphics);
     const names = graphics.map(graphic => graphic.name);
 
-    assert.equal(names.length, 86);
+    assert.equal(names.length, 87);
     assert.equal(new Set(names).size, names.length);
-    assert.ok(names.every(name => library.listTacticalGraphicNames().includes(name)));
-    assert.ok(names.every(name => name === 'Boundary' || addsDistinctiveGeometry(library, name)));
+    assert.ok(names.every(name => name === 'CoordinationPoint' || library.listTacticalGraphicNames().includes(name)));
+    assert.ok(names.every(name => ['Boundary', 'CoordinationPoint'].includes(name) || addsDistinctiveGeometry(library, name)));
+    assert.ok(sections.find(section => section.name === 'Boundaries').graphics.some(graphic => graphic.name === 'CoordinationPoint'));
     assert.equal(sections[0].name, 'frequent');
     assert.equal(sections[0].label, 'Mais utilizados');
     assert.equal(sections[0].graphics.length, 0);

@@ -22,6 +22,7 @@ function harness(scale = 100) {
                 arc: (...args) => calls.push(['arc', ...args]),
                 stroke: () => calls.push(['stroke']),
                 fill: (...args) => calls.push(['fill', ...args]),
+                createPattern: (tile, repeat) => { calls.push(['pattern', tile, repeat]); return { tile, repeat }; },
                 fillText: (...args) => calls.push(['text', ...args]),
                 drawImage: (...args) => calls.push(['image', ...args.slice(1)])
             };
@@ -69,6 +70,24 @@ test('ordinary tactical labels decode escaped text without interpreting it as ma
         tacticalGraphic: { name: 'Breach' } }, geometry: { type: 'Point', coordinates: [-50, -20] } };
     await window.PlanMilT.kmzTacticalImages.render([feature], map, () => {});
     assert.equal(canvases[1].calls.find(call => call[0] === 'text')[1], '<Texto> & apoio');
+});
+
+test('rasterizes dashed lines and both polygon hatch patterns', async () => {
+    for (const pattern of ['patternX', 'patternSlash']) {
+        const { map, canvases } = harness();
+        const features = [
+            { properties: { color: '#123456', dashArray: '10, 10' },
+                geometry: { type: 'LineString', coordinates: [[-50, -20], [-49, -20]] } },
+            { properties: { color: '#123456', fillPattern: pattern },
+                geometry: { type: 'Polygon', coordinates: [[[-50, -20], [-49, -20], [-49, -21], [-50, -20]]] } }
+        ];
+        const images = await window.PlanMilT.kmzTacticalImages.render(features, map, () => {});
+        assert.equal(images.length, 2);
+        assert.deepEqual(canvases[1].calls.find(call => call[0] === 'dash')[1], [10, 10]);
+        const tile = canvases[3].calls.find(call => call[0] === 'pattern')[1];
+        assert.equal(tile.calls.filter(call => call[0] === 'line').length, pattern === 'patternX' ? 2 : 1);
+        assert.ok(canvases[3].calls.some(call => call[0] === 'fill' && call[1] === 'evenodd'));
+    }
 });
 
 test('long tactical geometry is divided into bounded PNG tiles at the current scale', async () => {
@@ -123,7 +142,8 @@ test('rasterizes all available tactical graphic geometries', async () => {
     const library = require('@zaes/tactical-graphics');
     require('../../js/features/tactical-graphics-catalog.js');
     const names = window.PlanMilT.tacticalGraphicsCatalog.buildSections(library)
-        .slice(1).flatMap(section => section.graphics.map(graphic => graphic.name));
+        .slice(1).flatMap(section => section.graphics.map(graphic => graphic.name))
+        .filter(name => name !== 'CoordinationPoint');
     const geometries = {
         Point: { type: 'Point', coordinates: [-50, -20] },
         LineString: { type: 'LineString', coordinates: [[-50, -20], [-49.99, -20.01]] },

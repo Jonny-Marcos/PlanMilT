@@ -90,6 +90,20 @@ test('GeoJSON multi geometries are serialized into KML multigeometry placemarks'
     assert.match(kml, /<MultiGeometry>/);
 });
 
+test('solid polygons preserve fill color, opacity and interior rings in vector KML', () => {
+    const exporter = createExporter();
+    const kml = exporter.geojsontokml({ type: 'FeatureCollection', features: [{
+        type: 'Feature', properties: { color: '#000000', fillColor: '#123456', fillOpacity: 0.5 },
+        geometry: { type: 'Polygon', coordinates: [
+            [[0, 0], [3, 0], [3, 3], [0, 0]],
+            [[1, 1], [2, 1], [2, 2], [1, 1]]
+        ] }
+    }] }, { documentName: 'Teste', documentDescription: '' });
+    assert.match(kml, /<PolyStyle>\s*<color>80563412<\/color>/);
+    assert.match(kml, /<outerBoundaryIs>[\s\S]*?0,0 3,0 3,3 0,0/);
+    assert.match(kml, /<innerBoundaryIs>[\s\S]*?1,1 2,1 2,2 1,1/);
+});
+
 test('icon styles are included for icon features', () => {
     const exporter = createExporter();
     const kml = exporter.geojsontokml({
@@ -269,12 +283,16 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
             }, geometry: { type: 'LineString', coordinates: [[-50, -20], [-49, -20]] } };
             const regular = { type: 'Feature', properties: { name: 'Linha comum' },
                 geometry: { type: 'LineString', coordinates: [[-51, -21], [-50, -21]] } };
+            const dashed = { type: 'Feature', properties: { dashArray: '2, 6', color: '#000000' },
+                geometry: { type: 'LineString', coordinates: [[-52, -20], [-51, -20]] } };
+            const patterned = { type: 'Feature', properties: { fillPattern: 'patternX', color: '#000000' },
+                geometry: { type: 'Polygon', coordinates: [[[-52, -20], [-51, -20], [-51, -21], [-52, -20]]] } };
             const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
             const map = {};
             const boundaryLayout = () => {};
             window.PlanMilT.coverageImage = { getGroup: () => group([]) };
             window.PlanMilT.kmzTacticalImages = { async render(features, actualMap, layout) {
-                assert.deepEqual(features, [tactical]);
+                assert.deepEqual(features, [tactical, dashed, patterned]);
                 assert.equal(actualMap, map);
                 assert.equal(layout, boundaryLayout);
                 return [{ blob: 'PNG', bounds: { north: -19, south: -21, east: -48, west: -51 } }];
@@ -284,7 +302,7 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
             URL.createObjectURL = () => 'blob:test';
             try {
                 window.PlanMilT.kmzExport.attach({
-                    map, boundaryLayout, drawnItems: group([tactical, regular].map(feature => ({ toGeoJSON: () => feature }))),
+                    map, boundaryLayout, drawnItems: group([tactical, regular, dashed, patterned].map(feature => ({ toGeoJSON: () => feature }))),
                     layerRegistry: {}, button: { addEventListener(name, callback) { handler = callback; } },
                     zipArchive: class {
                         constructor() { archive = this; this.files = {}; }
@@ -300,6 +318,7 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
                 assert.match(archive.files['doc.kml'], /tactical\/graphic-1\.png/);
                 assert.match(archive.files['doc.kml'], /Linha comum/);
                 assert.doesNotMatch(archive.files['doc.kml'], /-50,-20 -49,-20/);
+                assert.doesNotMatch(archive.files['doc.kml'], /-52,-20 -51,-20/);
             } finally {
                 global.document = previousDocument;
                 URL.createObjectURL = previousCreate;
