@@ -45,12 +45,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
-        assert.ok(documentSource.includes('js/features/main.js?v=20261112-compact-map-controls'));
+        assert.ok(documentSource.includes('js/features/main.js?v=20261112-suggestions'));
         assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-mobile-controls'));
         assert.ok(documentSource.includes('js/features/map-3d-texture.js?v=20261112-coverage'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
-    assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-radial-resolution'));
+    assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-suggestions'));
     assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));

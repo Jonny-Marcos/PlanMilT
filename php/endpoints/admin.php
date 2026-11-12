@@ -198,6 +198,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                     <option value="drawings">Desenhos</option>
                     <option value="images">Temas e imagens</option>
                     <option value="task_sequences">Sequências de tarefas</option>
+                    <option value="suggestions">Sugestões de desenvolvimento</option>
                     <option value="elevation_files">Arquivos de elevação (SRTM3)</option>
                 </select>
             </label>
@@ -265,6 +266,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         drawings: 'Desenhos',
         images: 'Temas e imagens',
         task_sequences: 'Sequências de tarefas',
+        suggestions: 'Sugestões de desenvolvimento',
         elevation_files: 'Arquivos de elevação (SRTM3)'
     };
     const fieldsByEntity = {
@@ -292,6 +294,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             ['name', 'Nome', 'text'],
             ['sequence', 'Sequência (JSON)', 'textarea'],
             ['description', 'Descrição', 'textarea']
+        ],
+        suggestions: [
+            ['status', 'Situação', 'select', [['pending', 'Aguardando análise'], ['acknowledged', 'Ciente'], ['in_progress', 'Em implementação'], ['implemented', 'Implementado']]],
+            ['admin_reply', 'Resposta ao usuário', 'textarea']
         ]
     };
     const entitySelect = document.getElementById('entitySelect');
@@ -330,6 +336,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         task_sequences: [
             ['all', 'Todos os campos'], ['id', 'Identificador'], ['name', 'Nome'], ['description', 'Descrição']
         ],
+        suggestions: [['all', 'Todos os campos'], ['id', 'Identificador'], ['title', 'Título'], ['status', 'Situação']],
         elevation_files: [['all', 'Todos os campos'], ['name', 'Nome do tile']]
     };
     let currentSearch = { term: '', field: 'all', mode: 'contains' };
@@ -383,15 +390,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         return String(value);
     }
 
+    const suggestionStatuses = {
+        pending: 'Aguardando análise', acknowledged: 'Ciente',
+        in_progress: 'Em implementação', implemented: 'Implementado'
+    };
+
     function renderTable(records) {
         tableHead.replaceChildren();
         tableBody.replaceChildren();
         if (entitySelect.value === 'settings' || entitySelect.value === 'elevation_files') return;
         const columns = records.length ? Object.keys(records[0]) : ['Registros'];
         const header = document.createElement('tr');
+        const suggestionHeaders = { id: 'ID', title: 'Título', status: 'Situação', created_at: 'Enviada (UTC)', updated_at: 'Atualizada (UTC)' };
         [...columns, 'Ações'].forEach(column => {
             const cell = document.createElement('th');
-            cell.textContent = column;
+            cell.textContent = entitySelect.value === 'suggestions' ? (suggestionHeaders[column] || column) : column;
             header.appendChild(cell);
         });
         tableHead.appendChild(header);
@@ -410,7 +423,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             const row = document.createElement('tr');
             columns.forEach(column => {
                 const cell = document.createElement('td');
-                cell.textContent = displayValue(record[column]);
+                cell.textContent = entitySelect.value === 'suggestions' && column === 'status'
+                    ? (suggestionStatuses[record[column]] || displayValue(record[column]))
+                    : displayValue(record[column]);
                 row.appendChild(cell);
             });
             const actions = document.createElement('td');
@@ -656,6 +671,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         recordForm.dataset.editorType = '';
         const isNew = id === 0;
         document.getElementById('editorTitle').textContent = `${isNew ? 'Novo' : 'Editar'}: ${entityLabels[entitySelect.value]}`;
+        if (entitySelect.value === 'suggestions') {
+            const details = document.createElement('p');
+            details.style.whiteSpace = 'pre-wrap';
+            details.style.gridColumn = '1 / -1';
+            details.textContent = `${record.title}\n\n${record.description}`;
+            recordForm.appendChild(details);
+        }
         fieldsByEntity[entitySelect.value].forEach(field => addField(recordForm, field, record[field[0]], isNew));
         if (isNew && ['drawings', 'task_sequences'].includes(entitySelect.value)) addPasswordField(recordForm);
         const save = document.createElement('button');
@@ -877,13 +899,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         offset = 0;
         updatePanels();
         updateSearchControls();
-        document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
+        document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
         document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
         loadRecords();
     });
     updatePanels();
     updateSearchControls();
-    document.getElementById('newButton').hidden = ['settings', 'elevation_files'].includes(entitySelect.value);
+    document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
     document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
     if (adminConfig.authenticated && !adminConfig.mustChangePassword) loadRecords();
 </script>
@@ -1142,6 +1164,9 @@ try {
 
     http_response_code(400);
     echo json_encode(['error' => 'Ação administrativa inválida.'], JSON_UNESCAPED_UNICODE);
+} catch (PDOException $error) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Não foi possível concluir a operação administrativa.'], JSON_UNESCAPED_UNICODE);
 } catch (RuntimeException $error) {
     if (http_response_code() < 400) {
         http_response_code(400);

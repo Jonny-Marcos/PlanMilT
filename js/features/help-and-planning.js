@@ -31,6 +31,7 @@
 <div class="help-sections">
 <details open><summary>Começar e navegar no mapa</summary><div>
 <p><b>Mostrar ou ocultar controles:</b> use o ícone de olho na barra de ferramentas. Em telas pequenas, os controles começam ocultos.</p>
+<p><b>Sugestões de desenvolvimento:</b> envie ideias ao administrador desta instalação e acompanhe a situação e a resposta neste navegador. As sugestões só podem ser editadas antes da análise.</p>
 <p><b>Localização, zoom e busca:</b> mostre sua localização, aproxime ou afaste o mapa e pesquise lugares. Use os controles de medição e impressão para medir distâncias ou áreas e imprimir o mapa.</p>
 <p><b>Dados do ponto:</b> clique com o botão direito ou mantenha o toque pressionado para consultar coordenadas e elevação. O link opcional do Street View abre o Google Maps e envia a coordenada selecionada ao Google.</p>
 </div></details>

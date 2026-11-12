@@ -109,6 +109,6 @@ test('map fills the viewport and the toggle remains inside the compact toolbar',
     assert.match(main, /<div class="toolbar-icons">[\s\S]*?id="toggleControlsBtn"[^>]*type="button"[^>]*aria-pressed="true"[\s\S]*?<\/div>/);
     assert.doesNotMatch(html, /id="toggleControlsBtn"/);
     assert.match(html, /css\/app\.css\?v=20261112-compact-map-controls/);
-    assert.match(html, /js\/features\/main\.js\?v=20261112-compact-map-controls/);
+    assert.match(html, /js\/features\/main\.js\?v=20261112-suggestions/);
     assert.match(html, /js\/features\/map-tools\.js\?v=20261112-tactical-images/);
 });

@@ -44,6 +44,7 @@
 <i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
 <i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
 <button id="view3DButton" class="view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização" aria-label="Abrir visualizador 3D"><i class="fas fa-cube" aria-hidden="true"></i></button>
+<button id="suggestionsButton" class="view-3d-button" type="button" title="Sugestões para o desenvolvimento" aria-label="Sugestões para o desenvolvimento"><i class="fas fa-comment-dots" aria-hidden="true"></i></button>
 <button id="toggleControlsBtn" class="toggle-controls" type="button" aria-pressed="true" title="Mostrar controles">
     <i id="toggleControlsIcon" class="fas fa-eye" aria-hidden="true"></i>
     <span id="toggleControlsLabel">Mostrar controles</span>

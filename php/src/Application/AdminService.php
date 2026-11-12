@@ -152,6 +152,17 @@ final class AdminService
                 'order' => 'name COLLATE NOCASE',
                 'fields' => ['id' => 'id', 'name' => 'name', 'description' => 'description'],
             ],
+            'suggestions' => [
+                'sql' => 'SELECT id, title, status, created_at, updated_at FROM suggestions',
+                'order' => 'id DESC',
+                'fields' => [
+                    'id' => 'id',
+                    'title' => 'title',
+                    'status' => "CASE status WHEN 'pending' THEN 'Aguardando análise' "
+                        . "WHEN 'acknowledged' THEN 'Ciente' WHEN 'in_progress' THEN 'Em implementação' "
+                        . "WHEN 'implemented' THEN 'Implementado' END",
+                ],
+            ],
         ];
         if (!isset($queries[$entity])) {
             throw new RuntimeException('Tipo de registro não permitido.');
@@ -238,6 +249,7 @@ final class AdminService
             'drawings' => 'SELECT id, username, link, geojson FROM drawings WHERE id = ?',
             'images' => 'SELECT id, description, location, is_shared FROM images WHERE id = ?',
             'task_sequences' => 'SELECT id, name, sequence, description FROM task_sequences WHERE id = ?',
+            'suggestions' => 'SELECT id, title, description, status, admin_reply FROM suggestions WHERE id = ?',
         ];
         if (!isset($queries[$entity])) {
             throw new RuntimeException('Tipo de registro não permitido.');
@@ -264,6 +276,23 @@ final class AdminService
     public function saveRecord(string $entity, int $id, array $data): int
     {
         switch ($entity) {
+            case 'suggestions':
+                if ($id < 1) throw new RuntimeException('Sugestões são criadas pelos usuários.');
+                $status = $this->requiredChoice($data, 'status', ['pending', 'acknowledged', 'in_progress', 'implemented']);
+                $reply = $this->optionalString($data, 'admin_reply', 8000) ?? '';
+                if ($status === 'pending' && trim($reply) !== '') {
+                    throw new RuntimeException('Selecione um estado de análise antes de responder.');
+                }
+                $statement = $this->database->prepare(
+                    "UPDATE suggestions SET status = ?, admin_reply = ?, updated_at = datetime('now') "
+                    . "WHERE id = ? AND (status = 'pending' OR ? <> 'pending')"
+                );
+                $statement->execute([$status, $reply, $id, $status]);
+                if ($statement->rowCount() !== 1) {
+                    throw new RuntimeException('Sugestão não encontrada ou não pode voltar a aguardando análise.');
+                }
+                return $id;
+
             case 'map_services':
                 $name = $this->requiredString($data, 'name', 200);
                 $url = $this->validateServiceUrl($this->requiredString($data, 'url', 2048));
@@ -405,6 +434,7 @@ final class AdminService
             'drawings' => 'drawings',
             'images' => 'images',
             'task_sequences' => 'task_sequences',
+            'suggestions' => 'suggestions',
         ];
         if (!isset($tables[$entity])) {
             throw new RuntimeException('Tipo de registro não permitido.');

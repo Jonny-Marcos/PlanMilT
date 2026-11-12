@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 7;
+    private const VERSION = 8;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -247,6 +247,26 @@ final class SchemaMigrator
                 );
                 $statement->execute([$defaults, 'map_defaults', $previousDefaults]);
                 $database->exec('PRAGMA user_version = 7');
+            }
+
+            if ($version < 8) {
+                $database->exec(
+                    'CREATE TABLE suggestions ('
+                    . 'id INTEGER PRIMARY KEY AUTOINCREMENT, owner_hash TEXT NOT NULL, '
+                    . 'request_id TEXT NOT NULL UNIQUE, title TEXT NOT NULL, description TEXT NOT NULL, '
+                    . "status TEXT NOT NULL DEFAULT 'pending' "
+                    . "CHECK (status IN ('pending', 'acknowledged', 'in_progress', 'implemented')), "
+                    . "admin_reply TEXT NOT NULL DEFAULT '', "
+                    . "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
+                    . "updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
+                );
+                $database->exec('CREATE INDEX idx_suggestions_owner ON suggestions (owner_hash, id)');
+                $database->exec(
+                    'CREATE TABLE suggestion_submissions ('
+                    . 'address_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
+                );
+                $database->exec('CREATE INDEX idx_suggestion_submissions ON suggestion_submissions (address_hash, created_at)');
+                $database->exec('PRAGMA user_version = 8');
             }
 
             $database->commit();
