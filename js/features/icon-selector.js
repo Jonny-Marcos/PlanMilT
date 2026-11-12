@@ -19,17 +19,21 @@ window.PlanMilT.iconSelector = Object.freeze({
             { label: 'Infantaria', names: `bda-inf-amv bda-inf-bld bda-inf-bld-planejada bda-inf-mec bda-inf-mec-planejada bda-inf-mtz bda-inf-mtz-planejada bda-inf-pqdt
                 btl-inf-amv btl-inf-bld btl-inf-mec btl-inf-mnth btl-inf-mtz btl-inf-pqdt cia-inf-bld cia-inf-mec cia-inf-mtz
                 ft-btl-inf-mec pc-bda-inf-bld-planejada pc-bda-inf-mec pc-bda-inf-mec-planejada pel-inf-mec pel-inf
-                cia-ac corpo-ex pc-de ft-blt-inf-mec ft-btl-inf-bld ft-cia-inf-amv ft-cia-inf-mec` },
+                cia-ac corpo-ex pc-de ft-blt-inf-mec ft-btl-inf-bld ft-cia-inf-amv ft-cia-inf-mec
+                cia-ass-civ cia-c-ap cia-pe de ft-bil-amv pc-de-pcp-planejada` },
             { label: 'Cavalaria', names: `bda-cav-bld bda-cav-bld-planejada bda-cav-mec bda-cav-mec-planejada esqd-c-bld esqd-c-mec
                 ft-reg-c-mec pc-bda-cav-bld-planejada pc-bda-cav-mec-planejada pel-c-mec rgt-cav-bld rgt-cav-mec
                 esqd-cav ft-cia-cav-mec ft-esqd-car-cmb ft-rgt-car-cmb ft-rgt-cav-mec reg-cav-bld reg-cav-mec` },
             { label: 'Artilharia', names: `art-c-ex art-div bda-aaae bia-105ar bia-aaae bia-art-cmp bia-art bia-mf gaaae
-                gac-105ap gac-105ar gac-155ap gac-155apsr gac-155ar gac gac-155-AR glmf pc-art-div sç-art` },
+                gac-105ap gac-105ar gac-155ap gac-155apsr gac-155ar gac gac-155-AR glmf pc-art-div sç-art
+                bia-cmdo cia-busc-alvos` },
             { label: 'Engenharia', names: `btl-eng btl-eng-cmb btl-eng-cnst cia-eng-amv cia-eng-bld cia-eng-l cia-eng-mec
                 cia-eng-pnt cia-eng-pqdt gpt-eng pc-gpt-eng` },
             { label: 'Logística', names: 'bsau gpt-log btl-log' },
             { label: 'Comunicações', names: `bcom cia-c2 cia-com pel-com btl-com pc-cia-com pel-rad
-                btl-com-ge cia-ge mae-confirmada mae-estimada mage-confirmada mage-estimada pel-ge` },
+                btl-com-ge cia-ge mae-confirmada mae-estimada mage-confirmada mage-estimada pel-ge
+                bcomge bge gce gp-cntr-sist` },
+            { label: 'Aviação', names: 'bavex esqd-avex' },
             { label: 'Outros', names: '' }
         ].map(category => ({ ...category, names: category.names.split(/\s+/).filter(Boolean) }));
         const icons = Object.create(null);

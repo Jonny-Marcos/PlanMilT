@@ -173,11 +173,11 @@ test('existing icons are accessible in their divisions and C2 is shared without 
     });
     await selector.load();
     const [folders, categories, icons] = container.children[1].children;
-    const categoryNames = ['Infantaria', 'Cavalaria', 'Artilharia', 'Engenharia', 'Logística', 'Comunicações', 'Outros'];
+    const categoryNames = ['Infantaria', 'Cavalaria', 'Artilharia', 'Engenharia', 'Logística', 'Comunicações', 'Aviação', 'Outros'];
     const samples = {
         friend: {
             Infantaria: 'bda-inf-mtz-planejada', Cavalaria: 'rgt-cav-mec', Artilharia: 'gac-105ar',
-            Engenharia: 'btl-eng-cnst', Logística: 'gpt-log', Comunicações: 'bcom'
+            Engenharia: 'btl-eng-cnst', Logística: 'gpt-log', Comunicações: 'bcom', Aviação: 'bavex'
         },
         enemy: {
             Infantaria: 'ft-blt-inf-mec', Cavalaria: 'reg-cav-mec', Artilharia: 'gac-155-AR',
@@ -197,7 +197,7 @@ test('existing icons are accessible in their divisions and C2 is shared without 
             const images = icons.children.flatMap(item => item.children.filter(child => child.tagName === 'img'));
             const local = images.filter(image => image.dataset.optionValue.startsWith(`${directory}/`));
             const shared = images.filter(image => image.dataset.optionValue.startsWith('c2/'));
-            if (category.textContent !== 'Outros') {
+            if (category.textContent !== 'Outros' && !(directory === 'enemy' && category.textContent === 'Aviação')) {
                 assert.ok(local.length > 0, `${label}: ${category.textContent} está vazia`);
                 assert.ok(local.some(image => image.alt === samples[directory][category.textContent]));
             }
@@ -224,13 +224,24 @@ test('existing icons are accessible in their divisions and C2 is shared without 
                 assert.ok(local.some(image => image.alt === 'gaaae'));
             }
             if (category.textContent === 'Outros' && directory === 'friend') {
-                assert.deepEqual(local.map(image => image.alt).sort(), [
-                    'bavex', 'bcomge', 'bge', 'bia-cmdo', 'cia-ass-civ', 'cia-busc-alvos',
-                    'cia-c-ap', 'cia-pe', 'de', 'esqd-avex', 'ft-bil-amv', 'gce',
-                    'gp-cntr-sist', 'new-unclassified', 'pc-de-pcp-planejada'
-                ].sort());
+                assert.deepEqual(local.map(image => image.alt), ['new-unclassified']);
             }
             if (category.textContent === 'Outros' && directory === 'enemy') assert.equal(local.length, 0);
+            if (directory === 'friend') {
+                const reassigned = {
+                    Aviação: ['bavex', 'esqd-avex'],
+                    Comunicações: ['bcomge', 'bge', 'gce', 'gp-cntr-sist'],
+                    Artilharia: ['bia-cmdo', 'cia-busc-alvos'],
+                    Infantaria: ['cia-ass-civ', 'cia-c-ap', 'cia-pe', 'de', 'ft-bil-amv', 'pc-de-pcp-planejada']
+                };
+                for (const name of reassigned[category.textContent] || []) {
+                    assert.ok(local.some(image => image.alt === name), name);
+                }
+            }
+            if (directory === 'enemy' && category.textContent === 'Aviação') {
+                assert.equal(local.length, 0);
+                assert.equal(icons.children[0].textContent, 'Nenhum ícone nesta divisão.');
+            }
         }
         assert.deepEqual(seen.sort(), paths.filter(icon => icon.startsWith(`symbols/${directory}/`)).sort());
     }
