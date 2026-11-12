@@ -1,6 +1,6 @@
 /**
  * @fileoverview Aplica uma camada-base sobre relevo SRTM no visualizador integrado somente leitura.
- * @requires Mapa Leaflet, cliente HTTP, elevationFiles e map3dTexture.
+ * @requires Mapa Leaflet, cliente HTTP, coverageImage, elevationFiles e map3dTexture.
  */
 (() => {
     const button = document.getElementById('view3DButton');
@@ -63,6 +63,7 @@
                 const [texture, initialTerrain] = await Promise.all([
                     window.PlanMilT.map3dTexture.create(map, bounds, source, [
                         drawnItems,
+                        window.PlanMilT.coverageImage.getGroup(),
                         ...Object.entries(layerRegistry)
                             .filter(([name]) => !['OpenTopo', 'Google Satellite', 'BDGEx - CTM50',
                                 'Infraestruturas', 'Quadrículas - UTM'].includes(name))

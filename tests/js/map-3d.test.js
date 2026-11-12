@@ -51,6 +51,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
             location: { origin: 'https://plan.test', href: 'https://plan.test/index.html' },
             addEventListener(name, callback) { listeners.set(name, callback); },
             PlanMilT: {
+                coverageImage: { getGroup: () => context.coverageGroup },
                 map3dTexture: { async create(map, bounds, source, groups, zoom) {
                     textures.push(source);
                     context.lastGroups = Array.from(groups);
@@ -76,6 +77,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
             }
         }
     };
+    context.coverageGroup = {};
     vm.runInNewContext(source, context);
     return {
         context, viewer, requests, messages, textures, overlay, frame, button, classes, downloads,
@@ -109,7 +111,7 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     assert.equal(h.requests.length, 2);
 });
 
-test('passes drawings and registered overlays but not base and utility layers to texture capture', async () => {
+test('passes drawings, radio coverage and suggestions but not base and utility layers to texture capture', async () => {
     const h = setup();
     const drawings = h.context.drawnItems;
     const suggestions = {};
@@ -122,7 +124,7 @@ test('passes drawings and registered overlays but not base and utility layers to
     h.click();
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
-    assert.deepEqual(h.context.lastGroups, [drawings, suggestions, imported]);
+    assert.deepEqual(h.context.lastGroups, [drawings, h.context.coverageGroup, suggestions, imported]);
 });
 
 test('passes the requested base zoom and rejects invalid values', async () => {

@@ -113,7 +113,7 @@ test('stops issuing tiles when a capture is cancelled', async () => {
     assert.ok(h.urls.length <= 4);
 });
 
-test('composites only visible drawing paths and icons and restores original DOM attributes', async () => {
+test('composites visible paths, icons and radio coverages without other image overlays', async () => {
     const h = setup();
     const element = (tagName, pane) => ({
         tagName, attributes: new Map(),
@@ -128,18 +128,30 @@ test('composites only visible drawing paths and icons and restores original DOM 
     icon.src = 'https://plan.test/symbols/example.svg';
     icon.complete = true;
     icon.naturalWidth = 30;
+    const coverage = element('img', '.leaflet-overlay-pane');
+    coverage.src = 'data:image/png;base64,coverage';
+    coverage.complete = true;
+    coverage.naturalWidth = 30;
+    const hiddenCoverage = element('img', '.leaflet-overlay-pane');
+    const unrelatedImage = element('img', '.leaflet-overlay-pane');
     const hidden = element('path', '.leaflet-overlay-pane svg');
     const pathLayer = { getElement: () => path };
     const iconLayer = { getElement: () => icon };
+    const coverageLayer = { getElement: () => coverage, toGeoJSON: () => ({ properties: { coverageImage: {} } }) };
+    const hiddenCoverageLayer = { getElement: () => hiddenCoverage, toGeoJSON: () => ({ properties: { coverageImage: {} } }) };
+    const unrelatedImageLayer = { getElement: () => unrelatedImage, toGeoJSON: () => ({ properties: {} }) };
     const hiddenLayer = { getElement: () => hidden };
-    const group = { eachLayer: callback => [pathLayer, iconLayer, hiddenLayer].forEach(callback) };
-    h.map.hasLayer = layer => layer !== hiddenLayer;
+    const group = { eachLayer: callback => [pathLayer, iconLayer, coverageLayer, hiddenCoverageLayer, unrelatedImageLayer, hiddenLayer].forEach(callback) };
+    h.map.hasLayer = layer => layer !== hiddenLayer && layer !== hiddenCoverageLayer;
     h.map.getContainer = () => ({ id: 'map' });
     let captured = false;
     h.window.html2canvas = async (container, options) => {
         captured = true;
         assert.equal(path.getAttribute('data-planmilt-3d'), 'visible');
         assert.equal(icon.getAttribute('data-planmilt-3d'), 'visible');
+        assert.equal(coverage.getAttribute('data-planmilt-3d'), 'visible');
+        assert.equal(hiddenCoverage.getAttribute('data-planmilt-3d'), null);
+        assert.equal(unrelatedImage.getAttribute('data-planmilt-3d'), null);
         assert.equal(hidden.getAttribute('data-planmilt-3d'), null);
         assert.equal(options.backgroundColor, null);
         const svg = { style: { transform: 'matrix(1, 0, 0, 1, -110, -80)' } };
@@ -147,11 +159,14 @@ test('composites only visible drawing paths and icons and restores original DOM 
         const unrelated = { getAttribute: () => null, closest: () => null, remove() { this.removed = true; } };
         const definition = { getAttribute: () => null, closest: () => true, remove() { this.removed = true; } };
         const marker = { getAttribute: () => null, remove() { this.removed = true; } };
+        const selectedImage = { getAttribute: () => 'visible', remove() { this.removed = true; } };
+        const otherImage = { getAttribute: () => null, remove() { this.removed = true; } };
         const clone = {
             style: { background: '#ddd' },
             querySelectorAll(selector) {
                 if (selector === '.leaflet-overlay-pane svg path') return [selected, unrelated, definition];
                 if (selector === '.leaflet-overlay-pane svg') return [svg];
+                if (selector === '.leaflet-overlay-pane img, .leaflet-overlay-pane canvas') return [selectedImage, otherImage];
                 if (selector === '.leaflet-marker-pane > *') return [marker];
                 return [];
             }
@@ -163,6 +178,8 @@ test('composites only visible drawing paths and icons and restores original DOM 
         assert.equal(unrelated.removed, true);
         assert.equal(definition.removed, undefined);
         assert.equal(marker.removed, true);
+        assert.equal(selectedImage.removed, undefined);
+        assert.equal(otherImage.removed, true);
         return { overlay: true };
     };
     await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [group]);
@@ -170,6 +187,7 @@ test('composites only visible drawing paths and icons and restores original DOM 
     assert.equal(h.draws.at(-1)[0].overlay, true);
     assert.equal(path.getAttribute('data-planmilt-3d'), null);
     assert.equal(icon.getAttribute('data-planmilt-3d'), null);
+    assert.equal(coverage.getAttribute('data-planmilt-3d'), null);
 });
 
 test('restores marked elements and reports capture errors', async () => {
@@ -188,6 +206,13 @@ test('restores marked elements and reports capture errors', async () => {
     h.window.html2canvas = async () => { throw new Error('Falha na captura'); };
     await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo', [layer]), /Falha na captura/);
     assert.equal(attributes.get('data-planmilt-3d'), 'previous');
+});
+
+test('does not capture children of a hidden coverage or suggestion group', async () => {
+    const h = setup();
+    const hiddenGroup = { eachLayer() { throw new Error('Grupo oculto não deve ser percorrido.'); } };
+    h.map.hasLayer = () => false;
+    await h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo', [hiddenGroup]);
 });
 
 test('rejects external icons rather than silently omitting them', async () => {

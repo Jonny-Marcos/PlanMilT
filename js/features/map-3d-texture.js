@@ -1,5 +1,5 @@
 /**
- * @fileoverview Monta uma textura Mercator com tiles e desenhos visíveis.
+ * @fileoverview Monta uma textura Mercator com tiles, desenhos e coberturas visíveis.
  * @exports window.PlanMilT.map3dTexture
  * @requires Mapa Leaflet, cliente HTTP e html2canvas.
  */
@@ -7,11 +7,11 @@ window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.map3dTexture = Object.freeze({
     /**
-     * Busca tiles da camada selecionada e sobrepõe os desenhos visíveis.
+     * Busca tiles da camada selecionada e sobrepõe desenhos e coberturas visíveis.
      * @param {Object} map - Mapa Leaflet usado para projetar coordenadas.
      * @param {number[]} bounds - Limites sul, oeste, norte e leste.
      * @param {string} source - Camada "opentopo" ou "bdgex".
-     * @param {Object[]} groups - Grupos de desenhos e marcadores a incluir.
+     * @param {Object[]} groups - Grupos de desenhos, marcadores e coberturas a incluir.
      * @param {number|null} requestedZoom - Zoom escolhido, ou null para automático.
      * @param {Object} options - Cancelamento, confirmação e progresso do carregamento.
      * @returns {Promise<Object>} Textura PNG e zoom efetivo.
@@ -139,7 +139,11 @@ window.PlanMilT.map3dTexture = Object.freeze({
                 layer.eachLayer(child => stack.push(child));
             } else if (typeof layer.getElement === 'function') {
                 const element = layer.getElement();
-                if (element && (element.closest('.leaflet-overlay-pane svg') || element.closest('.leaflet-marker-pane'))) {
+                if (!element) continue;
+                const coverage = element.tagName.toLowerCase() === 'img'
+                    && element.closest('.leaflet-overlay-pane') && typeof layer.toGeoJSON === 'function'
+                    && layer.toGeoJSON()?.properties?.coverageImage;
+                if (element.closest('.leaflet-overlay-pane svg') || element.closest('.leaflet-marker-pane') || coverage) {
                     elements.add(element);
                 }
             }
@@ -185,7 +189,9 @@ window.PlanMilT.map3dTexture = Object.freeze({
                             svg.style.top = `${transform.f}px`;
                         });
                         clonedMap.querySelectorAll('.leaflet-overlay-pane img, .leaflet-overlay-pane canvas')
-                            .forEach(element => element.remove());
+                            .forEach(element => {
+                                if (element.getAttribute('data-planmilt-3d') !== 'visible') element.remove();
+                            });
                         clonedMap.querySelectorAll('.leaflet-marker-pane > *').forEach(marker => {
                             if (marker.getAttribute('data-planmilt-3d') !== 'visible') marker.remove();
                         });
