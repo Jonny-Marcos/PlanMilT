@@ -21,7 +21,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261125-icon-divisions/);
+    assert.match(documentSource, /app\.css\?v=20261112-autosave-indicator/);
     assert.match(documentSource, /radio-planning\.js\?v=20261115-rx-power/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
     assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
@@ -32,9 +32,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['elevation-tools', 'shared-layers', 'kmz-import', 'tactical-graphics', 'local-session']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
     }
-    for (const script of ['drawing-storage', 'drawing-loading']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-autosave`));
-    }
+    assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-save-dialog'));
+    assert.ok(documentSource.includes('js/features/drawing-loading.js?v=20261112-autosave'));
     for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }

@@ -10,3 +10,7 @@ test('freehand and tactical toolbar icons use the original size without rotation
     assert.match(styles, /\.leaflet-control-tactical-graphic i\s*\{[^}]*font-size:\s*29px/);
     assert.doesNotMatch(styles, /\.leaflet-control-tactical-graphic i\s*\{[^}]*transform:/);
 });
+
+test('active automatic saving highlights the save icon with a green background', () => {
+    assert.match(styles, /#saveDrawings\.auto-save-active[\s\S]*?\{[^}]*background-color:\s*#b7e4c7/);
+});

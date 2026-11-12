@@ -25,6 +25,17 @@ function setup() {
     const storage = new Map();
     const documentEvents = new Map();
     const notices = [];
+    const validationMessages = [];
+    const classes = new Set();
+    const saveButton = {
+        title: 'Salvar desenhos',
+        classList: {
+            add(name) { classes.add(name); },
+            remove(name) { classes.delete(name); },
+            contains(name) { return classes.has(name); }
+        },
+        addEventListener(name, callback) { click = callback; }
+    };
     const nodes = {
         'swal-input-usuario': { value: '' },
         'swal-input-senha': { value: '' },
@@ -51,10 +62,13 @@ function setup() {
         document: {
             addEventListener(name, callback) { documentEvents.set(name, callback); },
             getElementById(id) {
-                if (id === 'saveDrawings') return { addEventListener(name, callback) { click = callback; } };
+                if (id === 'saveDrawings') return saveButton;
                 return nodes[id];
             },
-            createElement: () => ({ style: {}, setAttribute() {}, remove() {} }),
+            createElement: () => ({
+                style: {}, setAttribute() {},
+                remove() { notices.splice(notices.indexOf(this), 1); }
+            }),
             body: { appendChild(node) { notices.push(node); } }
         },
         sessionStorage: {
@@ -84,7 +98,7 @@ function setup() {
             async fire(...args) {
                 alerts.push(args);
                 const options = args[0];
-                if (options?.title === 'Insira suas credenciais') {
+                if (options?.title === 'Salvar desenhos') {
                     if (cancelCredentials) return { isConfirmed: false };
                     options.didOpen();
                     nodes['swal-input-usuario'].value = username;
@@ -98,7 +112,7 @@ function setup() {
                 return { isConfirmed: true };
             },
             isVisible: () => visible,
-            showValidationMessage(message) { throw new Error(message); }
+            showValidationMessage(message) { validationMessages.push(message); }
         },
         setInterval(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
         clearInterval(id) { timers.delete(id); },
@@ -107,14 +121,14 @@ function setup() {
     vm.runInNewContext(source, context);
     documentEvents.get('DOMContentLoaded')();
     return {
-        click: () => click(), alerts, requests, responses, recent, timers, storage, notices, map, drawnItems, coverageGroup, context,
+        click: () => click(), alerts, requests, responses, recent, timers, storage, notices, saveButton, nodes, validationMessages, map, drawnItems, coverageGroup, context,
         setEnabled(value) { enabled = value; },
         setFeatures(value) { features = value; },
         setCoverage(value) { coverage = value; },
         setConfirmEmpty(value) { confirmEmpty = value; },
         setVisible(value) { visible = value; },
         setUsername(value) { username = value; },
-        cancelCredentials() { cancelCredentials = true; },
+        cancelCredentials(value = true) { cancelCredentials = value; },
         failSerialization() { failSerialization = true; },
         failStorageRead() { failStorageRead = true; },
         failStorageWrite() { failStorageWrite = true; },
@@ -134,7 +148,7 @@ test('manual save offers automatic saving once per page and preserves the HTTP c
     assert.equal(h.timers.size, 0);
     assert.deepEqual(h.recent, ['teste']);
     await h.click();
-    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Insira suas credenciais')[1][0].html, /drawingAutoSaveChoice/);
+    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
     assert.equal(h.timers.size, 0);
 });
 
@@ -144,6 +158,48 @@ test('cancelled credentials do not consume the first choice', async () => {
     await h.click();
     assert.equal(h.requests.length, 0);
     assert.equal(h.timers.size, 0);
+    h.cancelCredentials(false);
+    await h.click();
+    assert.match(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
+});
+
+test('save dialog presents labelled credentials, an optional explanation and clear actions', async () => {
+    const h = setup();
+    await h.click();
+    const dialog = h.alerts[0][0];
+    assert.equal(dialog.customClass.popup, 'drawing-save-modal');
+    assert.match(dialog.html, /<style>[\s\S]*drawing-save-modal/);
+    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Usuário/);
+    assert.match(dialog.html, /<label[^>]*for="swal-input-senha"[^>]*>Senha/);
+    assert.match(dialog.html, /for="drawingAutoSaveChoice"/);
+    assert.match(dialog.html, /aria-describedby="drawingAutoSaveDescription"/);
+    assert.match(dialog.html, /15 segundos/);
+    assert.match(dialog.html, /outra aba ou dispositivo podem ser sobrescritas/);
+    assert.equal(dialog.showCancelButton, true);
+    assert.equal(dialog.confirmButtonText, 'Salvar');
+    assert.equal(dialog.cancelButtonText, 'Cancelar');
+    h.nodes['swal-input-senha'].value = '';
+    assert.equal(dialog.preConfirm(), false);
+    assert.match(h.validationMessages[0], /Usuário e senha são necessários/);
+});
+
+test('save button indicates active automatic saving and clears warnings when resumed', async () => {
+    const h = setup();
+    assert.equal(h.saveButton.classList.contains('auto-save-active'), false);
+    h.setEnabled(true);
+    await h.click();
+    assert.equal(h.saveButton.classList.contains('auto-save-active'), true);
+    assert.match(h.saveButton.title, /automático ativo/);
+    assert.equal(h.notices.length, 0);
+
+    h.context.window.PlanMilT.drawingAutoSave.pauseForLoad();
+    assert.equal(h.saveButton.classList.contains('auto-save-active'), false);
+    assert.equal(h.saveButton.title, 'Salvar desenhos');
+    assert.match(h.notices[0].textContent, /pausado/);
+
+    await h.click();
+    assert.equal(h.saveButton.classList.contains('auto-save-active'), true);
+    assert.equal(h.notices.length, 0);
 });
 
 test('automatic save checks every 15 seconds and only sends changed drawings or coverages', async () => {
@@ -277,7 +333,7 @@ test('loading a different planning pauses until the next successful manual save'
     assert.match(h.notices[0].textContent, /pausado/);
     await h.click();
     assert.equal(h.timers.size, 1);
-    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Insira suas credenciais')[1][0].html, /drawingAutoSaveChoice/);
+    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
 });
 
 test('manual and automatic errors are surfaced and do not leave automatic saving active', async () => {
@@ -295,6 +351,7 @@ test('manual and automatic errors are surfaced and do not leave automatic saving
     await h.tick();
     assert.match(h.notices[0].textContent, /Senha incorreta/);
     assert.equal(h.timers.size, 0);
+    assert.equal(h.saveButton.classList.contains('auto-save-active'), false);
 });
 
 test('serialization errors do not send a request', async () => {

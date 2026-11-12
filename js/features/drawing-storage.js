@@ -3,6 +3,25 @@
  * @requires Leaflet GeoJSON, drawnItems, Swal e cliente HTTP no escopo legado.
  */
 window.PlanMilT.drawingAutoSave = (() => {
+    const SAVE_MODAL_STYLES = `
+.swal2-popup.drawing-save-modal{width:min(480px,calc(100vw - 28px))!important;padding:24px!important;font-family:Arial,sans-serif;color:#263445}
+.swal2-popup.drawing-save-modal .swal2-title{padding:0;margin:0 0 8px;text-align:left;font-size:21px}
+.swal2-popup.drawing-save-modal .swal2-html-container{margin:0;text-align:left;overflow:visible}
+#drawingSaveForm{font-size:14px;line-height:1.45}
+#drawingSaveForm .drawing-save-intro{margin:0 0 18px;color:#526174}
+#drawingSaveForm .drawing-save-field{display:block;margin-bottom:14px;font-weight:600}
+#drawingSaveForm .drawing-save-field input{display:block;width:100%;height:42px;box-sizing:border-box;margin:6px 0 0;padding:0 12px;border:1px solid #c5cad2;border-radius:6px;font:400 16px Arial,sans-serif;color:#263445;background:#fff}
+#drawingSaveForm .drawing-save-field input:focus{outline:2px solid #8da7c7;outline-offset:1px;border-color:#435f88}
+#drawingSaveForm .drawing-save-option{display:flex;align-items:flex-start;gap:10px;margin:18px 0 0;padding:14px;border:1px solid #d3dce8;border-radius:8px;background:#f3f6fa;cursor:pointer}
+#drawingSaveForm .drawing-save-option input{flex:0 0 auto;width:17px;height:17px;margin:2px 0 0;accent-color:#435f88}
+#drawingSaveForm .drawing-save-option-text{display:block;min-width:0}
+#drawingSaveForm .drawing-save-option-title{display:block;font-weight:600;color:#263445}
+#drawingSaveForm .drawing-save-option-description{display:block;margin-top:3px;color:#526174;font-size:13px;font-weight:400}
+#drawingSaveForm .drawing-save-warning{margin:12px 0 0;color:#6b5260;font-size:13px}
+.swal2-popup.drawing-save-modal .swal2-actions{width:100%;margin:20px 0 0;gap:10px}
+.swal2-popup.drawing-save-modal .swal2-actions button{margin:0;min-height:40px;font-size:14px}
+`;
+    const saveButton = document.getElementById('saveDrawings');
     let choice;
     let target;
     let baseline;
@@ -39,6 +58,8 @@ window.PlanMilT.drawingAutoSave = (() => {
         if (timer !== undefined) clearInterval(timer);
         timer = undefined;
         target = undefined;
+        saveButton.classList.remove('auto-save-active');
+        saveButton.title = 'Salvar desenhos';
         if (message) showStatus(message);
     }
 
@@ -183,7 +204,7 @@ window.PlanMilT.drawingAutoSave = (() => {
         window.PlanMilT.coverageImage.getGroup().on('layeradd layerremove', changed);
     });
 
-    document.getElementById('saveDrawings').addEventListener('click', async () => {
+    saveButton.addEventListener('click', async () => {
         let savedUsuario;
         let savedSenha;
         try {
@@ -196,10 +217,30 @@ window.PlanMilT.drawingAutoSave = (() => {
         }
         const askChoice = choice === undefined;
         const result = await Swal.fire({
-            title: 'Insira suas credenciais',
-            html: `<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Usuário">
-<input type="password" id="swal-input-senha" class="swal2-input" placeholder="Senha">
-${askChoice ? '<label><input type="checkbox" id="drawingAutoSaveChoice"> Ativar salvamento automático no servidor a cada 15 segundos quando houver alterações, até recarregar a página.</label><p>Alterações no mesmo planejamento feitas em outra aba ou dispositivo podem ser sobrescritas.</p>' : ''}`,
+            title: 'Salvar desenhos',
+            html: `<style>${SAVE_MODAL_STYLES}</style>
+<div id="drawingSaveForm">
+    <p class="drawing-save-intro">Informe o usuário e a senha do planejamento para salvá-lo no servidor.</p>
+    <label class="drawing-save-field" for="swal-input-usuario">Usuário
+        <input type="text" id="swal-input-usuario" autocomplete="username">
+    </label>
+    <label class="drawing-save-field" for="swal-input-senha">Senha
+        <input type="password" id="swal-input-senha" autocomplete="current-password">
+    </label>
+    ${askChoice ? `<label class="drawing-save-option" for="drawingAutoSaveChoice">
+        <input type="checkbox" id="drawingAutoSaveChoice" aria-describedby="drawingAutoSaveDescription">
+        <span class="drawing-save-option-text">
+            <span class="drawing-save-option-title">Salvamento automático</span>
+            <span class="drawing-save-option-description" id="drawingAutoSaveDescription">Salva alterações a cada 15 segundos, até recarregar a página.</span>
+        </span>
+    </label>
+    <p class="drawing-save-warning">Alterações no mesmo planejamento feitas em outra aba ou dispositivo podem ser sobrescritas.</p>` : ''}
+</div>`,
+            customClass: { popup: 'drawing-save-modal' },
+            showCancelButton: true,
+            confirmButtonText: 'Salvar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
             focusConfirm: false,
             didOpen: () => {
                 document.getElementById('swal-input-usuario').value = savedUsuario;
@@ -246,7 +287,12 @@ ${askChoice ? '<label><input type="checkbox" id="drawingAutoSaveChoice"> Ativar 
                 if (choice) {
                     target = credentials;
                     timer = setInterval(tick, 15000);
-                    showStatus('Salvamento automático no servidor ativado.');
+                    saveButton.classList.add('auto-save-active');
+                    saveButton.title = 'Salvar desenhos (salvamento automático ativo)';
+                    if (status) {
+                        status.remove();
+                        status = undefined;
+                    }
                 } else if (status) {
                     status.remove();
                     status = undefined;

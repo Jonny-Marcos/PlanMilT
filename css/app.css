@@ -101,6 +101,13 @@
             .toolbar-icon:hover {
                 color: #007bff; /* Cor de destaque ao passar o mouse */
             }
+            #saveDrawings.auto-save-active,
+            #saveDrawings.auto-save-active:hover {
+                background-color: #b7e4c7;
+                box-shadow: 0 0 0 4px #b7e4c7;
+                border-radius: 2px;
+                color: #173e27;
+            }
             /* Estilos padrão para desktop */
             .toolbar-item select,
             .toolbar-item input[type='range'],
