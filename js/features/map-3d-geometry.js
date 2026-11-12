@@ -76,7 +76,7 @@ window.PlanMilT.map3dGeometry = Object.freeze({
                     - baseElevation * verticalScale;
                 vertices[vertexIndex++] = projectY(latitude) - centerY;
                 vertices[vertexIndex++] = column / (columns - 1);
-                vertices[vertexIndex++] = 1 - row / (rows - 1);
+                vertices[vertexIndex++] = (northY - projectY(latitude)) / (northY - southY);
             }
         }
 

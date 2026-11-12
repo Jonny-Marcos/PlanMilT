@@ -8,6 +8,8 @@
     const warnings = document.getElementById('viewerWarnings');
     const exaggeration = document.getElementById('verticalExaggeration');
     const exaggerationValue = document.getElementById('verticalExaggerationValue');
+    const baseLayer = document.getElementById('baseLayer3D');
+    const attribution = document.getElementById('viewerAttribution');
     const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
     const origin = window.location.origin;
     const host = window.parent !== window ? window.parent : null;
@@ -174,17 +176,16 @@ void main() {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
             textureReady = true;
             const span = Math.max(mesh.width, mesh.depth);
-            camera = { ...camera, distance: span * 1.35 };
+            const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+            camera = { ...camera, distance: span * Math.max(1.9, 1.3 / aspect) };
             initialCamera = { ...camera };
             draw();
             const missing = data.missingTiles || [];
-            const unavailable = data.unavailableLayers || [];
             const messages = [];
             if (missing.length) messages.push(`Sem elevação local em ${missing.join(', ')}; o relevo dessas áreas foi interpolado localmente.`);
-            if (unavailable.includes('Google Satellite')) messages.push('Google Satellite não é incluída no visualizador 3D.');
-            if (unavailable.some(layer => layer !== 'Google Satellite')) {
-                messages.push('Uma ou mais imagens externas não puderam ser capturadas por restrições do serviço.');
-            }
+            attribution.textContent = data.source === 'bdgex'
+                ? 'Mapa: BDGEx – CTM50. Elevação: SRTM local.'
+                : 'Mapa: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Elevação: SRTM local.';
             warnings.textContent = messages.join(' ');
             warnings.hidden = messages.length === 0;
             showStatus('Visualização atualizada. Arraste para orbitar e use a roda do mouse para aproximar.');
@@ -256,8 +257,8 @@ void main() {
             showStatus('O mapa principal não está disponível. Abra o visualizador pelo botão 3D do PlanMilT.');
             return;
         }
-        host.postMessage({ type: 'planmilt-3d-refresh' }, origin);
-        showStatus('Atualizando camadas, imagens e terreno locais…');
+        host.postMessage({ type: 'planmilt-3d-refresh', source: baseLayer.value }, origin);
+        showStatus('Atualizando camada-base e terreno local…');
     }
 
     window.addEventListener('message', event => {
@@ -279,6 +280,7 @@ void main() {
     });
 
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
+    baseLayer.addEventListener('change', requestRefresh);
     document.getElementById('closeViewer').addEventListener('click', () => {
         if (host) host.postMessage({ type: 'planmilt-3d-close' }, origin);
     });
@@ -312,7 +314,8 @@ void main() {
     canvas.addEventListener('wheel', event => {
         event.preventDefault();
         if (!mesh) return;
-        camera.distance = Math.max(mesh.width * 0.2, Math.min(mesh.width * 8, camera.distance * Math.exp(event.deltaY * 0.001)));
+        const span = Math.max(mesh.width, mesh.depth);
+        camera.distance = Math.max(span * 0.2, Math.min(span * 8, camera.distance * Math.exp(event.deltaY * 0.001)));
         draw();
     }, { passive: false });
     window.addEventListener('resize', draw);
@@ -320,7 +323,7 @@ void main() {
     try {
         initializeRenderer();
         if (host) {
-            host.postMessage({ type: 'planmilt-3d-ready' }, origin);
+            host.postMessage({ type: 'planmilt-3d-ready', source: baseLayer.value }, origin);
             showStatus('Preparando a visualização do mapa…');
         }
     } catch (error) {

@@ -28,7 +28,10 @@ $service = new MapImageProxy(
 );
 $validWms = 'https://maps.example/wms?SERVICE=WMS&REQUEST=GetMap&FORMAT=image%2Fpng'
     . '&WIDTH=256&HEIGHT=256&BBOX=0,0,1,1';
+$validBdgex = 'https://bdgex.eb.mil.br/mapcache?SERVICE=WMS&REQUEST=GetMap&FORMAT=image%2Fpng'
+    . '&VERSION=1.1.1&LAYERS=ctm50&SRS=EPSG%3A4326&WIDTH=96&HEIGHT=96&BBOX=-52,-22,-51,-21';
 expectMapImage($service->validateUrl($validWms)['host'] === 'maps.example', 'WMS cadastrado deveria ser aceito.');
+expectMapImage($service->validateUrl($validBdgex)['host'] === 'bdgex.eb.mil.br', 'BDGEx CTM50 deveria ser aceito sem cadastro.');
 expectMapImage(
     $service->validateUrl('https://tile.opentopomap.org/map/12/1234/1234.png')['host'] === 'tile.opentopomap.org',
     'Tile OpenTopo válido deveria ser aceito.'
@@ -46,6 +49,9 @@ foreach ([
     'https://maps.example/wms?SERVICE=WMS&REQUEST=GetMap&FORMAT=image/png&WIDTH=99999&HEIGHT=1&BBOX=0,0,1,1',
     'https://maps.example/wms?SERVICE=WMS&REQUEST=GetMap&FORMAT=image/png&WIDTH=1&HEIGHT=1&BBOX=foo,0,1,1',
     'https://maps.example/wms?SERVICE=WMS&REQUEST=GetMap&REQUEST=GetFeatureInfo&FORMAT=image/png&WIDTH=1&HEIGHT=1&BBOX=0,0,1,1',
+    str_replace('LAYERS=ctm50', 'LAYERS=outra', $validBdgex),
+    str_replace('WIDTH=96', 'WIDTH=256', $validBdgex),
+    $validBdgex . '&extra=nao-permitido',
     'https://tile.opentopomap.org/map/19/0/0.png',
     'https://mt0.google.com/vt/lyrs=s&x=0&y=0&z=0',
 ] as $url) {

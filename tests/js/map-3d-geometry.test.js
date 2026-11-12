@@ -21,8 +21,18 @@ test('builds a Mercator mesh with terrain heights, image texture coordinates and
     assert.equal(mesh.vertices[1], -60);
     assert.equal(mesh.vertices[6], -20);
     assert.equal(mesh.vertices[3], 0);
-    assert.equal(mesh.vertices[4], 1);
+    assert.equal(mesh.vertices[4], 0);
+    assert.equal(mesh.vertices[14], 1);
     assert.ok(mesh.width > 0 && mesh.depth > 0);
+});
+
+test('aligns the latitude rows of the texture to Mercator rather than a linear latitude fraction', () => {
+    const mesh = geometry.createMesh({
+        bounds: [60, 0, 65, 1], elevations: [[0, 0], [0, 0], [0, 0]]
+    });
+    const latitudeY = latitude => Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360));
+    const expected = (latitudeY(65) - latitudeY(62.5)) / (latitudeY(65) - latitudeY(60));
+    assert.ok(Math.abs(mesh.vertices[14] - expected) < 1e-6);
 });
 
 test('fills missing terrain samples and rejects unsafe grid dimensions', () => {

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Repassa imagens WMS de origens cadastradas para a captura local do visualizador 3D.
+ * Repassa imagens de origens permitidas para a textura do visualizador 3D.
  */
 require_once dirname(__DIR__) . '/bootstrap.php';
 require_once dirname(__DIR__) . '/src/Infrastructure/Http/MapImageProxy.php';

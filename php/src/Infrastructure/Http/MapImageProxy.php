@@ -29,7 +29,7 @@ final class MapImageProxy
     }
 
     /**
-     * Valida uma URL contra hosts cadastrados e o padrão fixo de tiles OpenTopoMap.
+     * Valida uma URL contra hosts cadastrados e os padrões fixos OpenTopoMap e BDGEx.
      *
      * @param string $url URL de imagem solicitada.
      * @return array{host:string,path:string,query:string} Componentes validados.
@@ -66,7 +66,8 @@ final class MapImageProxy
             return ['host' => $host, 'path' => $path, 'query' => ''];
         }
 
-        if (!$this->isRegisteredServicePath($host, $path)) {
+        $isBdgex = $host === 'bdgex.eb.mil.br' && $path === '/mapcache';
+        if (!$isBdgex && !$this->isRegisteredServicePath($host, $path)) {
             throw new InvalidArgumentException('A origem da camada não está na lista permitida.');
         }
 
@@ -100,6 +101,15 @@ final class MapImageProxy
             || (int) $parameters['width'] > self::MAX_IMAGE_DIMENSION
             || (int) $parameters['height'] < 1
             || (int) $parameters['height'] > self::MAX_IMAGE_DIMENSION
+            || ($isBdgex && (strtolower((string) ($parameters['layers'] ?? '')) !== 'ctm50'
+                || strtoupper((string) ($parameters['srs'] ?? '')) !== 'EPSG:4326'
+                || ($parameters['version'] ?? '') !== '1.1.1'
+                || $format !== 'image/png'
+                || (int) $parameters['width'] !== 96 || (int) $parameters['height'] !== 96
+                || array_diff(array_keys($parameters), [
+                    'service', 'request', 'format', 'version', 'layers', 'srs', 'width', 'height',
+                    'bbox', 'styles', 'transparent', 'dpimode', 'tilematrixset',
+                ]) !== []))
             || !$validBbox
             || !array_reduce($bbox, static fn (bool $valid, float $value): bool =>
                 $valid && is_finite($value) && abs($value) <= 40_000_000, true)) {

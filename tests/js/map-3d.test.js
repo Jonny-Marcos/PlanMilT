@@ -10,7 +10,7 @@ const indexSource = fs.readFileSync(path.join(__dirname, '../../index.html'), 'u
 const viewerSource = fs.readFileSync(path.join(__dirname, '../../js/features/map-3d-viewer.js'), 'utf8');
 const viewerHtml = fs.readFileSync(path.join(__dirname, '../../visualizador-3d.html'), 'utf8');
 
-function setup({ images = [], terrainResults = [{ elevations: [[100, 110], [100, 110]], missingTiles: [] }], ensure } = {}) {
+function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missingTiles: [] }], ensure } = {}) {
     const listeners = new Map();
     const requests = [];
     const messages = [];
@@ -26,22 +26,13 @@ function setup({ images = [], terrainResults = [{ elevations: [[100, 110], [100,
     };
     const classes = new Set();
     const downloads = [];
-    const imageElements = images.map(src => ({
-        src,
-        getBoundingClientRect: () => ({ left: 0, top: 0, right: 800, bottom: 600, width: 256, height: 256 })
-    }));
-    const mapElement = {
-        clientWidth: 800,
-        clientHeight: 600,
-        getBoundingClientRect: () => ({ left: 0, top: 0, right: 800, bottom: 600 }),
-        querySelectorAll: selector => selector === 'img' ? imageElements : []
-    };
+    const textures = [];
     const context = {
         URL,
         document: {
             body: { classList: { add: name => classes.add(name), remove: name => classes.delete(name) } },
             getElementById(id) {
-                return { map: mapElement, view3DButton: button, map3DOverlay: overlay, map3DFrame: frame }[id];
+                return { view3DButton: button, map3DOverlay: overlay, map3DFrame: frame }[id];
             }
         },
         map: {
@@ -56,20 +47,11 @@ function setup({ images = [], terrainResults = [{ elevations: [[100, 110], [100,
         window: {
             location: { origin: 'https://plan.test', href: 'https://plan.test/index.html' },
             addEventListener(name, callback) { listeners.set(name, callback); },
-            html2canvas: async (element, options) => {
-                const clonedImages = images.map(src => ({ src, style: {} }));
-                const cloneMap = {
-                    querySelectorAll(selector) {
-                        if (selector === '.leaflet-control-container, .map-toolbar') return [];
-                        if (selector === 'img') return clonedImages;
-                        if (selector === 'canvas') return [];
-                        return [];
-                    }
-                };
-                await options.onclone({ getElementById: () => cloneMap });
-                return { toDataURL: () => 'data:image/png;base64,AA==' };
-            },
             PlanMilT: {
+                map3dTexture: { async create(map, bounds, source) {
+                    textures.push(source);
+                    return 'data:image/png;base64,AA==';
+                } },
                 elevationFiles: {
                     async ensure(tiles) {
                         downloads.push(Array.from(tiles));
@@ -91,7 +73,7 @@ function setup({ images = [], terrainResults = [{ elevations: [[100, 110], [100,
     };
     vm.runInNewContext(source, context);
     return {
-        context, viewer, requests, messages, imageElements, overlay, frame, button, classes, downloads,
+        context, viewer, requests, messages, textures, overlay, frame, button, classes, downloads,
         click: () => click(),
         message(event) { listeners.get('message')(event); }
     };
@@ -100,10 +82,10 @@ function setup({ images = [], terrainResults = [{ elevations: [[100, 110], [100,
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-3d-integrated');
+    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-base-terrain');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     const dataMessage = h.messages.find(entry => entry.message.type === 'planmilt-3d-data');
     assert.equal(dataMessage.origin, 'https://plan.test');
@@ -120,19 +102,21 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     assert.equal(h.requests.length, 2);
 });
 
-test('does not trust another origin and excludes Google Satellite without proxying it', async () => {
-    const tile = 'https://mt0.google.com/vt/lyrs=s&x=1&y=1&z=2';
-    const h = setup({ images: [tile] });
+test('only accepts OpenTopo or BDGEx from the embedded viewer', async () => {
+    const h = setup();
     h.click();
-    h.message({ origin: 'https://attacker.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://attacker.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 0);
 
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'google' } });
+    assert.equal(h.requests.length, 0);
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'bdgex' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.deepEqual(h.requests.map(request => request.url), ['php/endpoints/elevation-terrain.php']);
     const payload = h.messages.find(entry => entry.message.type === 'planmilt-3d-data').message.payload;
-    assert.deepEqual(Array.from(payload.unavailableLayers), ['Google Satellite']);
+    assert.equal(payload.source, 'bdgex');
+    assert.deepEqual(h.textures, ['bdgex']);
 });
 
 test('obtains missing tiles and requests terrain again before displaying it', async () => {
@@ -141,7 +125,7 @@ test('obtains missing tiles and requests terrain again before displaying it', as
         { elevations: [[100, 110], [100, 110]], missingTiles: [] }
     ] });
     h.click();
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.deepEqual(h.downloads, [['S22W052.HGT']]);
     assert.equal(h.requests.length, 2);
@@ -152,7 +136,7 @@ test('keeps remaining missing tiles visible after upload cancellation or partial
     const missing = { elevations: [[null, 100], [100, 100]], missingTiles: ['S22W052.HGT'] };
     const h = setup({ terrainResults: [missing, missing], ensure: async () => false });
     h.click();
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 2);
     assert.deepEqual(Array.from(h.messages.find(entry => entry.message.type === 'planmilt-3d-data').message.payload.missingTiles), ['S22W052.HGT']);
@@ -166,7 +150,7 @@ test('reports recovery errors and ignores messages from other frames', async () 
     h.click();
     h.message({ origin: 'https://plan.test', source: {}, data: { type: 'planmilt-3d-close' } });
     assert.equal(h.overlay.hidden, false);
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.match(h.messages.find(entry => entry.message.type === 'planmilt-3d-error').message.message, /Falha no upload/);
 });
@@ -178,7 +162,7 @@ test('does not publish an outdated snapshot after closing and reopening', async 
         ensure: () => new Promise(resolve => { finish = resolve; })
     });
     h.click();
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready' } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-close' } });
     h.click();
@@ -195,10 +179,11 @@ test('the embedded renderer communicates only with its parent and provides a ret
     const messages = [];
     const events = {};
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer']) {
+    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'viewerAttribution']) {
         elements[id] = { events: {}, addEventListener(name, callback) { this.events[name] = callback; } };
     }
     elements.terrainCanvas.getContext = () => null;
+    elements.baseLayer3D.value = 'opentopo';
     const host = { postMessage: (message, origin) => messages.push({ message, origin }) };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
@@ -208,6 +193,9 @@ test('the embedded renderer communicates only with its parent and provides a ret
     elements.closeViewer.events.click();
     elements.refreshViewer.events.click();
     assert.deepEqual(messages.map(entry => entry.message.type), ['planmilt-3d-close', 'planmilt-3d-refresh']);
+    elements.baseLayer3D.value = 'bdgex';
+    elements.baseLayer3D.events.change();
+    assert.equal(messages[2].message.source, 'bdgex');
     events.message({ origin: 'https://attacker.test', source: host, data: { type: 'planmilt-3d-error', message: 'malicioso' } });
     assert.notEqual(elements.viewerStatus.textContent, 'malicioso');
     events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-error', message: 'erro' } });
