@@ -36,7 +36,7 @@
 </div></details>
 <details><summary>Desenhos e simbologia</summary><div>
 <p>Desenhe linhas, polígonos, retângulos, círculos, marcadores e texto; use as ferramentas de edição e exclusão para modificá-los. A ferramenta de desenho livre permite traçar à mão.</p>
-<p><b>Calungas:</b> escolha Criar calunga ao lado do seletor de ícones, personalize o símbolo e selecione-o. Insira com a ferramenta de marcador escolhendo “Ícone”; clique em uma calunga da camada de desenho para editá-la. Modelos salvos ficam somente neste navegador.</p>
+<p><b>Calungas:</b> escolha Criar calunga ao lado do seletor de ícones, personalize o símbolo e selecione-o. Insira com a ferramenta de marcador escolhendo “Ícone”; clique em uma calunga da camada de desenho para editá-la. A bandeja de ícones gerados anteriormente guarda até 50 calungas neste navegador.</p>
 <p><b>Simbologia militar:</b> use o controle de escudo para pesquisar gráficos táticos por seção, ver a prévia e informar uma designação opcional antes de desenhar.</p>
 </div></details>
 <details><summary>Salvar, carregar e compartilhar</summary><div>

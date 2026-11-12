@@ -251,6 +251,41 @@
                 flex-wrap: wrap;
             }
 
+            #iconSelectorContent .recent-symbol-tray {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            #iconSelectorContent .recent-symbol-item {
+                display: flex;
+                align-items: flex-start;
+                border: 1px solid #d3d8e0;
+                border-radius: 6px;
+            }
+
+            #iconSelectorContent .recent-symbol-select {
+                width: 90px;
+                height: 65px;
+                padding: 4px;
+                border: 0;
+                background: #fff;
+                cursor: pointer;
+            }
+
+            #iconSelectorContent .recent-symbol-select img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+
+            #iconSelectorContent .recent-symbol-remove {
+                border: 0;
+                background: transparent;
+                cursor: pointer;
+                font-size: 20px;
+            }
+
             .icon-item {
                 margin: 5px;
                 text-align: center;

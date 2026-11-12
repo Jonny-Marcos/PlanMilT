@@ -13,25 +13,28 @@ function setup() {
     let active;
     let failStorage = false;
     class Element {
-        constructor() { this.options = []; this.listeners = {}; this.value = ''; this.textContent = ''; }
-        appendChild(option) { this.options.push(option); if (this.options.length === 1) this.value = option.value; }
-        replaceChildren() { this.options = []; this.value = ''; }
+        constructor() { this.options = []; this.children = []; this.listeners = {}; this.value = ''; this.textContent = ''; }
+        appendChild(option) { this.options.push(option); this.children.push(option); if (this.options.length === 1) this.value = option.value; }
+        replaceChildren() { this.options = []; this.children = []; this.value = ''; this.textContent = ''; }
         addEventListener(name, callback) { this.listeners[name] = callback; }
         dispatch(name) { this.listeners[name]({ target: this }); }
         removeAttribute(name) { delete this[name]; }
+        setAttribute(name, value) { this[name] = value; }
     }
     const document = {
         getElementById(id) { return elements[id] ||= new Element(); },
         createElement() { return new Element(); }
     };
-    document.getElementById('symbolName');
     const window = {
         location: { href: 'https://example.test/plan/' }, navigator: { userAgent: 'node' },
         addEventListener() {}, removeEventListener() {}
     };
     window.window = window;
     const Swal = {
-        fire(options) { active = options; options.didOpen(); return new Promise(resolve => { active.finish = resolve; }); },
+        fire(options) {
+            if (typeof options === 'string') { active.warning = options; return Promise.resolve(); }
+            active = options; options.didOpen(); return new Promise(resolve => { active.finish = resolve; });
+        },
         showValidationMessage(message) { active.validation = message; }
     };
     const localStorage = {
@@ -84,7 +87,7 @@ test('category and doctrine example selection load their complete SIDC and text'
     const e = fixture.elements;
     e.symbolSet.value = '15';
     e.symbolSet.dispatch('change');
-    assert.equal(e.symbolSidc.value.slice(4, 6), '15');
+    assert.equal(fixture.active().preConfirm().config.sidc.slice(4, 6), '15');
     e.symbolSet.value = '10';
     e.symbolSet.dispatch('change');
     e.symbolCatalog.value = 'examples';
@@ -93,7 +96,6 @@ test('category and doctrine example selection load their complete SIDC and text'
     const example = fixture.catalog['10'].examples[index];
     e.symbolEntity.value = String(index);
     e.symbolEntity.dispatch('change');
-    assert.equal(e.symbolSidc.value, example.sidc);
     assert.equal(e['symbol-uniqueDesignation'].value, example.options.uniqueDesignation);
     assert.equal(fixture.active().preConfirm().config.sidc, example.sidc);
     fixture.active().finish({ isConfirmed: false });
@@ -166,18 +168,11 @@ test('amplifiers update the preview and survive saving, loading and editing', as
     }
     let svg = decodeURIComponent(e.symbolPreview.src);
     for (const value of Object.values(options)) assert.ok(svg.includes(value), value);
-    e.symbolName.value = 'Amplificada';
-    e.symbolSave.dispatch('click');
-    const saved = JSON.parse(fixture.values.get('planmilt.military-symbols.br.v1:/plan/'))[0];
-    for (const [field, value] of Object.entries(options)) assert.equal(saved.config.options[field], value);
-    e['symbol-hostile'].value = '';
-    e['symbol-hostile'].dispatch('input');
-    e.symbolLibrary.value = saved.id;
-    e.symbolLoad.dispatch('click');
-    assert.equal(e['symbol-hostile'].value, 'A1');
     const result = fixture.active().preConfirm();
     fixture.active().finish({ isConfirmed: true, value: result });
     const selected = await pending;
+    const saved = JSON.parse(fixture.values.get('planmilt.military-symbols.recent.v1:/plan/'))[0];
+    for (const [field, value] of Object.entries(options)) assert.equal(saved.config.options[field], value);
     const layer = { feature: { properties: { militarySymbol: selected, iconUrl: selected.iconUrl } }, setIcon(icon) { this.icon = icon; } };
     const editing = fixture.symbols.edit(layer, { icon: data => ({ options: data }) });
     for (const [field, value] of Object.entries(options)) assert.equal(e[`symbol-${field}`].value, value);
@@ -202,51 +197,96 @@ test('editor searches Brazilian names and preserves extension bits on changes', 
     assert.ok(choice);
     e.symbolEntity.value = choice.value;
     e.symbolEntity.dispatch('change');
-    assert.equal(e.symbolSidc.value, '100310000012189900000760016384');
+    assert.equal(fixture.active().preConfirm().config.sidc, '100310000012189900000760016384');
     e.symbolModifier2.value = 'ext:3';
     e.symbolModifier2.dispatch('change');
-    assert.equal(e.symbolSidc.value, '100310000012189900990760016387');
+    assert.equal(fixture.active().preConfirm().config.sidc, '100310000012189900990760016387');
     e.symbolTransversal.value = '1';
     e.symbolTransversal.dispatch('change');
-    assert.equal(e.symbolSidc.value, '100310000012189900990760017411');
-    assert.equal(fixture.active().preConfirm().config.sidc, e.symbolSidc.value);
+    assert.equal(fixture.active().preConfirm().config.sidc, '100310000012189900990760017411');
     fixture.active().finish({ isConfirmed: false });
     await pending;
 });
 
-test('editor saves, loads, and applies a reusable Brazilian template', async () => {
+test('editor stores confirmed symbols, restores them from the tray, and supports deletion', async () => {
     const fixture = setup();
-    const pending = fixture.symbols.open();
+    let pending = fixture.symbols.open();
     const e = fixture.elements;
     e['symbol-uniqueDesignation'].value = '2 Btl';
     e['symbol-uniqueDesignation'].dispatch('input');
-    e.symbolName.value = 'Meu modelo';
-    e.symbolSave.dispatch('click');
-    const key = 'planmilt.military-symbols.br.v1:/plan/';
+    let result = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: result });
+    await pending;
+    const key = 'planmilt.military-symbols.recent.v1:/plan/';
     const saved = JSON.parse(fixture.values.get(key));
     assert.equal(saved[0].config.options.uniqueDesignation, '2 Btl');
+    pending = fixture.symbols.open();
     e['symbol-uniqueDesignation'].value = 'Outro';
     e['symbol-uniqueDesignation'].dispatch('input');
-    e.symbolLibrary.value = saved[0].id;
-    e.symbolLoad.dispatch('click');
+    e.symbolRecentTray.children[0].children[0].dispatch('click');
     assert.equal(e['symbol-uniqueDesignation'].value, '2 Btl');
-    e.symbolSidc.value = '123';
-    assert.equal(fixture.active().preConfirm(), false);
-    assert.match(fixture.active().validation, /SIDC/);
-    e.symbolLoad.dispatch('click');
-    const result = fixture.active().preConfirm();
+    result = fixture.active().preConfirm();
     fixture.active().finish({ isConfirmed: true, value: result });
     assert.equal((await pending).config.sidc, '10031000001211000000');
-    e.symbolLibrary.value = saved[0].id;
-    e.symbolDelete.dispatch('click');
+    assert.equal(JSON.parse(fixture.values.get(key)).length, 1);
+    pending = fixture.symbols.open();
+    e.symbolRecentTray.children[0].children[1].dispatch('click');
     assert.deepEqual(JSON.parse(fixture.values.get(key)), []);
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
 });
 
-test('storage errors remain visible', async () => {
+test('storage errors remain visible without preventing confirmation', async () => {
     const fixture = setup();
     fixture.failStorage();
     const pending = fixture.symbols.open();
-    assert.match(fixture.elements.symbolStorageError.textContent, /Não foi possível/);
+    assert.match(fixture.elements.symbolRecentTray.textContent, /Não foi possível/);
+    const result = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: result });
+    assert.equal((await pending).config.sidc, result.config.sidc);
+    assert.equal(fixture.active().warning, 'Aviso');
+});
+
+test('tray keeps 50 most recent symbols and preserves existing named models', async () => {
+    const fixture = setup();
+    const legacyKey = 'planmilt.military-symbols.br.v1:/plan/';
+    const key = 'planmilt.military-symbols.recent.v1:/plan/';
+    const sidc = '10031000001211000000';
+    const legacy = JSON.stringify([{ id: 'legacy', name: 'Modelo antigo',
+        config: { sidc, options: { quantity: '3', uniqueDesignation: 'Antigo' } } }]);
+    fixture.values.set(legacyKey, legacy);
+    let pending = fixture.symbols.open();
+    assert.equal(fixture.elements.symbolRecentTray.children[0].children[0].title, 'Modelo antigo');
+    fixture.elements.symbolRecentTray.children[0].children[0].dispatch('click');
+    assert.equal(fixture.active().preConfirm().config.options.quantity, '3');
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+    assert.equal(fixture.values.has(key), false);
+    const entries = Array.from({ length: 50 }, (_, index) => ({
+        id: String(index), name: `Calunga ${index}`, config: { sidc, options: { uniqueDesignation: String(index) } }
+    }));
+    fixture.values.set(key, JSON.stringify(entries));
+    pending = fixture.symbols.open();
+    fixture.elements['symbol-uniqueDesignation'].value = 'Nova';
+    fixture.elements['symbol-uniqueDesignation'].dispatch('input');
+    const result = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: result });
+    await pending;
+    const saved = JSON.parse(fixture.values.get(key));
+    assert.equal(saved.length, 50);
+    assert.equal(saved[0].config.options.uniqueDesignation, 'Nova');
+    assert.equal(saved[49].id, '48');
+    assert.equal(fixture.values.get(legacyKey), legacy);
+});
+
+test('category and icon labels omit numeric codes but retain meaningful parentheses', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    assert.equal(e.symbolSet.options.find(option => option.value === '10').textContent, 'Unidades');
+    assert.ok(e.symbolEntity.options.some(option => /Comando Nomeado \(sigla/.test(option.textContent)));
+    assert.ok(e.symbolEntity.options.every(option => !/\(\d{20,30}\)$/.test(option.textContent)));
+    assert.doesNotMatch(fixture.active().html, /SIDC e outros campos|Biblioteca neste navegador/);
     fixture.active().finish({ isConfirmed: false });
     await pending;
 });

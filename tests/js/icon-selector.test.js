@@ -87,11 +87,11 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     const selectorContent = container.children[1];
     const folderList = selectorContent.children[0];
     const iconList = selectorContent.children[1];
-    assert.equal(folderList.children.length, 2);
+    assert.equal(folderList.children.length, 3);
 
     toggleButton.click();
     assert.equal(selectorContent.style.display, 'block');
-    folderList.children[1].click();
+    folderList.children[2].click();
 
     const selectedImage = iconList.children[0].children[0];
     selectedImage.click();
@@ -118,7 +118,34 @@ test('a generated calunga can be selected without removing existing icons', asyn
     selector.selectMilitarySymbol(symbol);
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
-    container.children[1].children[0].children[0].click();
+    container.children[1].children[0].children[1].click();
     container.children[1].children[1].children[0].children[0].click();
     assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
+});
+
+test('generated icon tray in the selector selects a saved symbol', async () => {
+    const container = new FakeElement('div');
+    const preview = new FakeElement('img');
+    const symbol = { iconUrl: 'data:image/svg+xml,recent', config: { sidc: 'test' } };
+    window.PlanMilT.militarySymbols = {
+        createIcon: (data, L) => L.icon({ iconUrl: data.iconUrl }),
+        renderRecentTray(tray, onSelect) {
+            const button = new FakeElement('button');
+            button.addEventListener('click', () => onSelect(symbol));
+            tray.appendChild(button);
+        }
+    };
+    const selector = window.PlanMilT.iconSelector.attach({
+        container, preview, leaflet: { icon: options => ({ options }) },
+        apiClient: { getJson: async () => ['symbols/friend/alpha.svg'] }
+    });
+    await selector.load();
+    const panel = container.children[1];
+    container.children[0].click();
+    panel.children[0].children[0].click();
+    assert.equal(panel.children[0].children[0].textContent, 'Ícones gerados anteriormente');
+    panel.children[1].children[0].children[0].click();
+    assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
+    assert.equal(preview.src, symbol.iconUrl);
+    assert.equal(panel.style.display, 'none');
 });

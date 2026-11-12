@@ -76,6 +76,23 @@ window.PlanMilT.iconSelector = Object.freeze({
             const iconList = document.createElement('div');
             iconList.className = 'icon-list';
 
+            const recentButton = document.createElement('button');
+            recentButton.type = 'button';
+            recentButton.className = 'folder-button';
+            recentButton.textContent = 'Ícones gerados anteriormente';
+            recentButton.addEventListener('click', () => {
+                iconList.innerHTML = '';
+                const tray = document.createElement('div');
+                tray.className = 'recent-symbol-tray';
+                iconList.appendChild(tray);
+                window.PlanMilT.militarySymbols.renderRecentTray(tray, data => {
+                    selectMilitarySymbol(data);
+                    selectorContent.style.display = 'none';
+                    toggleButton.textContent = 'Ícone selecionado: ';
+                });
+            });
+            folderList.appendChild(recentButton);
+
             Object.keys(iconsByDirectory).forEach(directoryName => {
                 const folderButton = document.createElement('button');
                 folderButton.textContent = directoryName;
@@ -123,6 +140,20 @@ window.PlanMilT.iconSelector = Object.freeze({
             });
         }
 
+        /**
+         * Seleciona uma calunga sem alterar os ícones existentes.
+         * @param {Object} data - Imagem e metadados do símbolo.
+         */
+        function selectMilitarySymbol(data) {
+            selectedIconKey = '__military_symbol__';
+            icons[selectedIconKey] = window.PlanMilT.militarySymbols.createIcon(data, leaflet);
+            icons[selectedIconKey].militarySymbol = data;
+            preview.src = data.iconUrl;
+            preview.style.display = 'inline';
+            preview.style.width = '40px';
+            preview.style.height = '40px';
+        }
+
         return Object.freeze({
             load,
             /**
@@ -141,15 +172,7 @@ window.PlanMilT.iconSelector = Object.freeze({
              * Seleciona uma calunga criada sem alterar o catálogo de ícones existente.
              * @param {Object} data - Imagem e metadados do símbolo.
              */
-            selectMilitarySymbol(data) {
-                selectedIconKey = '__military_symbol__';
-                icons[selectedIconKey] = window.PlanMilT.militarySymbols.createIcon(data, leaflet);
-                icons[selectedIconKey].militarySymbol = data;
-                preview.src = data.iconUrl;
-                preview.style.display = 'inline';
-                preview.style.width = '40px';
-                preview.style.height = '40px';
-            }
+            selectMilitarySymbol
         });
     }
 });
