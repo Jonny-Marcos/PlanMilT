@@ -89,7 +89,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-tiles');
+    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-mobile-controls');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
@@ -251,8 +251,8 @@ test('the embedded renderer communicates only with its parent and provides a ret
     const messages = [];
     const events = {};
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution']) {
-        elements[id] = { events: {}, addEventListener(name, callback) { this.events[name] = callback; } };
+    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
+        elements[id] = { hidden: false, events: {}, addEventListener(name, callback) { this.events[name] = callback; }, setAttribute(name, value) { this[name] = value; } };
     }
     elements.terrainCanvas.getContext = () => null;
     elements.baseLayer3D.value = 'opentopo';
@@ -260,6 +260,7 @@ test('the embedded renderer communicates only with its parent and provides a ret
     const host = { postMessage: (message, origin) => messages.push({ message, origin }) };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
+        matchMedia: () => ({ matches: true, addEventListener() {} }),
         addEventListener(name, callback) { events[name] = callback; }
     };
     vm.runInNewContext(viewerSource, { window, document: { getElementById: id => elements[id] } });
@@ -293,8 +294,8 @@ test('places the 3D button beside Help and loads its controller after map initia
 
 test('middle drag and two-finger gestures move the view and reset restores it', () => {
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution']) {
-        elements[id] = { events: {}, addEventListener(name, callback) { this.events[name] = callback; } };
+    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
+        elements[id] = { hidden: false, events: {}, addEventListener(name, callback) { this.events[name] = callback; }, setAttribute(name, value) { this[name] = value; } };
     }
     let matrix;
     const gl = new Proxy({
@@ -312,8 +313,10 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     elements.verticalExaggeration.value = '5';
     const host = { postMessage() {} };
     const events = {};
+    const media = { matches: true, addEventListener(name, callback) { this[name] = callback; } };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
+        matchMedia: () => media,
         addEventListener(name, callback) { events[name] = callback; },
         PlanMilT: { map3dGeometry: { createMesh: () => ({
             width: 1000, depth: 1000, vertices: new Float32Array(20), indices: new Uint16Array([0, 1, 2])
@@ -323,9 +326,33 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     vm.runInNewContext(viewerSource, { window, document: { getElementById: id => elements[id] }, Image });
     events.message({ origin: 'https://plan.test', source: host, data: {
         type: 'planmilt-3d-data',
-        payload: { image: 'data:image/png;base64,AA==', bounds: [-1, -1, 1, 1], zoom: 12, zoomRequested: null, missingTiles: [] }
+        payload: { image: 'data:image/png;base64,AA==', bounds: [-1, -1, 1, 1], zoom: 12, zoomRequested: null, missingTiles: ['S22W052.HGT'] }
     } });
     const initial = matrix;
+    const toggle = elements.toggleViewerControls;
+    const fields = elements.viewerControlFields;
+    assert.equal(elements.viewerStatus.hidden, false);
+    toggle.events.click();
+    assert.equal(fields.hidden, true);
+    assert.equal(toggle['aria-expanded'], 'false');
+    assert.equal(toggle.textContent, 'Mostrar controles');
+    assert.equal(elements.viewerStatus.hidden, true);
+    assert.equal(elements.viewerWarnings.hidden, false);
+    assert.match(elements.viewerAttribution.textContent, /OpenTopoMap/);
+    events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-error', message: 'Falha ao atualizar.' } });
+    assert.equal(elements.viewerStatus.hidden, false);
+    toggle.events.click();
+    assert.equal(fields.hidden, false);
+    assert.equal(toggle['aria-expanded'], 'true');
+    assert.equal(toggle.textContent, 'Ocultar controles');
+    assert.equal(elements.baseZoom3D.value, '12');
+    toggle.events.click();
+    assert.equal(fields.hidden, true);
+    media.matches = false;
+    media.change();
+    assert.equal(fields.hidden, false);
+    assert.equal(toggle['aria-expanded'], 'true');
+    assert.equal(elements.viewerStatus.hidden, false);
     let prevented = false;
     canvas.events.pointerdown({ pointerType: 'mouse', pointerId: 1, button: 1, clientX: 100, clientY: 100, preventDefault() { prevented = true; } });
     canvas.events.pointermove({ pointerType: 'mouse', pointerId: 1, clientX: 160, clientY: 120 });
@@ -347,4 +374,12 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     assert.notDeepEqual(matrix, initial);
     elements.resetCamera.events.click();
     assert.deepEqual(matrix, initial);
+});
+
+test('mobile layout keeps the compact control toggle and attribution accessible', () => {
+    assert.match(viewerHtml, /@media \(max-width: 600px\), \(hover: none\) and \(pointer: coarse\)[\s\S]*?\.viewer-title\s*\{\s*display:\s*none/);
+    assert.match(viewerHtml, /\.viewer-controls\s*\{\s*width:\s*min\(164px,\s*calc\(100vw - 16px\)\)/);
+    assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
+    assert.match(viewerHtml, /id="viewerControlFields"[\s\S]*id="closeViewer"[\s\S]*<\/div>\s*<p id="viewerAttribution"/);
+    assert.match(viewerHtml, /map-3d-viewer\.js\?v=20261112-mobile-controls/);
 });

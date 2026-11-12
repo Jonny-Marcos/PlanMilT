@@ -11,6 +11,9 @@
     const baseLayer = document.getElementById('baseLayer3D');
     const baseZoom = document.getElementById('baseZoom3D');
     const attribution = document.getElementById('viewerAttribution');
+    const controlFields = document.getElementById('viewerControlFields');
+    const toggleControls = document.getElementById('toggleViewerControls');
+    const mobileControls = window.matchMedia('(max-width: 600px), (hover: none) and (pointer: coarse)');
     const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
     const origin = window.location.origin;
     const host = window.parent !== window ? window.parent : null;
@@ -25,14 +28,28 @@
     const touches = new Map();
     let zoomOverride = null;
     let textureReady = false;
+    let showingHint = false;
 
     /**
      * Exibe uma mensagem de estado sem interpretar conteúdo externo como HTML.
      * @param {string} message - Texto de status.
+     * @param {boolean} [hint=false] - Indica uma dica que pode ser ocultada com os controles.
      */
-    function showStatus(message) {
+    function showStatus(message, hint = false) {
+        showingHint = hint;
         status.textContent = message;
-        status.hidden = !message;
+        status.hidden = !message || (hint && controlFields.hidden);
+    }
+
+    /**
+     * Alterna os controles móveis sem ocultar atribuições, erros ou avisos.
+     * @param {boolean} visible - Indica se os controles devem estar visíveis.
+     */
+    function setControlsVisible(visible) {
+        controlFields.hidden = !visible;
+        toggleControls.setAttribute('aria-expanded', String(visible));
+        toggleControls.textContent = visible ? 'Ocultar controles' : 'Mostrar controles';
+        status.hidden = !status.textContent || (showingHint && !visible);
     }
 
     /**
@@ -196,7 +213,7 @@ void main() {
                 : 'Mapa: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Elevação: SRTM local.';
             warnings.textContent = messages.join(' ');
             warnings.hidden = messages.length === 0;
-            showStatus('Arraste para orbitar; botão do meio ou dois dedos deslocam. Use a roda ou pince para aproximar.');
+            showStatus('Arraste para orbitar; botão do meio ou dois dedos deslocam. Use a roda ou pince para aproximar.', true);
         };
         image.onerror = () => showStatus('Não foi possível carregar a imagem capturada do mapa.');
         image.src = data.image;
@@ -287,6 +304,10 @@ void main() {
         }
     });
 
+    toggleControls.addEventListener('click', () => setControlsVisible(controlFields.hidden));
+    mobileControls.addEventListener('change', () => {
+        if (!mobileControls.matches && controlFields.hidden) setControlsVisible(true);
+    });
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
     document.getElementById('applyBaseZoom').addEventListener('click', () => {
         const zoom = baseZoom.value === '' ? NaN : Number(baseZoom.value);

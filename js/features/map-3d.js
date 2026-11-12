@@ -149,7 +149,7 @@
         selectedZoom = null;
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
-        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-tiles';
+        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-mobile-controls';
         else if (viewerReady) sendScene();
         frame.focus();
     });

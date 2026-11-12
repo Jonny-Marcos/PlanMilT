@@ -46,7 +46,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
         assert.ok(documentSource.includes('js/features/main.js?v=20261112-3d-integrated'));
-        assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-coverage'));
+        assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-mobile-controls'));
         assert.ok(documentSource.includes('js/features/map-3d-texture.js?v=20261112-coverage'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
