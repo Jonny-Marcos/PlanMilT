@@ -289,6 +289,7 @@ test('the embedded renderer communicates only with its parent and provides a ret
 
 test('places the 3D button beside Help and loads its controller after map initialization', () => {
     assert.match(mainSource, /id="helpButton"[\s\S]*id="view3DButton"/);
+    assert.match(mainSource, /<button id="view3DButton"[^>]*type="button"[^>]*aria-label="Abrir visualizador 3D"><i class="fas fa-cube" aria-hidden="true"><\/i><\/button>/);
     assert.match(indexSource, /main\.js[\s\S]*map-3d\.js/);
 });
 

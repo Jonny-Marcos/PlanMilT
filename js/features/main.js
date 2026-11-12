@@ -43,7 +43,7 @@
 <i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>
 <i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
 <i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
-<button id="view3DButton" class="toolbar-button view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização">3D</button>
+<button id="view3DButton" class="view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização" aria-label="Abrir visualizador 3D"><i class="fas fa-cube" aria-hidden="true"></i></button>
 <button id="toggleControlsBtn" class="toggle-controls" type="button" aria-pressed="true" title="Mostrar controles">
     <i id="toggleControlsIcon" class="fas fa-eye" aria-hidden="true"></i>
     <span id="toggleControlsLabel">Mostrar controles</span>
@@ -53,12 +53,12 @@
 <div class="toolbar-item color-picker-label">
 <input type='text' id="colorPicker" class="color-picker"/>
             </div>
-<div class="toolbar-item">
+<div class="toolbar-item layer-transparency-selection">
 <select id="layerSelector">
 <option value="">Selecione um camada para transparência</option>
             </select>
             </div>
-<div class="toolbar-item">
+<div class="toolbar-item layer-transparency-control">
 <label for="transparencySlider">Transparência:</label>
 <input type="range" id="transparencySlider" min="0" max="100" value="100">
             </div>

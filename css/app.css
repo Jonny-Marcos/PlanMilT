@@ -50,16 +50,15 @@
                 box-sizing: border-box; /* Inclui padding e borda na largura */
             }
             .view-3d-button {
-                flex: 0 0 auto;
-                min-width: 42px;
+                padding: 0;
                 border: 0;
-                background: #435f88;
-                color: #fff;
-                font-weight: 700;
+                background: transparent;
+                color: inherit;
+                line-height: 1;
+                cursor: pointer;
             }
             .view-3d-button:hover {
-                background: #344b70;
-                color: #fff;
+                color: #007bff;
             }
             .map-3d-overlay {
                 position: fixed;
@@ -459,6 +458,78 @@
                     font-size: 12px;
                     margin: 3px;
                     white-space: nowrap;
+                }
+
+                #map .leaflet-control-layers-expanded {
+                    padding: 4px 6px;
+                    font-size: 10px;
+                    line-height: 1.3;
+                }
+
+                #map .google-translate-control {
+                    padding: 2px !important;
+                }
+
+                #map .google-translate-control .goog-te-gadget {
+                    font-size: 9px;
+                    line-height: 1.2;
+                }
+
+                #map .google-translate-control .goog-te-gadget a {
+                    display: inline;
+                    width: auto;
+                    height: auto;
+                    line-height: inherit;
+                    border: 0;
+                }
+
+                #map .google-translate-control .goog-te-combo {
+                    width: clamp(110px, 30vw, 140px);
+                    max-width: 100%;
+                    margin: 2px 0;
+                    font-size: 10px;
+                }
+
+                #map .map-toolbar .color-picker-label,
+                #map .map-toolbar .layer-transparency-selection,
+                #map .map-toolbar .layer-transparency-control {
+                    flex: 0 1 auto;
+                    min-width: 0;
+                    padding: 2px;
+                }
+
+                #map .color-picker-label .sp-replacer {
+                    padding: 2px;
+                }
+
+                #map .color-picker-label .sp-preview {
+                    width: 18px;
+                    height: 14px;
+                    margin-right: 3px;
+                }
+
+                #map .color-picker-label .sp-dd {
+                    height: 14px;
+                    line-height: 14px;
+                    padding: 0;
+                }
+
+                #map .map-toolbar #layerSelector {
+                    width: clamp(90px, 26vw, 140px);
+                    max-width: 100%;
+                    padding: 2px;
+                    font-size: 10px;
+                }
+
+                #map .layer-transparency-control label {
+                    margin: 2px;
+                    font-size: 10px;
+                }
+
+                #map .layer-transparency-control #transparencySlider {
+                    width: clamp(65px, 20vw, 100px);
+                    max-width: 100%;
+                    padding: 0;
                 }
 
 

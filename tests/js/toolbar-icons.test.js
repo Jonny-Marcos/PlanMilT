@@ -4,6 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const styles = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
+const main = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
 
 test('freehand and tactical toolbar icons use the original size without rotation', () => {
     assert.match(styles, /\.leaflet-control-freehand i\s*\{[^}]*font-size:\s*29px/);
@@ -49,4 +50,17 @@ test('mobile Leaflet Draw sprites remain aligned to their original cells', () =>
         assert.ok(Math.abs(9 * fraction - cell) < 0.000001, `${name} must use cell ${cell}`);
     }
     assert.match(mobile, /#map \.leaflet-draw-actions \{\s*left: calc\(var\(--map-control-size\) \+ 2px\)/);
+});
+
+test('mobile layer, translation, color and transparency controls stay compact', () => {
+    const mobile = styles.match(/@media \(max-width: 600px\) \{\s*\/\* Ajustes no Mapa \*\/[\s\S]*?#map \.layer-transparency-control #transparencySlider \{[^}]*\}/);
+    assert.ok(mobile);
+    assert.match(mobile[0], /#map \.leaflet-control-layers-expanded \{[^}]*font-size:\s*10px/);
+    assert.match(mobile[0], /#map \.google-translate-control \.goog-te-combo \{[^}]*width:\s*clamp\(/);
+    assert.match(mobile[0], /#map \.google-translate-control \.goog-te-gadget a \{[^}]*display:\s*inline/);
+    assert.match(mobile[0], /#map \.color-picker-label \.sp-preview \{[^}]*width:\s*18px/);
+    assert.match(mobile[0], /#map \.map-toolbar #layerSelector \{[^}]*font-size:\s*10px/);
+    assert.match(mobile[0], /#map \.layer-transparency-control #transparencySlider \{[^}]*width:\s*clamp\(/);
+    assert.match(main, /class="toolbar-item layer-transparency-selection">\s*<select id="layerSelector">/);
+    assert.match(main, /class="toolbar-item layer-transparency-control">[\s\S]*?id="transparencySlider"/);
 });
