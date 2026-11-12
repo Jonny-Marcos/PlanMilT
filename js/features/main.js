@@ -22,7 +22,14 @@
 
                     // Aqui você pode adicionar os botões e outros elementos HTML à sua toolbar
                     div.innerHTML = `
-<div class="toolbar-item">
+<nav class="mobile-map-nav" aria-label="Controles do mapa">
+    <button type="button" data-mobile-panel="draw" aria-controls="mobileDrawOptions mobileDrawColor" aria-expanded="false">Desenhar</button>
+    <button type="button" data-mobile-panel="layers" aria-controls="mobileLayers mobileLayerSelector mobileLayerOpacity" aria-expanded="false">Camadas</button>
+    <button type="button" data-mobile-panel="tools" aria-controls="mobileTools" aria-expanded="false">Ferramentas</button>
+    <button type="button" id="mobileToggleControls" aria-label="Ocultar controles" title="Ocultar controles"><i class="fas fa-eye-slash" aria-hidden="true"></i></button>
+</nav>
+<div id="mobileLayers" class="mobile-layer-slot" aria-label="Camadas do mapa"></div>
+<div id="mobileDrawOptions" class="toolbar-item mobile-draw-item">
 <div id="iconSelectorContainer">
 <button id="iconSelectorToggle">Selecionar ícone</button>
 <div id="iconSelectorContent" style="display: none;">
@@ -32,17 +39,17 @@
 <img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
 <button id="createMilitarySymbol" type="button" title="Criar e selecionar ícone">Criar ícone</button>
             </div>
-<div class="toolbar-icons">
-<i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
-<i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ"></i>
-<i id="locateMeButton" class="fas fa-map-marker-alt toolbar-icon" title="Mostrar/esconder minha localização"></i>
-<i id="saveDrawings" class="fas fa-save toolbar-icon" title="Salvar desenhos"></i>
-<i id="loadDrawings" class="fas fa-download toolbar-icon" title="Carregar desenhos"></i>
-<i id="loadImages" class="fas fa-images toolbar-icon" title="Carregar imagens"></i>
-<i id="shareLink" class="fas fa-share-alt toolbar-icon" title="Compartilhar link com camadas"></i>
-<i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>
-<i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
-<i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
+<div id="mobileTools" class="toolbar-icons">
+<i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ" role="button" tabindex="0" aria-label="Exportar KMZ"></i>
+<i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ" role="button" tabindex="0" aria-label="Importar KMZ"></i>
+<i id="locateMeButton" class="fas fa-map-marker-alt toolbar-icon" title="Mostrar/esconder minha localização" role="button" tabindex="0" aria-label="Localização"></i>
+<i id="saveDrawings" class="fas fa-save toolbar-icon" title="Salvar desenhos" role="button" tabindex="0" aria-label="Salvar desenhos"></i>
+<i id="loadDrawings" class="fas fa-download toolbar-icon" title="Carregar desenhos" role="button" tabindex="0" aria-label="Carregar desenhos"></i>
+<i id="loadImages" class="fas fa-images toolbar-icon" title="Carregar imagens" role="button" tabindex="0" aria-label="Carregar imagens"></i>
+<i id="shareLink" class="fas fa-share-alt toolbar-icon" title="Compartilhar link com camadas" role="button" tabindex="0" aria-label="Compartilhar"></i>
+<i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático" role="button" tabindex="0" aria-label="Planejamento"></i>
+<i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)" role="button" tabindex="0" aria-label="Predição de enlace"></i>
+<i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda" role="button" tabindex="0" aria-label="Ajuda"></i>
 <button id="view3DButton" class="toolbar-button view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização">3D</button>
 <button id="toggleControlsBtn" class="toggle-controls" type="button" aria-pressed="true" title="Mostrar controles">
     <i id="toggleControlsIcon" class="fas fa-eye" aria-hidden="true"></i>
@@ -50,15 +57,15 @@
 </button>
 <input type="file" id="fileInput" accept=".kmz" style="display: none;">
             </div>
-<div class="toolbar-item color-picker-label">
+<div id="mobileDrawColor" class="toolbar-item color-picker-label mobile-draw-item">
 <input type='text' id="colorPicker" class="color-picker"/>
             </div>
-<div class="toolbar-item">
+<div id="mobileLayerSelector" class="toolbar-item mobile-layer-item">
 <select id="layerSelector">
 <option value="">Selecione um camada para transparência</option>
             </select>
             </div>
-<div class="toolbar-item">
+<div id="mobileLayerOpacity" class="toolbar-item mobile-layer-item">
 <label for="transparencySlider">Transparência:</label>
 <input type="range" id="transparencySlider" min="0" max="100" value="100">
             </div>

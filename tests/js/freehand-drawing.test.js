@@ -13,6 +13,7 @@ function createHarness() {
     const addedLayers = [];
     const removedLayers = [];
     const createdEvents = [];
+    const modeEvents = [];
     const containerEvents = new Map();
     const container = { style: {}, addEventListener: (name, listener) => containerEvents.set(name, listener) };
     let polyline;
@@ -23,7 +24,7 @@ function createHarness() {
         off: name => mapEvents.delete(name),
         addLayer: layer => addedLayers.push(layer),
         removeLayer: layer => removedLayers.push(layer),
-        fire: (name, event) => createdEvents.push({ name, event }),
+        fire: (name, event) => (name === 'planmilt:freehand-mode' ? modeEvents : createdEvents).push({ name, event }),
         mouseEventToLatLng: touch => touch.latlng,
         latLngToLayerPoint: latLng => ({
             x: latLng.lng,
@@ -52,6 +53,7 @@ function createHarness() {
             }
         },
         DomEvent: {
+            disableClickPropagation(element) { element.clickPropagationDisabled = true; },
             on(target, name, listener) {
                 domEvents.set(name, listener);
             },
@@ -81,7 +83,7 @@ function createHarness() {
     });
     const button = control.onAdd();
 
-    return { addedLayers, button, createdEvents, container, containerEvents, domEvents, map, mapEvents, polyline: () => polyline, removedLayers };
+    return { addedLayers, button, createdEvents, modeEvents, container, containerEvents, domEvents, map, mapEvents, polyline: () => polyline, removedLayers };
 }
 
 function event(type, lat, lng) {
@@ -90,16 +92,19 @@ function event(type, lat, lng) {
 
 test('button toggles mouse and touch handlers and appearance', () => {
     const harness = createHarness();
+    assert.equal(harness.button.clickPropagationDisabled, true);
 
     harness.button.onclick();
     assert.equal(harness.container.style.cursor, 'crosshair');
     assert.equal(harness.button.style.backgroundColor, '#bada55');
+    assert.equal(harness.modeEvents.at(-1).event.enabled, true);
     assert.deepEqual([...harness.mapEvents.keys()], ['mousedown', 'mouseup', 'mousemove']);
     assert.deepEqual([...harness.domEvents.keys()], ['touchstart', 'touchmove', 'touchend']);
 
     harness.button.onclick();
     assert.equal(harness.container.style.cursor, '');
     assert.equal(harness.button.style.backgroundColor, 'white');
+    assert.equal(harness.modeEvents.at(-1).event.enabled, false);
     assert.equal(harness.mapEvents.size, 0);
     assert.equal(harness.domEvents.size, 0);
 });
