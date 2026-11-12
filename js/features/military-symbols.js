@@ -156,9 +156,10 @@ window.PlanMilT.militarySymbols = (() => {
             title: editing ? 'Editar calunga' : 'Criar calunga',
             customClass: { popup: 'military-symbol-modal' },
             html: `<style>
-.swal2-popup.military-symbol-modal{width:min(820px,calc(100vw - 28px))!important;padding:20px!important}
+.swal2-popup.military-symbol-modal{box-sizing:border-box;width:calc(100vw - 24px)!important;max-width:none;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;padding:16px!important}
+.swal2-popup.military-symbol-modal .swal2-html-container{margin:0;overflow:visible}
 #militarySymbolEditor{font:14px/1.45 sans-serif;text-align:left;color:#27364a}
-#militarySymbolEditor .symbol-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#militarySymbolEditor .symbol-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 #militarySymbolEditor fieldset{margin:12px 0;padding:12px;border:1px solid #d3d8e0;border-radius:6px}
 #militarySymbolEditor legend{font-weight:600}
 #militarySymbolEditor label{display:block;font-weight:600;margin-bottom:4px}
@@ -170,9 +171,13 @@ window.PlanMilT.militarySymbols = (() => {
 #militarySymbolEditor .symbol-library > div{flex:1 1 180px}
 #militarySymbolEditor button{min-height:40px;padding:8px;border:1px solid #435f88;border-radius:6px;background:#fff;cursor:pointer}
 #militarySymbolEditor [role=status]{color:#a00000}
-@media(max-width:600px){#militarySymbolEditor .symbol-grid{grid-template-columns:1fr}}
+@media(max-width:1000px){#militarySymbolEditor .symbol-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){#militarySymbolEditor .symbol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:400px){#militarySymbolEditor .symbol-grid{grid-template-columns:1fr}}
 </style><div id="militarySymbolEditor">
 <p>Personalize uma calunga com o gerador e catálogo do Portal de Simbologia Militar.</p>
+<div class="symbol-preview"><img id="symbolPreview" alt="Prévia da calunga"></div>
+<p id="symbolError" role="status"></p>
 <div class="symbol-grid">
 <div><label for="symbolSet">Categoria</label><select id="symbolSet"></select></div>
 <div><label for="symbolCatalog">Catálogo</label><select id="symbolCatalog"><option value="icons">Ícones centrais</option><option value="examples">Exemplos doutrinários</option></select></div>
@@ -197,8 +202,6 @@ window.PlanMilT.militarySymbols = (() => {
 <label for="symbolSidc">SIDC (20 ou 30 dígitos)</label><input id="symbolSidc" maxlength="30" inputmode="numeric">
 <div class="symbol-grid">${otherFields.map(field => `<div><label for="symbol-${field}">${labels[field]}</label><input id="symbol-${field}" maxlength="50"></div>`).join('')}</div>
 </details>
-<div class="symbol-preview"><img id="symbolPreview" alt="Prévia da calunga"></div>
-<p id="symbolError" role="status"></p>
 <details><summary>Biblioteca neste navegador</summary>
 <p>Modelos ficam somente neste navegador e podem ser apagados ao limpar seus dados. Excluir um modelo não remove símbolos do mapa.</p>
 <div class="symbol-library"><div><label for="symbolLibrary">Modelos salvos</label><select id="symbolLibrary"></select></div>

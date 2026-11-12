@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
 
 global.window = {};
 global.document = {
@@ -38,6 +40,13 @@ class FakeElement {
 }
 
 require('../../js/features/icon-selector.js');
+
+test('the create calunga button shares the selector button styles on desktop and mobile', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
+    assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*background-color:\s*#007bff/s);
+    assert.match(css, /#iconSelectorToggle:hover,\s*#createMilitarySymbol:hover\s*\{[^}]*#0056b3/s);
+    assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*font-size:\s*12px/s);
+});
 
 test('icon selector loads paths and exposes the selected Leaflet icon', async () => {
     const container = new FakeElement('div');

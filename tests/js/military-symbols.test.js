@@ -111,6 +111,22 @@ test('Brazilian entity extensions preserve distinct SIDCs and generated graphics
     assert.equal(b.config.sidc, pathfinder);
 });
 
+test('editor puts the preview above the controls and adapts its layout to the viewport', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const html = fixture.active().html;
+    assert.ok(html.indexOf('id="symbolPreview"') < html.indexOf('id="symbolSet"'));
+    assert.ok(html.indexOf('id="symbolError"') < html.indexOf('id="symbolSet"'));
+    assert.match(html, /width:calc\(100vw - 24px\)!important/);
+    assert.match(html, /max-height:calc\(100dvh - 24px\);overflow-y:auto/);
+    assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+    assert.match(html, /@media\(max-width:700px\).*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+    assert.match(html, /@media\(max-width:400px\).*grid-template-columns:1fr/);
+    assert.match(fixture.elements.symbolPreview.src, /^data:image\/svg\+xml/);
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
 test('text amplifiers use the portal positions and expand the icon bounds', () => {
     const { symbols } = setup();
     const sidc = '10031000001211000000';

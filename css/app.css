@@ -195,7 +195,8 @@
                 position: relative;
             }
 
-            #iconSelectorToggle {
+            #iconSelectorToggle,
+            #createMilitarySymbol {
                 padding: 10px;
                 cursor: pointer;
                 background-color: #007bff;
@@ -204,7 +205,8 @@
                 border-radius: 4px;
             }
 
-            #iconSelectorToggle:hover {
+            #iconSelectorToggle:hover,
+            #createMilitarySymbol:hover {
                 background-color: #0056b3;
             }
 
@@ -1105,7 +1107,8 @@
                 }
 
                 /* Ajustes para o botão de alternância do seletor de ícones */
-                #iconSelectorToggle {
+                #iconSelectorToggle,
+                #createMilitarySymbol {
                     padding: 5px;
                     font-size: 12px;
                 }
