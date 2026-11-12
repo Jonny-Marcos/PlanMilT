@@ -32,6 +32,9 @@
             drawnItems.on('click', function(e) {
                 var layer = e.layer;
                 var latlng = e.latlng; // Certifique-se de obter as coordenadas do clique
+                if (layer.feature && layer.feature.properties && layer.feature.properties.tacticalGraphic?.name === 'Boundary') {
+                    return;
+                }
                 if (layer.feature && layer.feature.properties && layer.feature.properties.militarySymbol) {
                     window.PlanMilT.militarySymbols.edit(layer, L).catch(error => {
                         console.error('[PlanMilT][Ícones] Falha ao editar símbolo.', error);

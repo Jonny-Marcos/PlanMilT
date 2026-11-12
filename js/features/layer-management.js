@@ -72,7 +72,7 @@
                                             });
                                             newLayer.addLayer(newCircle);
                                         } else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
-                                            var customIcon = feature.properties.role === 'boundaryLabel'
+                                            var customIcon = ['boundaryLabel', 'boundaryMark', 'boundaryDesignation'].includes(feature.properties.role)
                                                 && Array.isArray(feature.properties.boundaryOffset)
                                                 ? window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
                                                     L,
@@ -98,6 +98,10 @@
                                             newLayer.addLayer(layer);
                                         } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon') {
                                             layer.setStyle({ color: feature.properties.color });
+                                            if (feature.geometry.type === 'LineString' && feature.properties.boundaryId
+                                                && feature.properties.tacticalGraphic?.name === 'Boundary') {
+                                                tacticalGraphics.registerBoundaryLayer(layer);
+                                            }
                                             newLayer.addLayer(layer);
                                         }
                                     }

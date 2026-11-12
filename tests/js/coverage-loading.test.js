@@ -222,3 +222,42 @@ for (const editable of [true, false]) {
         assert.equal(icons[0].color, '#123456');
     });
 }
+
+for (const editable of [true, false]) {
+    test(`registers a persisted boundary line ${editable ? 'for editing' : 'as an overlay'}`, async () => {
+        const feature = {
+            type: 'Feature',
+            properties: { boundaryId: 'limit-1', color: '#123456',
+                tacticalGraphic: { name: 'Boundary', boundary: { type: 'Companhia', leftText: 'A', rightText: 'B', count: 2 } } },
+            geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] }
+        };
+        const registrations = [];
+        const layers = [];
+        const context = {
+            document: { getElementById: () => ({ addEventListener() {} }) },
+            window: { location: { href: 'https://example.test/' }, PlanMilT: {
+                apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) },
+                welcome: { record: () => true },
+                coverageImage: { clear() {} }
+            } },
+            tacticalGraphics: { registerBoundaryLayer(layer, canEdit) { registrations.push({ layer, canEdit: !!canEdit }); } },
+            Swal: { fire: async () => ({ isConfirmed: editable }) },
+            L: { geoJson(data, options) {
+                if (!data) return { addTo() { return this; }, addLayer(layer) { layers.push(layer); } };
+                const layer = { feature, setStyle() {} };
+                options.onEachFeature(feature, layer);
+                return { addTo() { return this; } };
+            } },
+            map: { fitBounds() {} },
+            drawnItems: { clearLayers() {}, addLayer(layer) { layers.push(layer); }, getLayers: () => [], getBounds: () => ({}) },
+            addNewOverlayLayer() {}, isValidGeoJson: () => true,
+            console: { info() {}, error(error) { throw new Error(error); } }
+        };
+        vm.runInNewContext(source, context);
+        await context.window.PlanMilT.drawingLoading.load('teste');
+        assert.equal(registrations.length, 1);
+        assert.equal(registrations[0].canEdit, editable);
+        assert.equal(registrations[0].layer.feature, feature);
+        assert.equal(layers.length, 1);
+    });
+}

@@ -93,7 +93,8 @@ function createHarness({
     designation = '1ª Cia',
     renderError = null,
     graphicName = 'MainAxisOfAdvance',
-    boundaryType = 'Companhia'
+    boundaryType = 'Companhia',
+    boundaryCount = 1
 } = {}) {
     const layers = [];
     const mapLayers = [];
@@ -111,7 +112,8 @@ function createHarness({
         'tacticalGraphicBoundaryEditor',
         'tacticalGraphicBoundaryType',
         'tacticalGraphicBoundaryLeft',
-        'tacticalGraphicBoundaryRight'
+        'tacticalGraphicBoundaryRight',
+        'tacticalGraphicBoundaryCount'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -180,9 +182,11 @@ function createHarness({
                 popupElements.get('tacticalGraphicBoundaryType').value = boundaryType;
                 popupElements.get('tacticalGraphicBoundaryLeft').value = '1ª Cia';
                 popupElements.get('tacticalGraphicBoundaryRight').value = '2ª Cia';
+                popupElements.get('tacticalGraphicBoundaryCount').value = String(boundaryCount);
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
+            if (sweetAlert.editValue) return { isConfirmed: true, value: sweetAlert.editValue };
             return { isConfirmed: true, value: designation };
         },
         getPopup() {
@@ -234,12 +238,18 @@ function createHarness({
                     childLayers.forEach(callback);
                 }
             });
-            const primitiveLayer = sourceFeature => ({
-                feature: sourceFeature,
-                options,
-                setStyle() {},
-                editing: { enable() {}, disable() {} }
-            });
+            const primitiveLayer = sourceFeature => {
+                const listeners = new Map();
+                return {
+                    feature: sourceFeature,
+                    options: {},
+                    setStyle(style) { Object.assign(this.options, style); },
+                    toGeoJSON() { return this.feature; },
+                    on(name, callback) { listeners.set(name, callback); },
+                    fire(name) { return listeners.get(name)?.({ target: this }); },
+                    editing: { enable() {}, disable() {} }
+                };
+            };
             const featureLayer = sourceFeature => {
                 if (sourceFeature.type === 'FeatureCollection') {
                     return layerGroup(sourceFeature.features.map(featureLayer), sourceFeature);
@@ -276,9 +286,15 @@ function createHarness({
         }
     };
     const map = {
+        scale: 10000,
         on(eventName, listener) {
             mapListeners.set(eventName, listener);
         },
+        off(eventName) {
+            mapListeners.delete(eventName);
+        },
+        project([lat, lng]) { return { x: lng * this.scale, y: -lat * this.scale }; },
+        unproject([x, y]) { return { lng: x / this.scale, lat: -y / this.scale }; },
         addLayer(layer) {
             mapLayers.push(layer);
         },
@@ -289,7 +305,14 @@ function createHarness({
     const drawnItems = {
         addLayer(layer) {
             layers.push(layer);
-        }
+            layer.fire?.('add');
+        },
+        removeLayer(layer) {
+            const index = layers.indexOf(layer);
+            if (index >= 0) layers.splice(index, 1);
+            layer.fire?.('remove');
+        },
+        eachLayer(callback) { [...layers].forEach(callback); }
     };
 
     const integration = window.PlanMilT.tacticalGraphics.attach({
@@ -329,6 +352,10 @@ function createHarness({
         drawTools,
         popupElements,
         popup,
+        sweetAlert,
+        leaflet,
+        drawnItems,
+        map,
         layers,
         mapLayers,
         mapListeners,
@@ -432,18 +459,149 @@ test('boundary echelon symbols stay centered and side names face opposite sides 
         assert.equal(handled, true);
         const mark = harness.layers.find(layer => layer.feature?.properties?.role === 'boundaryMark').feature;
         assert.equal(mark.properties.text, expectedSymbol);
-        assert.deepEqual(mark.geometry.coordinates, [-49.9, -20.1]);
+        assert.deepEqual(mark.geometry.coordinates, [-49.95, -20.05]);
 
         const boundaryLabels = harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryLabel');
         assert.equal(boundaryLabels.length, 2);
         assert.deepEqual(
             boundaryLabels.map(layer => layer.feature.geometry.coordinates),
-            [[-49.9, -20.1], [-49.9, -20.1]]
+            [[-49.95, -20.05], [-49.95, -20.05]]
         );
         const [leftOffset, rightOffset] = boundaryLabels.map(layer => layer.feature.properties.boundaryOffset);
         assert.ok(Math.abs(leftOffset[0] + rightOffset[0]) < 1e-10);
         assert.ok(Math.abs(leftOffset[1] + rightOffset[1]) < 1e-10);
         assert.match(boundaryLabels[0].options.icon.html, /translate\(-50%,-50%\)/);
+    }
+});
+
+test('boundary repeats complete symbols in transparent line gaps and regenerates them on edit', async () => {
+    const harness = createHarness({ graphicName: 'Boundary', designation: '', boundaryType: 'Pelotão', boundaryCount: 3 });
+    await harness.integration.startDrawing();
+    assert.match(harness.alerts[0].html, /Quantidade de símbolos/);
+    const geometry = { type: 'LineString', coordinates: [[0, 0], [0.12, 0]] };
+    harness.integration.handleCreated({
+        layer: { toGeoJSON: () => ({ type: 'Feature', properties: {}, geometry }) }
+    });
+
+    const line = harness.layers.find(layer => layer.feature?.geometry.type === 'LineString');
+    let marks = harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryMark');
+    assert.equal(marks.length, 3);
+    assert.deepEqual(marks.map(layer => layer.feature.geometry.coordinates[0]), [0.02, 0.06, 0.1]);
+    assert.deepEqual(line.options.dashArray.split(' ').map(Number), [182, 36, 364, 36, 364, 36, 182, 0]);
+    assert.equal(line.options.lineCap, 'butt');
+    assert.equal(line.options.noClip, true);
+    assert.equal(line.options.smoothFactor, 0);
+    assert.deepEqual(line.toGeoJSON().geometry, geometry);
+    assert.equal(harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryLabel').length, 6);
+
+    harness.sweetAlert.editValue = {
+        designation: '',
+        boundary: { type: 'Companhia', leftText: 'A', rightText: 'B', count: 2 }
+    };
+    line.fire('click');
+    await new Promise(resolve => setImmediate(resolve));
+    marks = harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryMark');
+    assert.deepEqual(marks.map(layer => layer.feature.properties.text), ['I', 'I']);
+    assert.deepEqual(marks.map(layer => layer.feature.geometry.coordinates[0]), [0.03, 0.09]);
+    assert.deepEqual(harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryLabel')
+        .map(layer => layer.feature.properties.text), ['A', 'B', 'A', 'B']);
+    assert.equal(line.feature.properties.tacticalGraphic.boundary.count, 2);
+    assert.deepEqual(line.options.dashArray.split(' ').map(Number), [282, 36, 564, 36, 282, 0]);
+    harness.map.scale = 20000;
+    harness.mapListeners.get('zoomend')();
+    assert.deepEqual(line.options.dashArray.split(' ').map(Number), [582, 36, 1164, 36, 582, 0]);
+    harness.map.scale = 200;
+    harness.mapListeners.get('zoomend')();
+    assert.deepEqual(line.options.dashArray.split(' ').map(Number), [0, 24, 0, 0]);
+    harness.map.scale = 10000;
+
+    line.feature.geometry = { type: 'LineString', coordinates: [[0, 0], [0.24, 0]] };
+    harness.mapListeners.get('draw:edited')({ layers: { eachLayer: callback => callback(line) } });
+    marks = harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryMark');
+    assert.deepEqual(marks.map(layer => layer.feature.geometry.coordinates[0]), [0.06, 0.18]);
+    harness.mapListeners.get('draw:deleted')({ layers: { eachLayer: callback => callback(line) } });
+    assert.equal(harness.layers.length, 0);
+});
+
+test('a saved and reloaded boundary remains editable without altering another boundary', async () => {
+    const original = createHarness({ graphicName: 'Boundary', designation: '', boundaryCount: 2 });
+    await original.integration.startDrawing();
+    original.integration.handleCreated({
+        layer: { toGeoJSON: () => ({
+            type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[0, 0], [0.12, 0]] }
+        }) }
+    });
+    const saved = JSON.parse(JSON.stringify(original.layers.map(layer => layer.feature)));
+    const restored = createHarness();
+    saved.forEach(feature => {
+        if (feature.geometry.type === 'LineString') {
+            const group = restored.leaflet.geoJSON(feature, {});
+            restored.integration.registerBoundaryLayer(group, true);
+            restored.drawnItems.addLayer(group);
+        } else {
+            const marker = restored.leaflet.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {});
+            marker.feature = feature;
+            restored.drawnItems.addLayer(marker);
+        }
+    });
+    const line = restored.layers.find(layer => layer.feature.geometry.type === 'LineString');
+    const otherMarker = restored.leaflet.marker([0, 0], {});
+    otherMarker.feature = { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] },
+        properties: { role: 'boundaryMark', boundaryId: 'other' } };
+    restored.drawnItems.addLayer(otherMarker);
+    restored.sweetAlert.editValue = {
+        designation: '',
+        boundary: { type: 'Divisão', leftText: 'Norte', rightText: 'Sul', count: 1 }
+    };
+    line.fire('click');
+    await new Promise(resolve => setImmediate(resolve));
+    const marks = restored.layers.filter(layer => layer.feature.properties.role === 'boundaryMark');
+    assert.equal(marks.length, 2);
+    assert.ok(marks.some(layer => layer.feature.properties.text === 'XX'));
+    assert.ok(marks.includes(otherMarker));
+    assert.equal(line.feature.properties.tacticalGraphic.boundary.count, 1);
+});
+
+test('boundary drawing preview shows all repetitions and gaps', async () => {
+    const harness = createHarness({ graphicName: 'Boundary', designation: '', boundaryCount: 2 });
+    await harness.integration.startDrawing();
+    harness.mapListeners.get('draw:drawvertex')({
+        layers: { eachLayer(callback) {
+            callback({ getLatLng: () => ({ lat: 0, lng: 0 }) });
+            callback({ getLatLng: () => ({ lat: 0, lng: 0.12 }) });
+        } }
+    });
+    const preview = harness.mapLayers[0];
+    const features = preview.feature.features;
+    assert.equal(features.filter(feature => feature.properties.role === 'boundaryMark').length, 2);
+    assert.equal(features.filter(feature => feature.properties.role === 'boundaryLabel').length, 4);
+    assert.deepEqual(preview.options.style(features[0]).dashArray.split(' ').map(Number), [282, 36, 564, 36, 282, 0]);
+});
+
+test('legacy boundary annotations are linked only to their contiguous matching line', () => {
+    const harness = createHarness();
+    const boundary = { type: 'Pelotão', leftText: 'A', rightText: 'B' };
+    const line = { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] },
+        properties: { tacticalGraphic: { name: 'Boundary', boundary } } };
+    const mark = { type: 'Feature', geometry: { type: 'Point', coordinates: [0.5, 0] },
+        properties: { role: 'boundaryMark', tacticalGraphic: { boundary } } };
+    const label = { type: 'Feature', geometry: { type: 'Point', coordinates: [0.5, 0] },
+        properties: { role: 'boundaryLabel', tacticalGraphic: { name: 'Boundary', boundary } } };
+    const unrelated = { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} };
+    const collection = { type: 'FeatureCollection', features: [line, mark, label, unrelated] };
+    const migrated = harness.integration.prepareLegacyBoundaries(collection);
+    assert.equal(migrated.size, 1);
+    assert.equal(mark.properties.boundaryId, line.properties.boundaryId);
+    assert.equal(label.properties.boundaryId, line.properties.boundaryId);
+    assert.equal(unrelated.properties.boundaryId, undefined);
+    assert.equal(harness.integration.prepareLegacyBoundaries(collection).size, 0);
+});
+
+test('boundary repetition count requires an integer from 1 to 100', async () => {
+    for (const boundaryCount of [0, 1.5, 101]) {
+        const harness = createHarness({ graphicName: 'Boundary', designation: '', boundaryCount });
+        await assert.rejects(harness.integration.startDrawing(), /quantidade inteira de símbolos entre 1 e 100/);
+        assert.equal(harness.drawTools.length, 0);
     }
 });
 

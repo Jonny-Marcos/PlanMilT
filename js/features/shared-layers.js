@@ -101,7 +101,7 @@
                                 }
                                 // Trata pontos com propriedade text, garantindo que não são círculos
                                 else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
-                                    var customIcon = feature.properties.role === 'boundaryLabel'
+                                    var customIcon = ['boundaryLabel', 'boundaryMark', 'boundaryDesignation'].includes(feature.properties.role)
                                         && Array.isArray(feature.properties.boundaryOffset)
                                         ? window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
                                             L,
@@ -135,6 +135,10 @@
                                     if (feature.properties.fillColor) style.fillColor = feature.properties.fillColor;
                                     if (feature.properties.fillOpacity !== undefined) style.fillOpacity = feature.properties.fillOpacity;
                                     layer.setStyle(style);
+                                    if (feature.geometry.type === 'LineString' && feature.properties.boundaryId
+                                        && feature.properties.tacticalGraphic?.name === 'Boundary') {
+                                        tacticalGraphics.registerBoundaryLayer(layer);
+                                    }
                                     newLayer.addLayer(layer);
                                 }
                             }

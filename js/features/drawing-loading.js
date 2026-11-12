@@ -78,7 +78,7 @@
                     function createTextLabelIcon(feature) {
                         const properties = feature.properties || {};
                         const boundaryOffset = properties.boundaryOffset;
-                        if (properties.role === 'boundaryLabel'
+                        if (['boundaryLabel', 'boundaryMark', 'boundaryDesignation'].includes(properties.role)
                             && Array.isArray(boundaryOffset)
                             && boundaryOffset.length === 2
                             && boundaryOffset.every(Number.isFinite)) {
@@ -199,6 +199,10 @@
                                     if (typeof layer.setStyle === 'function') {
                                         layer.setStyle(style);
                                     }
+                                    if (feature.geometry.type === 'LineString' && feature.properties.boundaryId
+                                        && feature.properties.tacticalGraphic?.name === 'Boundary') {
+                                        tacticalGraphics.registerBoundaryLayer(layer);
+                                    }
                                     newLayer.addLayer(layer);
                                 }
                             }
@@ -211,6 +215,15 @@
                         drawnItems.clearLayers();
                         window.PlanMilT.coverageImage.clear();
                         coverageFeatures.forEach(feature => window.PlanMilT.coverageImage.add(feature, L));
+                        const hasLegacyBoundaries = vectorData.features.some(feature =>
+                            feature.geometry?.type === 'LineString'
+                            && feature.properties?.tacticalGraphic?.name === 'Boundary'
+                            && feature.properties.tacticalGraphic.boundary
+                            && !feature.properties.boundaryId
+                        );
+                        const migratedBoundaries = hasLegacyBoundaries
+                            ? tacticalGraphics.prepareLegacyBoundaries(vectorData)
+                            : new Set();
 
                         L.geoJson(vectorData, {
                             onEachFeature: function(feature, layer) {
@@ -267,10 +280,22 @@
                                     if (typeof layer.setStyle === 'function') {
                                         layer.setStyle(style);
                                     }
+                                    if (feature.geometry.type === 'LineString' && feature.properties.boundaryId
+                                        && feature.properties.tacticalGraphic?.name === 'Boundary') {
+                                        tacticalGraphics.registerBoundaryLayer(layer, true);
+                                    }
                                     drawnItems.addLayer(layer);
                                 }
                             }
                         }).addTo(map);
+                        if (migratedBoundaries.size) {
+                            drawnItems.eachLayer(layer => {
+                                if (layer.feature?.geometry?.type === 'LineString'
+                                    && migratedBoundaries.has(layer.feature.properties?.boundaryId)) {
+                                    tacticalGraphics.refreshBoundary(layer);
+                                }
+                            });
+                        }
                     }
 
                     if (escolha && coverageFeatures.length) {
