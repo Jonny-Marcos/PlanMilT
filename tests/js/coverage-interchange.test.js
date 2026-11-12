@@ -93,6 +93,50 @@ test('shared planning restores the military symbol icon and its original dimensi
     assert.equal(icon.data, symbol);
 });
 
+test('shared planning preserves tactical boundary label offsets', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
+    let load;
+    let icon;
+    const feature = {
+        type: 'Feature',
+        properties: { text: '1º Pel', role: 'boundaryLabel', boundaryOffset: [0, -14], color: '#123456' },
+        geometry: { type: 'Point', coordinates: [-50, -20] }
+    };
+    const context = {
+        URL, URLSearchParams,
+        document: {
+            addEventListener(name, callback) { if (name === 'DOMContentLoaded') load = callback; },
+            getElementById: () => ({ addEventListener() {} }),
+            querySelector: () => ({}), querySelectorAll: () => []
+        },
+        window: { location: { href: 'https://example.test/?camada=teste' }, PlanMilT: {
+            apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) },
+            tacticalGraphics: {
+                createBoundaryLabelIcon(leaflet, text, offset, color) {
+                    return leaflet.divIcon({ text, offset, color });
+                }
+            }
+        } },
+        L: {
+            geoJson(data, options) {
+                if (!data) return { addTo() { return this; }, addLayer() {} };
+                options.onEachFeature(feature, { setIcon(value) { icon = value; } });
+                return {};
+            },
+            divIcon(options) { return options; }
+        },
+        map: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
+        console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
+    };
+
+    vm.runInNewContext(source, context);
+    await load();
+
+    assert.equal(icon.text, '1º Pel');
+    assert.equal(icon.offset.join(','), '0,-14');
+    assert.equal(icon.color, '#123456');
+});
+
 test('KMZ coverage import reprojects the geographic PNG and restores coverage metadata', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/kmz-import.js'), 'utf8');
     const values = { south: '-22', west: '-52', north: '-21', east: '-51' };

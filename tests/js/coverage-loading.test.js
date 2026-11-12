@@ -163,3 +163,62 @@ for (const editable of [true, false]) {
         assert.equal(restored[0].feature.properties.militarySymbol.config.sidc, data.config.sidc);
     });
 }
+
+for (const editable of [true, false]) {
+    test(`restores tactical boundary label offsets ${editable ? 'for editing' : 'as overlay'}`, async () => {
+        const feature = {
+            type: 'Feature',
+            properties: {
+                text: '1º Pel',
+                role: 'boundaryLabel',
+                boundaryOffset: [0, -14],
+                color: '#123456'
+            },
+            geometry: { type: 'Point', coordinates: [-50, -20] }
+        };
+        const icons = [];
+        let prompt = 0;
+        const context = {
+            document: { getElementById: () => ({ addEventListener() {} }) },
+            window: {
+                location: { href: 'https://example.test/' },
+                PlanMilT: {
+                    apiClient: { request: async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] }) }) },
+                    welcome: { record: () => true },
+                    coverageImage: { clear() {} },
+                    tacticalGraphics: {
+                        createBoundaryLabelIcon(leaflet, text, offset, color) {
+                            return leaflet.divIcon({ className: 'tactical-graphic-label', text, offset, color });
+                        }
+                    }
+                }
+            },
+            Swal: { fire: async () => ++prompt === 1 ? { value: 'teste' } : { isConfirmed: editable } },
+            L: {
+                geoJson(data, options) {
+                    if (!data) return { addTo() { return this; }, addLayer() {}, getBounds() { return {}; } };
+                    data.features.forEach(savedFeature => {
+                        const layer = { setIcon(icon) { icons.push(icon); } };
+                        options.onEachFeature(savedFeature, layer);
+                    });
+                    return { addTo() { return this; }, getBounds() { return {}; } };
+                },
+                divIcon(options) { return options; }
+            },
+            map: { fitBounds() {} },
+            drawnItems: { clearLayers() {}, addLayer() {}, getLayers: () => [], getBounds: () => ({}) },
+            addNewOverlayLayer() {},
+            isValidGeoJson: () => true,
+            console: { info() {}, error(error) { throw new Error(error); } }
+        };
+
+        vm.runInNewContext(source, context);
+        await context.window.PlanMilT.drawingLoading.load('teste');
+
+        assert.equal(icons.length, 1);
+        assert.equal(icons[0].className, 'tactical-graphic-label');
+        assert.equal(icons[0].offset.join(','), '0,-14');
+        assert.equal(icons[0].text, '1º Pel');
+        assert.equal(icons[0].color, '#123456');
+    });
+}

@@ -70,6 +70,33 @@
                     // Definição do cache de padrões
                     var patternCache = {};
 
+                    /**
+                     * Recria rótulos de limite com os deslocamentos laterais persistidos.
+                     * @param {Object} feature - Feição GeoJSON do rótulo.
+                     * @returns {Object|null} Ícone Leaflet ou null para rótulos antigos sem deslocamento.
+                     */
+                    function createTextLabelIcon(feature) {
+                        const properties = feature.properties || {};
+                        const boundaryOffset = properties.boundaryOffset;
+                        if (properties.role === 'boundaryLabel'
+                            && Array.isArray(boundaryOffset)
+                            && boundaryOffset.length === 2
+                            && boundaryOffset.every(Number.isFinite)) {
+                            return window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
+                                L,
+                                properties.text,
+                                boundaryOffset,
+                                properties.color || '#1f2933'
+                            );
+                        }
+                        return L.divIcon({
+                            className: 'custom-text-label',
+                            html: properties.text,
+                            iconSize: [100, 30],
+                            iconAnchor: [15, 15]
+                        });
+                    }
+
                     // Função para criar ou obter um padrão existente
                     /**
                      * Reconstrói um padrão de preenchimento Leaflet a partir do tipo e cor.
@@ -132,12 +159,7 @@
                                     });
                                     newLayer.addLayer(newCircle);
                                 } else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
-                                    var customIcon = L.divIcon({
-                                        className: 'custom-text-label',
-                                        html: feature.properties.text,
-                                        iconSize: [100, 30],
-                                        iconAnchor: [15, 15]
-                                    });
+                                    var customIcon = createTextLabelIcon(feature);
                                     layer.setIcon(customIcon);
                                     newLayer.addLayer(layer);
                                 } else if (feature.geometry.type === 'Point' && feature.properties.iconUrl) {
@@ -205,12 +227,7 @@
                                     });
                                     drawnItems.addLayer(newCircle);
                                 } else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
-                                    var customIcon = L.divIcon({
-                                        className: 'custom-text-label',
-                                        html: feature.properties.text,
-                                        iconSize: [100, 30],
-                                        iconAnchor: [15, 15]
-                                    });
+                                    var customIcon = createTextLabelIcon(feature);
                                     layer.setIcon(customIcon);
                                     drawnItems.addLayer(layer);
                                 } else if (feature.geometry.type === 'Point' && feature.properties.iconUrl) {

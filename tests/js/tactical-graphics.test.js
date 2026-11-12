@@ -73,10 +73,27 @@ global.document = {
 };
 require('../../js/features/tactical-graphics.js');
 
+test('boundary label icon is centered with escaped text and its screen offset', () => {
+    const icon = window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
+        { divIcon: options => options },
+        '<1º Pel>',
+        [4, -14],
+        '#123456'
+    );
+
+    assert.equal(icon.className, 'tactical-graphic-label');
+    assert.equal(icon.iconSize.join(','), '0,0');
+    assert.equal(icon.iconAnchor.join(','), '0,0');
+    assert.match(icon.html, /translate\(4px,-14px\)/);
+    assert.match(icon.html, /&lt;1º Pel&gt;/);
+});
+
 function createHarness({
     geometryType = 'LineString',
     designation = '1ª Cia',
-    renderError = null
+    renderError = null,
+    graphicName = 'MainAxisOfAdvance',
+    boundaryType = 'Companhia'
 } = {}) {
     const layers = [];
     const mapLayers = [];
@@ -111,10 +128,10 @@ function createHarness({
         }
     };
     const library = {
-        listTacticalGraphicNames: () => ['MainAxisOfAdvance'],
+        listTacticalGraphicNames: () => [graphicName],
         getDisplayName: () => 'Eixo de avanço principal',
         TacticalGraphicCategory: { Lines: 'Lines' },
-        GRAPHIC_CATEGORIES: { MainAxisOfAdvance: 'Lines', PhaseLine: 'Lines' },
+        GRAPHIC_CATEGORIES: { MainAxisOfAdvance: 'Lines', PhaseLine: 'Lines', Boundary: 'Lines' },
         baseGeometryFor: () => geometryType,
         renderTacticalGraphic(feature) {
             renderedFeatures.push(feature);
@@ -125,7 +142,7 @@ function createHarness({
             }
             if (feature.properties.tacticalGraphic.designation !== 'Exemplo'
                 && feature.properties.tacticalGraphic.designation !== undefined) {
-                assert.ok(['MainAxisOfAdvance', 'PhaseLine'].includes(feature.properties.tacticalGraphic.name));
+                assert.ok(['MainAxisOfAdvance', 'PhaseLine', 'Boundary'].includes(feature.properties.tacticalGraphic.name));
                 assert.equal(feature.properties.tacticalGraphic.designation, designation || undefined);
             }
             if (geometryType === 'Point') assert.equal(feature.properties.tacticalGraphic.radius, 500);
@@ -160,7 +177,7 @@ function createHarness({
             if (options.icon === 'error') return { isConfirmed: true };
             if (options.didOpen) {
                 popupElements.get('tacticalGraphicDesignation').value = designation;
-                popupElements.get('tacticalGraphicBoundaryType').value = 'Companhia';
+                popupElements.get('tacticalGraphicBoundaryType').value = boundaryType;
                 popupElements.get('tacticalGraphicBoundaryLeft').value = '1ª Cia';
                 popupElements.get('tacticalGraphicBoundaryRight').value = '2ª Cia';
                 options.didOpen();
@@ -285,7 +302,10 @@ function createHarness({
                     {
                         name: 'common',
                         label: '10 mais comuns',
-                        graphics: [{ name: 'MainAxisOfAdvance', label: 'Eixo principal de progressão' }]
+                        graphics: [{
+                            name: graphicName,
+                            label: graphicName === 'Boundary' ? 'Limite' : 'Eixo principal de progressão'
+                        }]
                     },
                     {
                         name: 'Lines',
@@ -376,6 +396,55 @@ test('boundary limits keep the side names and can be edited after creation', asy
     assert.equal(feature.properties.tacticalGraphic.boundary.leftText, '1ª Cia');
     assert.equal(feature.properties.tacticalGraphic.boundary.rightText, '2ª Cia');
     assert.equal(feature.properties.name, '1ª Cia / 2ª Cia');
+});
+
+test('boundary echelon symbols stay centered and side names face opposite sides of the line', async () => {
+    const expectedSymbols = new Map([
+        ['Pelotão', '●●●'],
+        ['Companhia', 'I'],
+        ['Batalhão', 'II'],
+        ['Regimento', 'III'],
+        ['Brigada', 'X'],
+        ['Divisão', 'XX'],
+        ['Exército', 'XXX']
+    ]);
+
+    for (const [boundaryType, expectedSymbol] of expectedSymbols) {
+        const harness = createHarness({
+            graphicName: 'Boundary',
+            designation: '',
+            boundaryType
+        });
+        await harness.integration.startDrawing();
+        const handled = harness.integration.handleCreated({
+            layer: {
+                toGeoJSON: () => ({
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [[-50, -20], [-49.9, -20.1]]
+                    }
+                })
+            }
+        });
+
+        assert.equal(handled, true);
+        const mark = harness.layers.find(layer => layer.feature?.properties?.role === 'boundaryMark').feature;
+        assert.equal(mark.properties.text, expectedSymbol);
+        assert.deepEqual(mark.geometry.coordinates, [-49.9, -20.1]);
+
+        const boundaryLabels = harness.layers.filter(layer => layer.feature?.properties?.role === 'boundaryLabel');
+        assert.equal(boundaryLabels.length, 2);
+        assert.deepEqual(
+            boundaryLabels.map(layer => layer.feature.geometry.coordinates),
+            [[-49.9, -20.1], [-49.9, -20.1]]
+        );
+        const [leftOffset, rightOffset] = boundaryLabels.map(layer => layer.feature.properties.boundaryOffset);
+        assert.ok(Math.abs(leftOffset[0] + rightOffset[0]) < 1e-10);
+        assert.ok(Math.abs(leftOffset[1] + rightOffset[1]) < 1e-10);
+        assert.match(boundaryLabels[0].options.icon.html, /translate\(-50%,-50%\)/);
+    }
 });
 
 test('graphic selector puts compact symbol thumbnails beside single-choice rows', async () => {

@@ -101,12 +101,20 @@
                                 }
                                 // Trata pontos com propriedade text, garantindo que não são círculos
                                 else if (feature.properties.text && feature.geometry.type === 'Point' && !feature.properties.iconUrl) {
-                                    var customIcon = L.divIcon({
-                                        className: 'custom-text-label',
-                                        html: feature.properties.text,
-                                        iconSize: [100, 30],
-                                        iconAnchor: [15, 15]
-                                    });
+                                    var customIcon = feature.properties.role === 'boundaryLabel'
+                                        && Array.isArray(feature.properties.boundaryOffset)
+                                        ? window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
+                                            L,
+                                            feature.properties.text,
+                                            feature.properties.boundaryOffset,
+                                            feature.properties.color
+                                        )
+                                        : L.divIcon({
+                                            className: 'custom-text-label',
+                                            html: feature.properties.text,
+                                            iconSize: [100, 30],
+                                            iconAnchor: [15, 15]
+                                        });
                                     // Configura o ícone personalizado no marcador existente
                                     layer.setIcon(customIcon);
                                     newLayer.addLayer(layer);

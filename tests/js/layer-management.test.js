@@ -31,8 +31,9 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['drawing-storage', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    for (const script of ['kmz-export', 'shared-layers', 'drawing-loading', 'layer-management']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
+    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261119-calungas'));
+    for (const script of ['shared-layers', 'drawing-loading', 'layer-management']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-boundary-layout`));
     }
     for (const script of ['main', 'kmz-import', 'icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
@@ -47,10 +48,11 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
         assert.ok(documentSource.indexOf('js/features/welcome.js') < documentSource.indexOf(`js/features/${consumer}.js`));
     }
-    assert.match(documentSource, /tactical-graphics\.js\?v=20260617-tactical-graphic-picker/);
+    assert.match(documentSource, /tactical-graphics\.js\?v=20261112-boundary-layout/);
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);
     assert.match(source, /Carregando dados/);
+    assert.match(source, /createBoundaryLabelIcon/);
     assert.match(source, /<summary>Busca avançada<\/summary>/);
     assert.match(source, /layerCatalogAdvancedService/);
     assert.match(source, /layerCatalogAdvancedCategory/);
