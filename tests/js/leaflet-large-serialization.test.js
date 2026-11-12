@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 global.window = global;
 global.screen = {};
@@ -10,7 +13,31 @@ global.document = {
 const L = require('../../js/library/leaflet.js');
 require('../../js/features/geojson-serialization.js');
 require('../../js/features/tactical-graphics.js');
+require('../../js/features/drawing-geometry.js');
 window.PlanMilT.localHistory = { graphics: () => [], recordGraphic() {} };
+
+test('real Leaflet serializes a patterned circle as a valid polygon with its fill', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+    let handler;
+    const map = { on(eventName, listener) { handler = listener; } };
+    const drawnItems = L.featureGroup();
+    L.Draw = { Event: { CREATED: 'draw:created' } };
+    window.PlanMilT.drawingPatterns = { get: () => ({}) };
+    vm.runInNewContext(source.slice(source.indexOf('map.on(L.Draw.Event.CREATED,')), {
+        window, L, map, drawnItems, defaultColor: '#123456',
+        tacticalGraphics: { handleCreated: () => false },
+        Swal: { fire: async () => ({ value: 'patternDots' }) }
+    });
+    await handler({ layerType: 'circle', layer: L.circle([-20, -50], { radius: 1000 }) });
+    const saved = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems, false).features[0];
+    assert.equal(saved.geometry.type, 'Polygon');
+    assert.equal(saved.geometry.coordinates.length, 1);
+    assert.equal(saved.geometry.coordinates[0].length, 65);
+    assert.equal(typeof saved.geometry.coordinates[0][0][0], 'number');
+    assert.equal(saved.properties.fillPattern, 'patternDots');
+    assert.equal(saved.properties.radius, 1000);
+    assert.equal(drawnItems.getLayers()[0].options.fillOpacity, 0.2);
+});
 
 test('real Leaflet groups with 150,000 features serialize without exceeding the call stack', () => {
     const coverage = L.layerGroup();

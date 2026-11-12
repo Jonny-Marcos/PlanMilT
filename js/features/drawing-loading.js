@@ -67,9 +67,6 @@
                     const coverageLayers = coverageFeatures.map(feature => window.PlanMilT.coverageImage.fromFeature(feature, L));
                     let loadedOverlay;
 
-                    // Definição do cache de padrões
-                    var patternCache = {};
-
                     /**
                      * Recria rótulos de limite com os deslocamentos laterais persistidos.
                      * @param {Object} feature - Feição GeoJSON do rótulo.
@@ -95,46 +92,6 @@
                             iconSize: [100, 30],
                             iconAnchor: [15, 15]
                         });
-                    }
-
-                    // Função para criar ou obter um padrão existente
-                    /**
-                     * Reconstrói um padrão de preenchimento Leaflet a partir do tipo e cor.
-                     * @param {string} fillPatternType - Identificador do padrão de preenchimento.
-                     * @param {string} color - Cor CSS/hexadecimal aplicada ao desenho.
-                     */
-                    function getPattern(fillPatternType, color) {
-                        var key = fillPatternType + '_' + color;
-                        if (patternCache[key]) {
-                            return patternCache[key];
-                        }
-                        let patternId = 'pattern_' + fillPatternType + '_' + color.replace('#', '');
-                        let pattern = new L.Pattern({
-                            id: patternId,
-                            width: 8,
-                            height: 8,
-                            patternUnits: 'userSpaceOnUse'
-                        });
-                        var shape;
-                        if (fillPatternType === 'patternX') {
-                            shape = new L.PatternPath({
-                                d: 'M0,0 L8,8 M8,0 L0,8',
-                                stroke: true,
-                                weight: 1,
-                                color: color
-                            });
-                        } else if (fillPatternType === 'patternSlash') {
-                            shape = new L.PatternPath({
-                                d: 'M0,0 L8,8',
-                                stroke: true,
-                                weight: 1,
-                                color: color
-                            });
-                        }
-                        pattern.addShape(shape);
-                        pattern.addTo(map);
-                        patternCache[key] = pattern;
-                        return pattern;
                     }
 
                     if (!escolha) {
@@ -187,11 +144,10 @@
                                     if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
                                         if (feature.properties.fillColor) {
                                             style.fillColor = feature.properties.fillColor;
-                                            style.fillOpacity = feature.properties.fillOpacity || 0.5;
+                                            style.fillOpacity = feature.properties.fillOpacity ?? 0.5;
                                         }
                                         if (feature.properties.fillPattern) {
-                                            // Usar a função getPattern para obter o padrão correto
-                                            let pattern = getPattern(feature.properties.fillPattern, feature.properties.color);
+                                            let pattern = window.PlanMilT.drawingPatterns.get(map, L, feature.properties.fillPattern, feature.properties.color);
                                             style.fillPattern = pattern;
                                         }
                                     }
@@ -268,11 +224,10 @@
                                     if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
                                         if (feature.properties.fillColor) {
                                             style.fillColor = feature.properties.fillColor;
-                                            style.fillOpacity = feature.properties.fillOpacity || 0.5;
+                                            style.fillOpacity = feature.properties.fillOpacity ?? 0.5;
                                         }
                                         if (feature.properties.fillPattern) {
-                                            // Usar a função getPattern para obter o padrão correto
-                                            let pattern = getPattern(feature.properties.fillPattern, feature.properties.color);
+                                            let pattern = window.PlanMilT.drawingPatterns.get(map, L, feature.properties.fillPattern, feature.properties.color);
                                             style.fillPattern = pattern;
                                         }
                                     }

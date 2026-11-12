@@ -195,3 +195,20 @@ test('boundary conversion failure reports the error and keeps the drawn line', a
     assert.equal(harness.alerts[1].text, 'Conversão indisponível');
     assert.equal(harness.errors.length, 1);
 });
+
+test('cancelling the line style preserves the selected color for serialization', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+    let handler;
+    const added = [];
+    vm.runInNewContext(source.slice(source.indexOf('map.on(L.Draw.Event.CREATED,')), {
+        map: { on(eventName, listener) { handler = listener; } },
+        L: { Draw: { Event: { CREATED: 'draw:created' } } },
+        tacticalGraphics: { handleCreated: () => false },
+        drawnItems: { addLayer: layer => added.push(layer) },
+        Swal: { fire: async () => ({}) }, defaultColor: '#123456'
+    });
+    const line = {};
+    await handler({ layerType: 'polyline', layer: line });
+    assert.equal(added.length, 1);
+    assert.equal(line.feature.properties.color, '#123456');
+});

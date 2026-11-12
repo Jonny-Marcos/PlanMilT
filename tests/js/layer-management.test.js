@@ -36,17 +36,15 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['kmz-import', 'map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }
-    for (const script of ['kmz-export', 'kmz-tactical-images']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-drawing-patterns`));
-    }
-    for (const script of ['shared-layers', 'drawing-loading']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-boundary-repeat`));
+    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261112-drawing-patterns'));
+    for (const script of ['drawing-patterns', 'kmz-tactical-images', 'shared-layers', 'drawing-loading', 'main', 'layer-management']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261129-area-patterns`));
+        if (script !== 'drawing-patterns') {
+            assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
+        }
     }
     for (const script of ['icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
-    }
-    for (const script of ['main', 'layer-management']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-catalog-history`));
     }
     assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));
     assert.ok(documentSource.includes('js/features/tactical-graphics.js?v=20261112-coordination-circle'));

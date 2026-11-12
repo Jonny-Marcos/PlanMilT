@@ -157,23 +157,29 @@ window.PlanMilT.kmzTacticalImages = Object.freeze({
                             else throw new Error(`Geometria não suportada para o KMZ: ${item.type}.`);
                             if (item.type === 'Polygon' || item.type === 'MultiPolygon') {
                                 if (properties.fillPattern) {
-                                    if (!['patternX', 'patternSlash'].includes(properties.fillPattern)) {
+                                    if (!['patternX', 'patternSlash', 'patternDots'].includes(properties.fillPattern)) {
                                         throw new Error('O padrão de preenchimento do desenho não é suportado no KMZ.');
                                     }
                                     const tile = document.createElement('canvas');
                                     tile.width = tile.height = 8;
                                     const patternContext = tile.getContext('2d');
                                     if (!patternContext) throw new Error('Não foi possível gerar o padrão de preenchimento.');
-                                    patternContext.strokeStyle = properties.color || '#3388ff';
-                                    patternContext.lineWidth = 1;
                                     patternContext.beginPath();
-                                    patternContext.moveTo(0, 0);
-                                    patternContext.lineTo(8, 8);
-                                    if (properties.fillPattern === 'patternX') {
-                                        patternContext.moveTo(8, 0);
-                                        patternContext.lineTo(0, 8);
+                                    if (properties.fillPattern === 'patternDots') {
+                                        patternContext.fillStyle = properties.color || '#3388ff';
+                                        patternContext.arc(4, 4, 1.2, 0, Math.PI * 2);
+                                        patternContext.fill();
+                                    } else {
+                                        patternContext.strokeStyle = properties.color || '#3388ff';
+                                        patternContext.lineWidth = 1;
+                                        patternContext.moveTo(0, 0);
+                                        patternContext.lineTo(8, 8);
+                                        if (properties.fillPattern === 'patternX') {
+                                            patternContext.moveTo(8, 0);
+                                            patternContext.lineTo(0, 8);
+                                        }
+                                        patternContext.stroke();
                                     }
-                                    patternContext.stroke();
                                     const pattern = context.createPattern(tile, 'repeat');
                                     if (!pattern) throw new Error('Não foi possível gerar o padrão de preenchimento.');
                                     context.fillStyle = pattern;

@@ -72,8 +72,8 @@ test('ordinary tactical labels decode escaped text without interpreting it as ma
     assert.equal(canvases[1].calls.find(call => call[0] === 'text')[1], '<Texto> & apoio');
 });
 
-test('rasterizes dashed lines and both polygon hatch patterns', async () => {
-    for (const pattern of ['patternX', 'patternSlash']) {
+test('rasterizes dashed lines and polygon fill patterns', async () => {
+    for (const pattern of ['patternX', 'patternSlash', 'patternDots']) {
         const { map, canvases } = harness();
         const features = [
             { properties: { color: '#123456', dashArray: '10, 10' },
@@ -85,7 +85,11 @@ test('rasterizes dashed lines and both polygon hatch patterns', async () => {
         assert.equal(images.length, 2);
         assert.deepEqual(canvases[1].calls.find(call => call[0] === 'dash')[1], [10, 10]);
         const tile = canvases[3].calls.find(call => call[0] === 'pattern')[1];
-        assert.equal(tile.calls.filter(call => call[0] === 'line').length, pattern === 'patternX' ? 2 : 1);
+        assert.equal(tile.calls.filter(call => call[0] === 'line').length, pattern === 'patternX' ? 2 : pattern === 'patternSlash' ? 1 : 0);
+        if (pattern === 'patternDots') {
+            assert.deepEqual(tile.calls.find(call => call[0] === 'arc').slice(0, 4), ['arc', 4, 4, 1.2]);
+            assert.ok(tile.calls.some(call => call[0] === 'fill'));
+        }
         assert.ok(canvases[3].calls.some(call => call[0] === 'fill' && call[1] === 'evenodd'));
     }
 });

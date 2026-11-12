@@ -359,10 +359,13 @@
                         }
                     }
 
+                    layer.feature = layer.feature || { type: 'Feature', properties: {} };
+                    layer.feature.properties.color = defaultColor;
                     drawnItems.addLayer(layer);
+                    return;
                 } 
 
-                if (type === 'polygon') {
+                if (type === 'polygon' || type === 'rectangle' || type === 'circle') {
                     // Apresentar opções de preenchimento para o usuário
                     const { value: fillOption } = await Swal.fire({
                         title: 'Selecione o tipo de preenchimento',
@@ -370,106 +373,41 @@
                         inputOptions: {
                             solid: 'Cor Sólida',
                             patternX: 'Padrão "X"',
-                            patternSlash: 'Padrão "\\"'
+                            patternSlash: 'Padrão "\\"',
+                            patternDots: 'Pontos (visual)'
                         },
                         inputPlaceholder: 'Selecione um preenchimento',
                         showCancelButton: true
                     });
 
-                    if (fillOption !== undefined) {
-                        if (fillOption === 'solid') {
-                            layer.setStyle({
-                                fillColor: defaultColor,
-                                fillOpacity: 0.5
-                            });
-
-                            // Adicionar informações de estilo às propriedades da feature
-                            layer.feature = {
-                                type: 'Feature',
-                                properties: {
-                                    fillColor: defaultColor,
-                                    fillOpacity: 0.5
-                                },
-                                geometry: layer.toGeoJSON().geometry
-                            };
-                        } else {
-                            // Aplicar padrões de preenchimento
-                            let pattern;
-                            if (fillOption === 'patternX') {
-                                pattern = new L.Pattern({
-                                    width: 8,
-                                    height: 8,
-                                    patternUnits: 'userSpaceOnUse'
-                                });
-                                var shape = new L.PatternPath({
-                                    d: 'M0,0 L8,8 M8,0 L0,8',
-                                    stroke: true,
-                                    weight: 1,
-                                    color: defaultColor
-                                });
-                                pattern.addShape(shape);
-                                pattern.addTo(map);
-                            } else if (fillOption === 'patternSlash') {
-                                pattern = new L.Pattern({
-                                    width: 8,
-                                    height: 8,
-                                    patternUnits: 'userSpaceOnUse'
-                                });
-                                var shape = new L.PatternPath({
-                                    d: 'M0,0 L8,8',
-                                    stroke: true,
-                                    weight: 1,
-                                    color: defaultColor
-                                });
-                                pattern.addShape(shape);
-                                pattern.addTo(map);
-                            }
-
-                            layer.setStyle({
-                                fillPattern: pattern
-                            });
-
-                            // Adicionar informações de estilo às propriedades da feature
-                            layer.feature = {
-                                type: 'Feature',
-                                properties: {
-                                    fillPattern: fillOption,
-                                    color: defaultColor
-                                },
-                                geometry: layer.toGeoJSON().geometry
-                            };
+                    let properties = { color: defaultColor };
+                    if (type === 'circle') {
+                        const center = layer.getLatLng();
+                        const radius = layer.getRadius();
+                        layer = L.polygon(window.PlanMilT.drawingGeometry.createCirclePolygon(center, radius), {
+                            color: defaultColor, fillColor: defaultColor, fillOpacity: 0.5
+                        });
+                        properties = { ...properties, shape: 'circle', center: [center.lat, center.lng], radius };
+                        if (fillOption === undefined) {
+                            properties.fillColor = defaultColor;
+                            properties.fillOpacity = 0.5;
                         }
                     }
-
+                    if (fillOption === 'solid') {
+                        layer.setStyle({ fillColor: defaultColor, fillOpacity: 0.5 });
+                        properties.fillColor = defaultColor;
+                        properties.fillOpacity = 0.5;
+                    } else if (fillOption !== undefined) {
+                        layer.setStyle({ fillPattern: window.PlanMilT.drawingPatterns.get(map, L, fillOption, defaultColor),
+                            fillOpacity: 0.2 });
+                        properties.fillPattern = fillOption;
+                    }
+                    layer.feature = { type: 'Feature', properties, geometry: layer.toGeoJSON().geometry };
                     drawnItems.addLayer(layer);
+                    return;
                 }
 
-                if (type === 'circle') {
-                    var center = layer.getLatLng();
-                    var radius = layer.getRadius();
-
-                    var polygonCoordinates = window.PlanMilT.drawingGeometry.createCirclePolygon(center, radius);
-
-                    var polygonLayer = L.polygon(polygonCoordinates, {
-                        color: defaultColor,
-                        fillColor: defaultColor,
-                        fillOpacity: 0.5,
-                    }).addTo(drawnItems);
-
-                    polygonLayer.feature = {
-                        type: 'Feature',
-                        properties: {
-                            shape: 'circle',
-                            center: [center.lat, center.lng],
-                            radius: radius,
-                            color: defaultColor
-                        },
-                        geometry: {
-                            type: "Polygon",
-                            coordinates: [polygonCoordinates]
-                        }
-                    };
-                } else if (type === 'marker') {
+                if (type === 'marker') {
                     // Substituindo o confirm() por SweetAlert2
                     const result = await Swal.fire({
                         title: 'Adicionar Ícone ou Texto?',

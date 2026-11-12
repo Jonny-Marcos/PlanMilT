@@ -97,7 +97,13 @@
                                             layer.setIcon(customIcon);
                                             newLayer.addLayer(layer);
                                         } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'Polygon') {
-                                            layer.setStyle({ color: feature.properties.color });
+                                            const style = { color: feature.properties.color };
+                                            if (feature.properties.fillColor) style.fillColor = feature.properties.fillColor;
+                                            if (feature.properties.fillOpacity !== undefined) style.fillOpacity = feature.properties.fillOpacity;
+                                            if (feature.properties.fillPattern) {
+                                                style.fillPattern = window.PlanMilT.drawingPatterns.get(map, L, feature.properties.fillPattern, feature.properties.color);
+                                            }
+                                            layer.setStyle(style);
                                             if (feature.geometry.type === 'LineString' && feature.properties.boundaryId
                                                 && feature.properties.tacticalGraphic?.name === 'Boundary') {
                                                 tacticalGraphics.registerBoundaryLayer(layer);
