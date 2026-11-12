@@ -10,6 +10,7 @@
     const exaggerationValue = document.getElementById('verticalExaggerationValue');
     const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
     const origin = window.location.origin;
+    const host = window.parent !== window ? window.parent : null;
     let activeData;
     let mesh;
     let camera = { yaw: -0.65, pitch: 0.7, distance: 1 };
@@ -248,19 +249,19 @@ void main() {
     }
 
     /**
-     * Solicita uma captura nova à janela principal.
+     * Solicita uma captura nova ao mapa principal.
      */
     function requestRefresh() {
-        if (!window.opener || window.opener.closed) {
+        if (!host) {
             showStatus('O mapa principal não está disponível. Abra o visualizador pelo botão 3D do PlanMilT.');
             return;
         }
-        window.opener.postMessage({ type: 'planmilt-3d-refresh' }, origin);
+        host.postMessage({ type: 'planmilt-3d-refresh' }, origin);
         showStatus('Atualizando camadas, imagens e terreno locais…');
     }
 
     window.addEventListener('message', event => {
-        if (!window.opener || event.source !== window.opener || event.origin !== origin || !event.data) return;
+        if (!host || event.source !== host || event.origin !== origin || !event.data) return;
         if (event.data.type === 'planmilt-3d-status' && typeof event.data.message === 'string') {
             showStatus(event.data.message);
             return;
@@ -278,6 +279,9 @@ void main() {
     });
 
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
+    document.getElementById('closeViewer').addEventListener('click', () => {
+        if (host) host.postMessage({ type: 'planmilt-3d-close' }, origin);
+    });
     document.getElementById('resetCamera').addEventListener('click', () => {
         if (initialCamera) {
             camera = { ...initialCamera };
@@ -307,6 +311,7 @@ void main() {
     canvas.addEventListener('pointercancel', () => { pointer = undefined; });
     canvas.addEventListener('wheel', event => {
         event.preventDefault();
+        if (!mesh) return;
         camera.distance = Math.max(mesh.width * 0.2, Math.min(mesh.width * 8, camera.distance * Math.exp(event.deltaY * 0.001)));
         draw();
     }, { passive: false });
@@ -314,8 +319,8 @@ void main() {
 
     try {
         initializeRenderer();
-        if (window.opener && !window.opener.closed) {
-            window.opener.postMessage({ type: 'planmilt-3d-ready' }, origin);
+        if (host) {
+            host.postMessage({ type: 'planmilt-3d-ready' }, origin);
             showStatus('Preparando a visualização do mapa…');
         }
     } catch (error) {

@@ -74,12 +74,15 @@
 
 
 
-        <link rel="stylesheet" href="css/app.css?v=20261112-3d-viewer">
+        <link rel="stylesheet" href="css/app.css?v=20261112-3d-integrated">
         <title>PlanMilT</title>
     </head>
     <body>
         <div id="map">
         </div>
+        <section id="map3DOverlay" class="map-3d-overlay" aria-label="Visualizador 3D" hidden>
+            <iframe id="map3DFrame" title="Visualizador 3D do mapa"></iframe>
+        </section>
         <section id="imageEditor" class="image-editor-overlay" aria-label="Criador de tema" hidden>
             <div id="imageEditorMap" class="image-editor-map"></div>
             <canvas id="imageEditorCanvas"></canvas>
@@ -245,8 +248,8 @@
 
 
 
-        <script src="js/features/main.js?v=20261112-dot-label"></script>
-        <script src="js/features/map-3d.js?v=20261112-local-terrain-camera"></script>
+        <script src="js/features/main.js?v=20261112-3d-integrated"></script>
+        <script src="js/features/map-3d.js?v=20261112-3d-integrated"></script>
         <script src="js/features/kmz-import.js?v=20261112-session"></script>
         <script src="js/features/map-popups.js"></script>
         <script src="js/features/drawing-storage.js?v=20261112-save-dialog"></script>

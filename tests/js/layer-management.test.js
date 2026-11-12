@@ -21,7 +21,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261112-3d-viewer/);
+    assert.match(documentSource, /app\.css\?v=20261112-3d-integrated/);
     assert.match(documentSource, /radio-planning\.js\?v=20261112-radial-resolution/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
     assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
@@ -43,8 +43,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
-        assert.ok(documentSource.includes('js/features/main.js?v=20261112-dot-label'));
-        assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-local-terrain-camera'));
+        assert.ok(documentSource.includes('js/features/main.js?v=20261112-3d-integrated'));
+        assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-3d-integrated'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
     assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-radial-resolution'));

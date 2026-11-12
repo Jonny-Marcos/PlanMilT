@@ -1,10 +1,13 @@
 /**
- * @fileoverview Abre uma janela somente leitura com o mapa capturado sobre relevo SRTM local.
- * @requires Mapa Leaflet, cliente HTTP e html2canvas.
+ * @fileoverview Mostra o mapa capturado sobre relevo SRTM em um visualizador integrado somente leitura.
+ * @requires Mapa Leaflet, cliente HTTP, elevationFiles e html2canvas.
  */
 (() => {
     const button = document.getElementById('view3DButton');
-    let viewer;
+    const overlay = document.getElementById('map3DOverlay');
+    const frame = document.getElementById('map3DFrame');
+    let viewerReady = false;
+    let sceneVersion = 0;
     let capturing = false;
     let recapture = false;
 
@@ -13,8 +16,8 @@
      * @param {Object} message - Tipo e dados do evento.
      */
     function post(message) {
-        if (viewer && !viewer.closed) {
-            viewer.postMessage(message, window.location.origin);
+        if (!overlay.hidden && frame.contentWindow) {
+            frame.contentWindow.postMessage(message, window.location.origin);
         }
     }
 
@@ -132,7 +135,7 @@
     }
 
     /**
-     * Atualiza o snapshot visual e a grade de elevação na janela 3D.
+     * Atualiza o snapshot visual e a grade de elevação no visualizador 3D.
      */
     async function sendScene() {
         if (capturing) {
@@ -142,30 +145,38 @@
         capturing = true;
         do {
             recapture = false;
+            const version = sceneVersion;
             try {
                 post({ type: 'planmilt-3d-status', message: 'Capturando camadas e imagens visíveis…' });
                 const mapBounds = map.getBounds();
                 const bounds = [mapBounds.getSouth(), mapBounds.getWest(), mapBounds.getNorth(), mapBounds.getEast()];
                 const unavailableLayers = new Set();
-                const [image, terrainResponse] = await Promise.all([
-                    captureMap(unavailableLayers),
-                    window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
+                const requestTerrain = async () => {
+                    const response = await window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ bounds, columns: 65, rows: 65 })
-                    })
-                ]);
-                let terrain;
-                try {
-                    terrain = await terrainResponse.json();
-                } catch (error) {
-                    throw new Error('Não foi possível ler a resposta dos tiles de elevação.');
+                    });
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (error) {
+                        throw new Error('Não foi possível ler a resposta dos tiles de elevação.');
+                    }
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Não foi possível obter o relevo SRTM local.');
+                    }
+                    return data;
+                };
+                const [image, initialTerrain] = await Promise.all([captureMap(unavailableLayers), requestTerrain()]);
+                let terrain = initialTerrain;
+                if (!overlay.hidden && version === sceneVersion && terrain.missingTiles.length) {
+                    post({ type: 'planmilt-3d-status', message: 'Obtendo arquivos de elevação ausentes…' });
+                    await window.PlanMilT.elevationFiles.ensure(terrain.missingTiles);
+                    if (!overlay.hidden && version === sceneVersion) terrain = await requestTerrain();
                 }
-                if (!terrainResponse.ok) {
-                    throw new Error(terrain.error || 'Não foi possível obter o relevo SRTM local.');
-                }
-                if (viewer && !viewer.closed) {
-                    viewer.postMessage({
+                if (!overlay.hidden && version === sceneVersion) {
+                    post({
                         type: 'planmilt-3d-data',
                         payload: {
                             image, bounds,
@@ -173,34 +184,41 @@
                             missingTiles: terrain.missingTiles,
                             unavailableLayers: [...unavailableLayers]
                         }
-                    }, window.location.origin);
+                    });
                 }
             } catch (error) {
-                post({
-                    type: 'planmilt-3d-error',
-                    message: error.message || 'Não foi possível atualizar o visualizador 3D.'
-                });
+                if (version === sceneVersion) {
+                    post({
+                        type: 'planmilt-3d-error',
+                        message: error.message || 'Não foi possível atualizar o visualizador 3D.'
+                    });
+                }
             }
-        } while (recapture && viewer && !viewer.closed);
+        } while (recapture && !overlay.hidden);
         capturing = false;
     }
 
     window.addEventListener('message', event => {
-        if (event.origin !== window.location.origin || event.source !== viewer || !event.data) return;
-        if (event.data.type === 'planmilt-3d-ready' || event.data.type === 'planmilt-3d-refresh') {
+        if (event.origin !== window.location.origin || event.source !== frame.contentWindow || !event.data) return;
+        if (event.data.type === 'planmilt-3d-close' && !overlay.hidden) {
+            sceneVersion++;
+            overlay.hidden = true;
+            document.body.classList.remove('map-3d-open');
+            button.focus();
+            return;
+        }
+        if (event.data.type === 'planmilt-3d-ready') viewerReady = true;
+        if (!overlay.hidden && (event.data.type === 'planmilt-3d-ready' || event.data.type === 'planmilt-3d-refresh')) {
             sendScene();
         }
     });
 
     button.addEventListener('click', () => {
-        if (viewer && !viewer.closed) {
-            viewer.focus();
-            sendScene();
-            return;
-        }
-        viewer = window.open('visualizador-3d.html', 'planmilt-3d', 'popup,width=1280,height=820');
-        if (!viewer) {
-            Swal.fire('Visualizador bloqueado', 'Permita a abertura de janelas para exibir o mapa 3D.', 'warning');
-        }
+        sceneVersion++;
+        overlay.hidden = false;
+        document.body.classList.add('map-3d-open');
+        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-3d-integrated';
+        else if (viewerReady) sendScene();
+        frame.focus();
     });
 })();

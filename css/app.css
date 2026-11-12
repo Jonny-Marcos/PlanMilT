@@ -61,6 +61,24 @@
                 background: #344b70;
                 color: #fff;
             }
+            .map-3d-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 10000;
+                background: #101820;
+            }
+            .map-3d-overlay[hidden] {
+                display: none;
+            }
+            .map-3d-overlay iframe {
+                display: block;
+                width: 100%;
+                height: 100%;
+                border: 0;
+            }
+            body.map-3d-open .swal2-container {
+                z-index: 11000 !important;
+            }
 
             .toolbar-button:hover,
             .toolbar-item select:hover,

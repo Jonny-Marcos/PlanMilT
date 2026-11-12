@@ -60,7 +60,7 @@ final class MapImageProxy
             throw new InvalidArgumentException('A origem de imagens do Google não pode ser encaminhada.');
         }
         if ($host === self::OPEN_TOPO_HOST) {
-            if ($query !== '' || !preg_match('~^/map/(?:[0-9]|1[0-8])/\d+/\d+\.png$~', $path)) {
+            if ($query !== '' || !preg_match('~^/(?:map/)?(?:[0-9]|1[0-8])/\d+/\d+\.png$~', $path)) {
                 throw new InvalidArgumentException('O tile de mapa solicitado não é permitido.');
             }
             return ['host' => $host, 'path' => $path, 'query' => ''];

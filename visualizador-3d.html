@@ -22,7 +22,7 @@
         .viewer-title h1 { margin: 0; font-size: 17px; }
         .viewer-title p { margin: 5px 0 0; color: #bdc9d5; font-size: 12px; }
         .viewer-controls { width: min(250px, calc(100vw - 32px)); padding: 12px; pointer-events: auto; }
-        .viewer-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+        .viewer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
         button {
             min-height: 36px; border: 1px solid #ffffff38; border-radius: 6px; padding: 7px 10px;
             background: #28394b; color: #fff; font-size: 13px; cursor: pointer;
@@ -62,6 +62,7 @@
             <div class="viewer-actions">
                 <button id="refreshViewer" type="button" title="Atualizar com o mapa 2D">Atualizar</button>
                 <button id="resetCamera" type="button">Restaurar vista</button>
+                <button id="closeViewer" type="button">Voltar ao mapa</button>
             </div>
             <label class="viewer-control" for="verticalExaggeration">
                 Exagero vertical: <span id="verticalExaggerationValue">2×</span>
@@ -70,8 +71,8 @@
         </aside>
     </header>
     <div id="viewerWarnings" role="status" aria-live="polite" hidden></div>
-    <div id="viewerStatus" role="status" aria-live="polite">Abra esta janela pelo botão 3D no mapa PlanMilT.</div>
+    <div id="viewerStatus" role="status" aria-live="polite">Abra o visualizador pelo botão 3D no mapa PlanMilT.</div>
     <script src="js/features/map-3d-geometry.js?v=20261112-local-terrain"></script>
-    <script src="js/features/map-3d-viewer.js?v=20261112-local-terrain-camera"></script>
+    <script src="js/features/map-3d-viewer.js?v=20261112-3d-integrated"></script>
 </body>
 </html>

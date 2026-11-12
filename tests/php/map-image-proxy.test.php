@@ -33,6 +33,10 @@ expectMapImage(
     $service->validateUrl('https://tile.opentopomap.org/map/12/1234/1234.png')['host'] === 'tile.opentopomap.org',
     'Tile OpenTopo válido deveria ser aceito.'
 );
+expectMapImage(
+    $service->validateUrl('https://tile.opentopomap.org/12/1234/1234.png')['host'] === 'tile.opentopomap.org',
+    'Tile OpenTopo usado no mapa deveria ser aceito.'
+);
 
 foreach ([
     'http://maps.example/wms?SERVICE=WMS&REQUEST=GetMap&FORMAT=image/png&WIDTH=1&HEIGHT=1&BBOX=0,0,1,1',
