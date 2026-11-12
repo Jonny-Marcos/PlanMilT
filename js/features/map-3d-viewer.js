@@ -191,9 +191,6 @@ void main() {
             const missing = data.missingTiles || [];
             const messages = [];
             if (missing.length) messages.push(`Sem elevação local em ${missing.join(', ')}; o relevo dessas áreas foi interpolado localmente.`);
-            if (data.zoomRequested === null && data.zoom < data.mapZoom) {
-                messages.push(`Zoom da camada reduzido para ${data.zoom} para limitar a 64 tiles. Enquadre uma área menor no mapa 2D para usar o zoom ${data.mapZoom}.`);
-            }
             attribution.textContent = data.source === 'bdgex'
                 ? 'Mapa: BDGEx – CTM50. Elevação: SRTM local.'
                 : 'Mapa: © OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA). Elevação: SRTM local.';

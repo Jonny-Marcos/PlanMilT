@@ -12,6 +12,7 @@
     let sceneVersion = 0;
     let capturing = false;
     let recapture = false;
+    let activeCapture;
 
     /**
      * Envia uma mensagem segura para o visualizador aberto.
@@ -35,12 +36,13 @@
         do {
             recapture = false;
             const version = sceneVersion;
+            const controller = new AbortController();
+            activeCapture = controller;
             try {
                 post({ type: 'planmilt-3d-status', message: 'Carregando camada-base e terreno…' });
                 const mapBounds = map.getBounds();
                 const bounds = [mapBounds.getSouth(), mapBounds.getWest(), mapBounds.getNorth(), mapBounds.getEast()];
                 const source = selectedSource;
-                const mapZoom = Math.max(0, Math.min(18, Math.floor(map.getZoom())));
                 const requestTerrain = async () => {
                     const response = await window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
                         method: 'POST',
@@ -65,7 +67,25 @@
                             .filter(([name]) => !['OpenTopo', 'Google Satellite', 'BDGEx - CTM50',
                                 'Infraestruturas', 'Quadrículas - UTM'].includes(name))
                             .map(([, layer]) => layer)
-                    ], selectedZoom),
+                    ], selectedZoom, {
+                        signal: controller.signal,
+                        async confirmLargeRequest(total) {
+                            const result = await Swal.fire({
+                                icon: 'warning',
+                                title: 'Carregar muitos tiles?',
+                                text: `Serão solicitados ${total.toLocaleString('pt-BR')} tiles. O carregamento pode ser demorado e a imagem final continua limitada a 2048 pixels por lado.`,
+                                showCancelButton: true,
+                                confirmButtonText: 'Carregar',
+                                cancelButtonText: 'Cancelar'
+                            });
+                            return result.isConfirmed;
+                        },
+                        onProgress(completed, total) {
+                            if (version === sceneVersion) {
+                                post({ type: 'planmilt-3d-status', message: `Carregando tiles: ${completed} de ${total}…` });
+                            }
+                        }
+                    }),
                     requestTerrain()
                 ]);
                 let terrain = initialTerrain;
@@ -78,8 +98,7 @@
                     post({
                         type: 'planmilt-3d-data',
                         payload: {
-                            image: texture.image, zoom: texture.zoom, zoomRequested: selectedZoom,
-                            mapZoom, bounds,
+                            image: texture.image, zoom: texture.zoom, zoomRequested: selectedZoom, bounds,
                             elevations: terrain.elevations,
                             missingTiles: terrain.missingTiles,
                             source
@@ -87,12 +106,15 @@
                     });
                 }
             } catch (error) {
+                controller.abort();
                 if (version === sceneVersion) {
                     post({
                         type: 'planmilt-3d-error',
                         message: error.message || 'Não foi possível atualizar o visualizador 3D.'
                     });
                 }
+            } finally {
+                if (activeCapture === controller) activeCapture = undefined;
             }
         } while (recapture && !overlay.hidden);
         capturing = false;
@@ -102,6 +124,7 @@
         if (event.origin !== window.location.origin || event.source !== frame.contentWindow || !event.data) return;
         if (event.data.type === 'planmilt-3d-close' && !overlay.hidden) {
             sceneVersion++;
+            if (activeCapture) activeCapture.abort();
             overlay.hidden = true;
             document.body.classList.remove('map-3d-open');
             button.focus();
@@ -115,6 +138,7 @@
             selectedSource = event.data.source;
             selectedZoom = event.data.zoom ?? null;
             sceneVersion++;
+            if (activeCapture) activeCapture.abort();
             sendScene();
         }
     });
@@ -124,7 +148,7 @@
         selectedZoom = null;
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
-        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-navigation';
+        if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html?v=20261112-tiles';
         else if (viewerReady) sendScene();
         frame.focus();
     });

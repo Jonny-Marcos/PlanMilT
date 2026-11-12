@@ -33,8 +33,10 @@ function setup(fail = false) {
     TestURL.createObjectURL = () => 'blob:tile';
     TestURL.revokeObjectURL = url => released.push(url);
     const window = { location: { href: 'https://plan.test/', origin: 'https://plan.test' }, PlanMilT: { apiClient: { async request(endpoint, options) {
-        assert.equal(endpoint, 'php/endpoints/map-image-proxy.php');
-        urls.push(JSON.parse(options.body).url);
+        assert.equal(options.method, 'GET');
+        assert.equal(options.mode, 'cors');
+        assert.equal(options.credentials, 'omit');
+        urls.push(endpoint);
         return { ok: !fail, status: 502, async blob() { return {}; } };
     } } } };
     vm.runInNewContext(source, {
@@ -68,7 +70,7 @@ test('builds only OpenTopo tiles within the texture bounds', async () => {
     assert.ok(Math.abs(h.draws[0][2] - (y * 256 - northwest.y) / (southeast.y - northwest.y) * 600) < 1e-8);
 });
 
-test('uses the requested tile zoom and increases texture resolution within the tile limit', async () => {
+test('uses the requested zoom even beyond 64 tiles and preserves the texture size limit', async () => {
     const h = setup();
     const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 11);
     assert.equal(result.zoom, 11);
@@ -76,10 +78,39 @@ test('uses the requested tile zoom and increases texture resolution within the t
     assert.deepEqual([h.canvas.width, h.canvas.height], [1600, 1200]);
     await h.texture.create(h.map, [-21.60, -51.30, -21.59, -51.29], 'opentopo', [], 14);
     assert.deepEqual([h.canvas.width, h.canvas.height], [2048, 1536]);
-    await assert.rejects(h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 18), /mais de 64 tiles/);
+    const many = setup();
+    const detailed = await many.texture.create(many.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 13);
+    assert.equal(detailed.zoom, 13);
+    assert.ok(many.urls.length > 64);
+    assert.ok(many.urls.every(url => /\/13\/\d+\/\d+\.png$/.test(url)));
+    assert.equal(many.draws.length, many.urls.length);
     await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo', [], 19), /entre 0 e 18/);
     const automatic = await h.texture.create(h.map, [-2, -2, 2, 2], 'opentopo');
-    assert.ok(automatic.zoom < h.map.getZoom());
+    assert.equal(automatic.zoom, h.map.getZoom());
+});
+
+test('asks before large downloads and does not request tiles if declined', async () => {
+    const h = setup();
+    let count = 0;
+    await assert.rejects(h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 15, {
+        confirmLargeRequest: async total => { count = total; return false; }
+    }), /cancelado/);
+    assert.ok(count > 256);
+    assert.equal(h.urls.length, 0);
+    const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 15, {
+        confirmLargeRequest: async total => total === count
+    });
+    assert.equal(result.zoom, 15);
+    assert.equal(h.urls.length, count);
+});
+
+test('stops issuing tiles when a capture is cancelled', async () => {
+    const h = setup();
+    const controller = new AbortController();
+    await assert.rejects(h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 13, {
+        signal: controller.signal, onProgress() { controller.abort(); }
+    }), /cancelado/);
+    assert.ok(h.urls.length <= 4);
 });
 
 test('composites only visible drawing paths and icons and restores original DOM attributes', async () => {
@@ -186,9 +217,31 @@ test('builds BDGEx CTM50 tiles and reprojects geographic rows to Mercator', asyn
     assert.notEqual(h.draws[0][8], h.draws[95][8]);
 });
 
+test('allows more than 64 BDGEx tiles at the selected zoom', async () => {
+    const h = setup();
+    const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'bdgex', [], 12);
+    assert.equal(result.zoom, 12);
+    assert.ok(h.urls.length > 64);
+    assert.ok(h.urls.every(url => url.startsWith('https://bdgex.eb.mil.br/mapcache?')));
+    assert.equal(h.draws.length, h.urls.length * 96);
+});
+
 test('rejects unsupported layers and reports tile download failures', async () => {
     const h = setup(true);
     await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'google'), /inválida/);
-    await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo'), /Não foi possível carregar/);
+    await assert.rejects(h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo'), /permissão CORS/);
     await assert.rejects(h.texture.create(h.map, [-10, -1, 1, 1], 'opentopo'), /cinco graus/);
+});
+
+test('reports direct CORS or network failures without falling back to a proxy', async () => {
+    const h = setup();
+    const requests = [];
+    h.window.PlanMilT.apiClient.request = async url => {
+        requests.push(url);
+        throw new TypeError('Failed to fetch');
+    };
+    await assert.rejects(h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'bdgex'), /permissão CORS/);
+    assert.ok(requests.length > 0);
+    assert.ok(requests.length <= 4);
+    assert.ok(requests.every(url => url.startsWith('https://bdgex.eb.mil.br/mapcache?')));
 });

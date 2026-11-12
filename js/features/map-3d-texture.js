@@ -13,9 +13,10 @@ window.PlanMilT.map3dTexture = Object.freeze({
      * @param {string} source - Camada "opentopo" ou "bdgex".
      * @param {Object[]} groups - Grupos de desenhos e marcadores a incluir.
      * @param {number|null} requestedZoom - Zoom escolhido, ou null para automático.
+     * @param {Object} options - Cancelamento, confirmação e progresso do carregamento.
      * @returns {Promise<Object>} Textura PNG e zoom efetivo.
      */
-    async create(map, bounds, source, groups = [], requestedZoom = null) {
+    async create(map, bounds, source, groups = [], requestedZoom = null, options = {}) {
         if (!['opentopo', 'bdgex'].includes(source)) throw new Error('Camada 3D inválida.');
         if (requestedZoom !== null && (!Number.isInteger(requestedZoom) || requestedZoom < 0 || requestedZoom > 18)) {
             throw new Error('O zoom da camada-base deve estar entre 0 e 18.');
@@ -27,23 +28,19 @@ window.PlanMilT.map3dTexture = Object.freeze({
             throw new Error('Aproxime o mapa e enquadre uma área de até cinco graus para consultar o terreno.');
         }
         const tileSize = source === 'bdgex' ? 96 : 256;
-        let zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
-        let left, top, right, bottom, minX, maxX, minY, maxY;
-        do {
-            const northwest = map.project([north, west], zoom);
-            const southeast = map.project([south, east], zoom);
-            ({ x: left, y: top } = northwest);
-            ({ x: right, y: bottom } = southeast);
-            minX = Math.floor(left / tileSize);
-            maxX = Math.ceil(right / tileSize) - 1;
-            minY = Math.floor(top / tileSize);
-            maxY = Math.ceil(bottom / tileSize) - 1;
-            if ((maxX - minX + 1) * (maxY - minY + 1) <= 64 || zoom === 0) break;
-            if (requestedZoom !== null) {
-                throw new Error('O zoom escolhido exige mais de 64 tiles. Reduza o zoom da camada-base ou enquadre uma área menor no mapa 2D.');
-            }
-            zoom--;
-        } while (true);
+        const zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
+        const { x: left, y: top } = map.project([north, west], zoom);
+        const { x: right, y: bottom } = map.project([south, east], zoom);
+        const minX = Math.floor(left / tileSize);
+        const maxX = Math.ceil(right / tileSize) - 1;
+        const minY = Math.floor(top / tileSize);
+        const maxY = Math.ceil(bottom / tileSize) - 1;
+        const columns = maxX - minX + 1;
+        const total = columns * (maxY - minY + 1);
+        if (total > 256 && options.confirmLargeRequest && !await options.confirmLargeRequest(total)) {
+            throw new Error('Carregamento dos tiles cancelado.');
+        }
+        if (options.signal?.aborted) throw new Error('Carregamento dos tiles cancelado.');
 
         const canvas = document.createElement('canvas');
         const dimensions = map.getSize();
@@ -55,15 +52,16 @@ window.PlanMilT.map3dTexture = Object.freeze({
         if (!context) throw new Error('Não foi possível preparar a imagem da camada 3D.');
         context.fillStyle = '#e8e8e8';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        const tiles = [];
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) tiles.push({ x, y });
-        }
         let index = 0;
+        let completed = 0;
+        let lastPercent = -1;
+        let lastUpdate = 0;
         let failed = false;
-        const workers = Array.from({ length: Math.min(4, tiles.length) }, async () => {
-            while (index < tiles.length) {
-                const { x, y } = tiles[index++];
+        const workers = Array.from({ length: Math.min(4, total) }, async () => {
+            while (index < total && !failed && !options.signal?.aborted) {
+                const current = index++;
+                const x = minX + current % columns;
+                const y = minY + Math.floor(current / columns);
                 let url;
                 if (source === 'opentopo') {
                     url = `https://tile.opentopomap.org/${zoom}/${x}/${y}.png`;
@@ -79,8 +77,8 @@ window.PlanMilT.map3dTexture = Object.freeze({
                     url = `https://bdgex.eb.mil.br/mapcache?${params}`;
                 }
                 try {
-                    const response = await window.PlanMilT.apiClient.request('php/endpoints/map-image-proxy.php', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url })
+                    const response = await window.PlanMilT.apiClient.request(url, {
+                        method: 'GET', mode: 'cors', credentials: 'omit', signal: options.signal
                     });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const objectUrl = URL.createObjectURL(await response.blob());
@@ -113,14 +111,23 @@ window.PlanMilT.map3dTexture = Object.freeze({
                     } finally {
                         URL.revokeObjectURL(objectUrl);
                     }
+                    completed++;
+                    const percent = Math.floor(completed / total * 100);
+                    if (options.onProgress && (percent !== lastPercent || Date.now() - lastUpdate >= 1000)) {
+                        lastPercent = percent;
+                        lastUpdate = Date.now();
+                        options.onProgress(completed, total);
+                    }
                 } catch (error) {
+                    if (options.signal?.aborted) break;
                     console.error('[PlanMilT][3D] Falha ao carregar tile da camada.', error);
                     failed = true;
                 }
             }
         });
         await Promise.all(workers);
-        if (failed) throw new Error('Não foi possível carregar a camada escolhida. Verifique a conexão e tente novamente.');
+        if (options.signal?.aborted) throw new Error('Carregamento dos tiles cancelado.');
+        if (failed) throw new Error('Não foi possível carregar a camada escolhida diretamente. Verifique a conexão e a permissão CORS do serviço.');
         const elements = new Set();
         const seen = new Set();
         const stack = groups.slice();

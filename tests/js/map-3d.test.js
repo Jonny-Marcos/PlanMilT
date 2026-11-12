@@ -28,7 +28,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     const downloads = [];
     const textures = [];
     const context = {
-        URL,
+        URL, AbortController,
         document: {
             body: { classList: { add: name => classes.add(name), remove: name => classes.delete(name) } },
             getElementById(id) {
@@ -87,7 +87,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-navigation');
+    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-tiles');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
@@ -139,13 +139,36 @@ test('passes the requested base zoom and rejects invalid values', async () => {
     assert.equal(h.requests.length, 2);
 });
 
-test('reports when the selected zoom exceeds the texture limit', async () => {
+test('confirms large requests and cancels an active capture when closing', async () => {
     const h = setup();
-    h.context.window.PlanMilT.map3dTexture.create = async () => { throw new Error('O zoom exige mais de 64 tiles.'); };
+    let cancelSignal;
+    h.context.Swal.fire = async options => {
+        assert.match(options.text, /300 tiles/);
+        return { isConfirmed: true };
+    };
+    h.context.window.PlanMilT.map3dTexture.create = async (map, bounds, source, groups, zoom, options) => {
+        assert.equal(await options.confirmLargeRequest(300), true);
+        options.onProgress(30, 300);
+        cancelSignal = options.signal;
+        return new Promise((resolve, reject) => cancelSignal.addEventListener('abort', () => reject(new Error('cancelado'))));
+    };
+    h.click();
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.ok(h.messages.some(entry => /30 de 300/.test(entry.message.message || '')));
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-close' } });
+    assert.equal(cancelSignal.aborted, true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-error').length, 0);
+});
+
+test('reports layer loading errors', async () => {
+    const h = setup();
+    h.context.window.PlanMilT.map3dTexture.create = async () => { throw new Error('Falha ao carregar tiles.'); };
     h.click();
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo', zoom: 18 } });
     await new Promise(resolve => setTimeout(resolve, 0));
-    assert.match(h.messages.find(entry => entry.message.type === 'planmilt-3d-error').message.message, /mais de 64 tiles/);
+    assert.match(h.messages.find(entry => entry.message.type === 'planmilt-3d-error').message.message, /Falha ao carregar tiles/);
     assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-data').length, 0);
 });
 
@@ -314,11 +337,6 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     } });
     assert.deepEqual(matrix, panned);
     assert.equal(elements.baseZoom3D.value, '14');
-    events.message({ origin: 'https://plan.test', source: host, data: {
-        type: 'planmilt-3d-data',
-        payload: { image: 'data:image/png;base64,CC==', bounds: [-1, -1, 1, 1], zoom: 10, zoomRequested: null, mapZoom: 12, missingTiles: [] }
-    } });
-    assert.match(elements.viewerWarnings.textContent, /reduzido para 10/);
     elements.resetCamera.events.click();
     assert.deepEqual(matrix, initial);
     canvas.events.pointerdown({ pointerType: 'touch', pointerId: 2, clientX: 100, clientY: 100 });
