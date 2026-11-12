@@ -306,18 +306,21 @@ window.PlanMilT.militarySymbols = (() => {
                     entity.replaceChildren();
                     const query = searchText(get('symbolSearch').value.trim());
                     const kind = get('symbolCatalog').value || 'icons';
-                    catalog[kind].forEach((entry, index) => {
-                        if (!query || searchText(`${entry.name} ${entry.sidc}`).includes(query)) {
-                            addOption(entity, String(index), entry.name);
-                        }
-                    });
                     const currentCode = sidc.value;
                     const entityExtension = code => code.length === 30 && code.slice(20, 23) === '076'
                         ? (Number(code.slice(23)) >> 14) & 31 : 0;
                     const entryIndex = catalog[kind].findIndex(entry =>
                         entry.sidc.slice(10, 16) === currentCode.slice(10, 16) &&
                         entityExtension(entry.sidc) === entityExtension(currentCode));
-                    entity.value = String(entryIndex);
+                    const matches = catalog[kind].map((entry, index) => ({ entry, index }))
+                        .filter(({ entry }) => !query || searchText(`${entry.name} ${entry.sidc}`).includes(query))
+                        .sort((a, b) => a.entry.name.localeCompare(b.entry.name, 'pt-BR', { sensitivity: 'base' }));
+                    const currentVisible = matches.some(({ index }) => index === entryIndex);
+                    if (!currentVisible) {
+                        addOption(entity, '', matches.length ? 'Selecione um tipo' : 'Nenhum tipo encontrado');
+                    }
+                    matches.forEach(({ entry, index }) => addOption(entity, String(index), entry.name));
+                    entity.value = currentVisible ? String(entryIndex) : '';
                     const transversal = get('symbolTransversal');
                     transversal.replaceChildren();
                     addOption(transversal, '0', 'Nenhum');
@@ -410,6 +413,7 @@ window.PlanMilT.militarySymbols = (() => {
                 });
                 get('symbolCatalog').addEventListener('change', fillCatalog);
                 entity.addEventListener('change', () => {
+                    if (entity.value === '') return;
                     const kind = get('symbolCatalog').value || 'icons';
                     const entry = sets[set.value][kind][Number(entity.value)];
                     if (!entry) return;
@@ -447,6 +451,11 @@ window.PlanMilT.militarySymbols = (() => {
             },
             preConfirm: () => {
                 try {
+                    if (document.getElementById('symbolSearch').value.trim() &&
+                        document.getElementById('symbolEntity').value === '') {
+                        Swal.showValidationMessage('Selecione um tipo de símbolo ou limpe a busca.');
+                        return false;
+                    }
                     return render(current);
                 } catch (error) {
                     Swal.showValidationMessage(error.message);

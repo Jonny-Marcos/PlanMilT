@@ -34,9 +34,10 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['kmz-export', 'shared-layers', 'drawing-loading', 'layer-management']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
     }
-    for (const script of ['main', 'kmz-import', 'military-symbols', 'icon-selector', 'help-and-planning']) {
+    for (const script of ['main', 'kmz-import', 'icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
+    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
     assert.ok(documentSource.indexOf('chunk-vendors.4e5d8119.js') < documentSource.indexOf('planmilt-generator.js'));
     assert.ok(documentSource.indexOf('brazilian-symbol-catalog.js') < documentSource.indexOf('military-symbols.js'));

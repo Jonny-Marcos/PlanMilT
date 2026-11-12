@@ -13,7 +13,12 @@ function setup() {
     let active;
     let failStorage = false;
     class Element {
-        constructor() { this.options = []; this.children = []; this.listeners = {}; this.value = ''; this.textContent = ''; }
+        constructor(id = '') { this.options = []; this.children = []; this.listeners = {}; this.id = id; this.value = ''; this.textContent = ''; }
+        get value() { return this._value || ''; }
+        set value(value) {
+            this._value = this.id === 'symbolEntity' && !this.options.some(option => option.value === value)
+                ? '' : value;
+        }
         appendChild(option) { this.options.push(option); this.children.push(option); if (this.options.length === 1) this.value = option.value; }
         replaceChildren() { this.options = []; this.children = []; this.value = ''; this.textContent = ''; }
         addEventListener(name, callback) { this.listeners[name] = callback; }
@@ -22,7 +27,7 @@ function setup() {
         setAttribute(name, value) { this[name] = value; }
     }
     const document = {
-        getElementById(id) { return elements[id] ||= new Element(); },
+        getElementById(id) { return elements[id] ||= new Element(id); },
         createElement() { return new Element(); }
     };
     const window = {
@@ -207,6 +212,60 @@ test('editor searches Brazilian names and preserves extension bits on changes', 
     e.symbolTransversal.value = '1';
     e.symbolTransversal.dispatch('change');
     assert.equal(fixture.active().preConfirm().config.sidc, '100310000012189900990760017411');
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('type search displays sorted matches without changing the icon until a result is selected', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    const before = fixture.active().preConfirm().config.sidc;
+    e.symbolSearch.value = '  ARTILHARIA  ';
+    e.symbolSearch.dispatch('input');
+    assert.equal(e.symbolEntity.options[0].textContent, 'Selecione um tipo');
+    assert.equal(e.symbolEntity.value, '');
+    const results = e.symbolEntity.options.slice(1);
+    assert.ok(results.length > 1);
+    assert.ok(results.every(option => /artilharia/i.test(option.textContent)));
+    assert.deepEqual(results.map(option => option.textContent), results.map(option => option.textContent)
+        .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })));
+    assert.equal(fixture.active().preConfirm(), false);
+    assert.match(fixture.active().validation, /Selecione um tipo/);
+    e.symbolEntity.value = results[0].value;
+    e.symbolEntity.dispatch('change');
+    const selected = fixture.active().preConfirm().config.sidc;
+    assert.notEqual(selected, before);
+    assert.equal(e.symbolEntity.value, results[0].value);
+    e.symbolSearch.value = 'sem resultado 987654321';
+    e.symbolSearch.dispatch('input');
+    assert.equal(e.symbolEntity.options[0].textContent, 'Nenhum tipo encontrado');
+    assert.equal(fixture.active().preConfirm(), false);
+    e.symbolSearch.value = '';
+    e.symbolSearch.dispatch('input');
+    assert.equal(fixture.active().preConfirm().config.sidc, selected);
+    assert.equal(e.symbolEntity.value, results[0].value);
+    e.symbolSearch.value = 'aviacao';
+    e.symbolSearch.dispatch('input');
+    assert.ok(e.symbolEntity.options.some(option => /Aviação/.test(option.textContent)));
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('both catalog types are alphabetically sorted and retain their original selection values', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const e = fixture.elements;
+    for (const kind of ['icons', 'examples']) {
+        e.symbolCatalog.value = kind;
+        e.symbolCatalog.dispatch('change');
+        const options = e.symbolEntity.options.filter(option => option.value !== '');
+        const names = options.map(option => option.textContent);
+        assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })));
+        for (const option of options) {
+            assert.equal(fixture.catalog['10'][kind][Number(option.value)].name, option.textContent);
+        }
+    }
     fixture.active().finish({ isConfirmed: false });
     await pending;
 });
