@@ -104,6 +104,7 @@ test('manual coverage form offers the three scenarios and validates supported fr
         assert.match(form.html, /value="180" selected>Média \(Padrão\).*180 radiais/);
         assert.match(form.html, /Alta \(Lenta\).*360 radiais/);
         assert.match(form.html, /<div class="row sensitivity-row">[\s\S]*<div class="col">[\s\S]*Sensibilidade[\s\S]*<div class="col" id="rfPenetrationField">[\s\S]*Penetração\/Difração/);
+        assert.doesNotMatch(form.html, /Estimativa terrestre simplificada/);
         form.didOpen();
         assert.equal(fields.rfPenetrationField.style.display, 'block');
         fields.rfMode.value = 'ptp';

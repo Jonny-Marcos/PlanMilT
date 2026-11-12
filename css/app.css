@@ -49,6 +49,18 @@
                 min-width: 80px; /* Largura mínima para botões */
                 box-sizing: border-box; /* Inclui padding e borda na largura */
             }
+            .view-3d-button {
+                flex: 0 0 auto;
+                min-width: 42px;
+                border: 0;
+                background: #435f88;
+                color: #fff;
+                font-weight: 700;
+            }
+            .view-3d-button:hover {
+                background: #344b70;
+                color: #fff;
+            }
 
             .toolbar-button:hover,
             .toolbar-item select:hover,

@@ -59,7 +59,6 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 .rf-form .col { flex: 1; }
                                 .rf-form .sensitivity-row { align-items: flex-start; }
                                 .rf-form .sensitivity-row #rfPenetrationField { min-width: 0; }
-                                .rf-form .sensitivity-row #rfPenetrationField small { display: block; margin-top: 5px; line-height: 1.35; }
                                 @media (max-width: 520px) {
                                     .rf-form .sensitivity-row { flex-direction: column; }
                                     .rf-form .sensitivity-row .col { width: 100%; }
@@ -106,7 +105,6 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                                 <option value="medium" selected>Média (Equilibrada)</option>
                                                 <option value="low">Baixa (Pessimista)</option>
                                             </select>
-                                            <small>Estimativa terrestre simplificada; não representa construções, vegetação ou propagação ionosférica HF.</small>
                                         </div>
                                     </div>
                                 </div>
