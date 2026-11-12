@@ -227,23 +227,71 @@
 
 
 
-            #iconSelectorContainer {
+            .map-toolbar .icon-tools {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .icon-selection-group {
+                display: flex;
+                align-items: center;
+                gap: 8px;
                 position: relative;
+            }
+
+            .icon-preview-frame {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 44px;
+                width: 44px;
+                height: 40px;
+                box-sizing: border-box;
+                border: 1px solid #c5cad2;
+                border-radius: 4px;
+                background: #fff;
+                color: #64748b;
+                font-size: 9px;
+            }
+
+            .icon-preview-frame span {
+                display: none;
+            }
+
+            #iconPreview[hidden] + span {
+                display: block;
             }
 
             #iconSelectorToggle,
             #createMilitarySymbol {
                 padding: 10px;
                 cursor: pointer;
-                background-color: #007bff;
-                color: #ffffff;
-                border: none;
+                border: 1px solid #007bff;
                 border-radius: 4px;
             }
 
-            #iconSelectorToggle:hover,
-            #createMilitarySymbol:hover {
+            #iconSelectorToggle {
+                background-color: #007bff;
+                color: #ffffff;
+            }
+
+            #iconSelectorToggle:hover {
                 background-color: #0056b3;
+            }
+
+            #createMilitarySymbol {
+                background-color: #fff;
+                color: #0056b3;
+            }
+
+            #createMilitarySymbol:hover {
+                background-color: #e6f1ff;
+            }
+
+            #iconSelectorToggle:focus-visible,
+            #createMilitarySymbol:focus-visible {
+                outline: 2px solid #435f88;
+                outline-offset: 2px;
             }
 
             #iconSelectorContent {
@@ -355,8 +403,9 @@
             }
 
             #iconPreview {
-                width: 40px;
-                height: 40px;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
             }
 
             .tactical-graphic-label {
@@ -1273,10 +1322,11 @@
                     font-size: 12px;
                 }
 
-                /* Ajuste do preview do ícone selecionado */
-                #iconPreview {
-                    width: 30px;
-                    height: 30px;
+                .icon-preview-frame {
+                    flex-basis: 36px;
+                    width: 36px;
+                    height: 32px;
+                    font-size: 8px;
                 }
             }
 

@@ -22,14 +22,19 @@
 
                     // Aqui você pode adicionar os botões e outros elementos HTML à sua toolbar
                     div.innerHTML = `
-<div class="toolbar-item">
+<div class="toolbar-item icon-tools">
+<div class="icon-selection-group">
+<div class="icon-preview-frame">
+<img id="iconPreview" alt="Ícone selecionado" hidden>
+<span>Nenhum</span>
+</div>
 <div id="iconSelectorContainer">
-<button id="iconSelectorToggle">Selecionar ícone</button>
+<button id="iconSelectorToggle" type="button">Selecionar ícone</button>
 <div id="iconSelectorContent" style="display: none;">
 <!-- icon-selector.js monta esta área após carregar a lista de ícones. -->
             </div>
             </div>
-<img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
+</div>
 <button id="createMilitarySymbol" type="button" title="Criar e selecionar ícone">Criar ícone</button>
             </div>
 <div class="toolbar-icons">

@@ -46,13 +46,16 @@ class FakeElement {
 
 require('../../js/features/icon-selector.js');
 
-test('the create icon button shares the selector button styles on desktop and mobile', () => {
+test('icon controls keep a fixed preview before the selector and a separate secondary create button', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
     const main = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
     assert.match(main, /title="Criar e selecionar ícone">Criar ícone<\/button>/);
-    assert.match(main, /Ícone selecionado/);
-    assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*background-color:\s*#007bff/s);
-    assert.match(css, /#iconSelectorToggle:hover,\s*#createMilitarySymbol:hover\s*\{[^}]*#0056b3/s);
+    assert.match(main, /class="icon-selection-group">[\s\S]*?id="iconPreview"[^>]*hidden>[\s\S]*?<span>Nenhum<\/span>[\s\S]*?id="iconSelectorContainer"[\s\S]*?id="iconSelectorToggle"[\s\S]*?id="createMilitarySymbol"/);
+    assert.match(css, /\.map-toolbar \.icon-tools\s*\{[^}]*flex-wrap:\s*wrap;[^}]*gap:\s*8px/s);
+    assert.match(css, /\.icon-selection-group\s*\{[^}]*gap:\s*8px/s);
+    assert.match(css, /#iconPreview\[hidden\] \+ span\s*\{\s*display:\s*block/);
+    assert.match(css, /#iconSelectorToggle\s*\{[^}]*background-color:\s*#007bff/s);
+    assert.match(css, /#createMilitarySymbol\s*\{[^}]*background-color:\s*#fff/s);
     assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*font-size:\s*12px/s);
 });
 
@@ -108,9 +111,9 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     assert.equal(selector.getSelectedIconKey(), 'friend/alpha');
     assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
     assert.equal(preview.src, 'symbols/friend/alpha.svg');
-    assert.equal(preview.style.display, 'inline');
+    assert.equal(preview.hidden, false);
     assert.equal(selectorContent.style.display, 'none');
-    assert.equal(toggleButton.textContent, 'Ícone selecionado: ');
+    assert.equal(toggleButton.textContent, 'Selecionar ícone');
 });
 
 test('a generated icon can be selected without removing existing icons', async () => {
@@ -127,6 +130,8 @@ test('a generated icon can be selected without removing existing icons', async (
     selector.selectMilitarySymbol(symbol);
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
+    assert.equal(preview.hidden, false);
+    assert.equal(container.children[0].textContent, 'Selecionar ícone');
     container.children[1].children[0].children[1].click();
     container.children[1].children[2].children[1].children[0].click();
     assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
@@ -157,6 +162,7 @@ test('generated icon tray in the selector selects a saved symbol', async () => {
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
     assert.equal(panel.style.display, 'none');
+    assert.equal(container.children[0].textContent, 'Selecionar ícone');
 });
 
 test('existing icons are accessible in their divisions and C2 is shared without changing paths', async () => {

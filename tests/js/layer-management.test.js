@@ -21,7 +21,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261112-compact-map-controls/);
+    assert.match(documentSource, /app\.css\?v=20261112-icon-controls/);
     assert.match(documentSource, /radio-planning\.js\?v=20261130-default-marker/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
     assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
@@ -32,9 +32,10 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['elevation-tools', 'kmz-import', 'tactical-graphics']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
     }
-    for (const script of ['icon-selector', 'radio-planning', 'shared-layers', 'drawing-loading', 'layer-management', 'local-session']) {
+    for (const script of ['radio-planning', 'shared-layers', 'drawing-loading', 'layer-management', 'local-session']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261130-default-marker`));
     }
+    assert.ok(documentSource.includes('js/features/icon-selector.js?v=20261112-icon-controls'));
     assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-save-dialog'));
     for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
@@ -45,7 +46,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
-        assert.ok(documentSource.includes('js/features/main.js?v=20261112-suggestions'));
+        assert.ok(documentSource.includes('js/features/main.js?v=20261112-icon-controls'));
         assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-mobile-controls'));
         assert.ok(documentSource.includes('js/features/map-3d-texture.js?v=20261112-coverage'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));

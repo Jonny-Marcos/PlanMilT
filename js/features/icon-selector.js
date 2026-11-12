@@ -92,6 +92,7 @@ window.PlanMilT.iconSelector = Object.freeze({
 
             const toggleButton = document.createElement('button');
             toggleButton.id = 'iconSelectorToggle';
+            toggleButton.type = 'button';
             toggleButton.textContent = 'Selecionar ícone';
             container.appendChild(toggleButton);
 
@@ -147,11 +148,8 @@ window.PlanMilT.iconSelector = Object.freeze({
                     image.addEventListener('click', function() {
                         selectedIconKey = this.dataset.optionValue;
                         preview.src = iconPaths[selectedIconKey];
-                        preview.style.display = 'inline';
-                        preview.style.width = '40px';
-                        preview.style.height = '40px';
+                        preview.hidden = false;
                         selectorContent.style.display = 'none';
-                        toggleButton.textContent = 'Ícone selecionado: ';
                     });
 
                     iconItem.appendChild(image);
@@ -174,7 +172,6 @@ window.PlanMilT.iconSelector = Object.freeze({
                 window.PlanMilT.militarySymbols.renderRecentTray(tray, data => {
                     selectMilitarySymbol(data);
                     selectorContent.style.display = 'none';
-                    toggleButton.textContent = 'Ícone selecionado: ';
                 });
             });
             folderList.appendChild(recentButton);
@@ -258,9 +255,7 @@ window.PlanMilT.iconSelector = Object.freeze({
             icons[selectedIconKey] = window.PlanMilT.militarySymbols.createIcon(data, leaflet);
             icons[selectedIconKey].militarySymbol = data;
             preview.src = data.iconUrl;
-            preview.style.display = 'inline';
-            preview.style.width = '40px';
-            preview.style.height = '40px';
+            preview.hidden = false;
         }
 
         return Object.freeze({
