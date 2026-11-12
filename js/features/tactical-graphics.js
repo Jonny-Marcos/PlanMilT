@@ -568,15 +568,16 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          * Calcula os símbolos e as lacunas na projeção do mapa, ao longo de toda a linha.
          * @param {Object} geometry - Geometria linear GeoJSON do limite.
          * @param {number} count - Quantidade de símbolos.
+         * @param {number} [zoom] - Escala opcional usada para projeção estável.
          * @returns {Object|null} Posições, deslocamentos e padrão de linha em pixels.
          */
-        function getBoundaryLayout(geometry, count) {
+        function getBoundaryLayout(geometry, count, zoom) {
             if (!Number.isInteger(count) || count < 1 || count > 100) {
                 throw new Error('A quantidade de símbolos do limite deve estar entre 1 e 100.');
             }
             const points = flattenBoundaryLine(geometry);
             if (points.length < 2) return null;
-            const projected = points.map(([lng, lat]) => map.project([lat, lng]));
+            const projected = points.map(([lng, lat]) => map.project([lat, lng], zoom));
             const segments = projected.slice(1).map((end, index) => {
                 const start = projected[index];
                 return {
@@ -604,7 +605,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                 const latlng = map.unproject([
                     segment.start.x + (segment.end.x - segment.start.x) * ratio,
                     segment.start.y + (segment.end.y - segment.start.y) * ratio
-                ]);
+                ], zoom);
                 const leftOffset = [
                     (segment.end.y - segment.start.y) / segment.length * 14,
                     -(segment.end.x - segment.start.x) / segment.length * 14
@@ -757,7 +758,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
          * Exibe os seletores e inicia a ferramenta Leaflet adequada ao gráfico.
          */
         async function startDrawing() {
-            const sections = catalog.buildSections(library);
+            const sections = catalog.buildSections(library, window.PlanMilT.localHistory.graphics());
             const categorizedSections = sections.slice(1);
             const commonSection = sections[0];
             let selectedName = commonSection.graphics[0]?.name || categorizedSections[0]?.graphics[0]?.name || '';
@@ -814,10 +815,12 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                     boundaryCountInput = popup.querySelector('#tacticalGraphicBoundaryCount');
                     popup.classList.add('tactical-graphic-modal');
 
-                    const commonOption = document.createElement('option');
-                    commonOption.value = commonSection.name;
-                    commonOption.textContent = commonSection.label;
-                    categorySelect.appendChild(commonOption);
+                    if (commonSection.graphics.length) {
+                        const commonOption = document.createElement('option');
+                        commonOption.value = commonSection.name;
+                        commonOption.textContent = commonSection.label;
+                        categorySelect.appendChild(commonOption);
+                    }
                     categorizedSections.forEach(section => {
                         const option = document.createElement('option');
                         option.value = section.name;
@@ -1144,6 +1147,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             registerBoundaryLayer(layer, true);
             drawnItems.addLayer(layer);
             refreshBoundary(layer);
+            window.PlanMilT.localHistory.recordGraphic('Boundary');
             return true;
         }
 
@@ -1254,6 +1258,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
                         drawnItems.addLayer(label);
                     });
                 }
+                window.PlanMilT.localHistory.recordGraphic(graphic.name);
 
             } catch (error) {
                 showError(error);
@@ -1320,6 +1325,7 @@ window.PlanMilT.tacticalGraphics = Object.freeze({
             handleCreated,
             editGraphic,
             convertLineToBoundary,
+            getBoundaryLayout,
             registerBoundaryLayer,
             prepareLegacyBoundaries,
             refreshBoundary

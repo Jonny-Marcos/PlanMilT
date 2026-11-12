@@ -345,6 +345,14 @@
                                     type: 'Feature', geometry: null,
                                     properties: { coverageImage: { image: imgSrc, mapImage, bounds, mode, resolutionKm } }
                                 }, L);
+                            } else if (overlayNode.querySelector('ExtendedData Data[name="planmilt-tactical-image"]')) {
+                                const image = document.createElement('img');
+                                await new Promise((resolve, reject) => {
+                                    image.onload = resolve;
+                                    image.onerror = () => reject(new Error('Imagem de gráfico tático inválida no KMZ.'));
+                                    image.src = imgSrc;
+                                });
+                                overlay = L.imageOverlay(window.PlanMilT.coverageImage.projectGeographic(image, bounds, document), bounds);
                             } else {
                                 overlay = L.imageOverlay(imgSrc, bounds);
                             }

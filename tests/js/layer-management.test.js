@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/layer-management.js'), 'utf8');
 const styles = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
@@ -31,14 +32,19 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['drawing-storage', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261119-calungas'));
-    for (const script of ['shared-layers', 'drawing-loading', 'layer-management', 'kmz-import']) {
+    for (const script of ['kmz-export', 'kmz-import', 'kmz-tactical-images', 'map-tools']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
+    }
+    for (const script of ['shared-layers', 'drawing-loading']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-boundary-repeat`));
     }
     for (const script of ['icon-selector', 'help-and-planning']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
     }
-    assert.ok(documentSource.includes('js/features/main.js?v=20261129-line-boundary'));
+    for (const script of ['main', 'layer-management', 'tactical-graphics', 'tactical-graphics-catalog']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-catalog-history`));
+    }
+    assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
     assert.ok(documentSource.indexOf('chunk-vendors.4e5d8119.js') < documentSource.indexOf('planmilt-generator.js'));
@@ -49,7 +55,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
         assert.ok(documentSource.indexOf('js/features/welcome.js') < documentSource.indexOf(`js/features/${consumer}.js`));
     }
-    assert.match(documentSource, /tactical-graphics\.js\?v=20261129-line-boundary/);
+    assert.ok(documentSource.indexOf('js/features/local-history.js') < documentSource.indexOf('js/features/tactical-graphics.js'));
+    assert.ok(documentSource.indexOf('js/features/kmz-tactical-images.js') < documentSource.indexOf('js/features/kmz-export.js'));
     assert.match(fs.readFileSync(path.join(__dirname, '../../js/features/tactical-graphics.js'), 'utf8'),
         /PICKER_STYLES[\s\S]*?#tacticalGraphicPicker \.tactical-graphic-result-preview svg/);
     assert.match(source, /Carregando dados/);
@@ -73,4 +80,71 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.doesNotMatch(source, /var layerRegistry\s*=\s*\{\}/);
     assert.match(source, /php\/endpoints\/map-layer-catalog\.php/);
     assert.match(source, /addWMSLayerToMap\(/);
+});
+
+test('catalog opens with recent layers and retains category recommendations', async () => {
+    class Element {
+        constructor() { this.children = []; this.listeners = {}; this.value = ''; this.classList = { toggle() {}, add() {} }; }
+        appendChild(child) { this.children.push(child); }
+        append(...children) { this.children.push(...children); }
+        replaceChildren() { this.children = []; }
+        setAttribute() {}
+        addEventListener(name, callback) { this.listeners[name] = callback; }
+    }
+    const ids = ['layerCatalogCategory', 'layerCatalogService', 'layerCatalogSearch', 'layerCatalogAdvanced',
+        'layerCatalogAdvancedService', 'layerCatalogAdvancedCategory', 'layerCatalogAdvancedYear',
+        'layerCatalogResults', 'layerCatalogStatus', 'layerCatalogSelection'];
+    const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
+    const filter = new Element();
+    const popup = { classList: { add() {} }, querySelector(selector) {
+        return selector === '.layer-catalog-filters' ? filter : elements[selector.slice(1)];
+    } };
+    const recent = { serviceId: 1, layerName: 'recent', title: 'Recente', categoryCode: '',
+        categoryName: '', latestYear: 0 };
+    const recommended = { serviceId: 1, layerName: 'recommended', title: 'Recomendada',
+        serviceName: 'SIG', serviceUrl: '/wms' };
+    const added = [];
+    const recorded = [];
+    let options;
+    let resolveModal;
+    const Swal = {
+        fire(settings) {
+            if (settings.title !== 'Adicionar camada') return Promise.resolve({});
+            options = settings;
+            settings.didOpen();
+            return new Promise(resolve => { resolveModal = resolve; });
+        },
+        close() {},
+        getPopup: () => popup,
+        getConfirmButton: () => ({}),
+        showValidationMessage() {}
+    };
+    const history = { layers: () => [recent], recordLayers: layers => recorded.push(...layers) };
+    const start = source.indexOf('function showLayerCatalog()');
+    const end = source.indexOf("document.getElementById('addLayerButton')", start);
+    const context = {
+        Swal, LAYER_CATALOG_STYLES: '', URLSearchParams, setTimeout, clearTimeout, console,
+        document: { createElement: () => new Element() },
+        window: { PlanMilT: { localHistory: history, apiClient: { getJson: async () => ({
+            categories: [{ code: 'cat', name: 'Categoria', layers: [recommended] }],
+            services: [{ id: 1, name: 'SIG atualizado', url: '/updated-wms' }]
+        }) } } },
+        layerRegistry: {}, addWMSLayerToMap: (...args) => added.push(args)
+    };
+    vm.runInNewContext(source.slice(start, end), context);
+    context.showLayerCatalog();
+    await new Promise(resolve => setImmediate(resolve));
+    const results = elements.layerCatalogResults;
+    assert.equal(results.children.length, 1);
+    assert.equal(results.children[0].children[1].children[0].textContent, 'Recente');
+    assert.match(elements.layerCatalogStatus.textContent, /Últimas camadas/);
+    results.children[0].children[0].checked = true;
+    results.children[0].children[0].listeners.change();
+    elements.layerCatalogCategory.value = 'cat';
+    elements.layerCatalogCategory.listeners.change();
+    assert.equal(results.children[0].children[1].children[0].textContent, 'Recomendada');
+    resolveModal({ isConfirmed: true, value: options.preConfirm() });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(added[0], ['/updated-wms', 'recent', 'Recente']);
+    assert.equal(recorded[0].layerName, 'recent');
 });

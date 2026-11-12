@@ -56,6 +56,7 @@ function createControls(width) {
         html2canvas() {},
         freehandControl: { getContainer: () => controls[2] },
         tacticalGraphicsControl: { getContainer: () => controls[3] },
+        tacticalGraphics: { getBoundaryLayout() {} },
         measureToggleButton: controls[4]
     };
     vm.runInNewContext(source, context);
@@ -108,6 +109,6 @@ test('map fills the viewport and the toggle remains inside the compact toolbar',
     assert.match(main, /<div class="toolbar-icons">[\s\S]*?id="toggleControlsBtn"[^>]*type="button"[^>]*aria-pressed="true"[\s\S]*?<\/div>/);
     assert.doesNotMatch(html, /id="toggleControlsBtn"/);
     assert.match(html, /css\/app\.css\?v=20261125-icon-divisions/);
-    assert.match(html, /js\/features\/main\.js\?v=20261129-line-boundary/);
-    assert.match(html, /js\/features\/map-tools\.js\?v=20261111-point-info/);
+    assert.match(html, /js\/features\/main\.js\?v=20261112-catalog-history/);
+    assert.match(html, /js\/features\/map-tools\.js\?v=20261112-tactical-images/);
 });

@@ -95,19 +95,6 @@ const tacticalGraphicUsefulNames = Object.freeze([
     'WeaponSensorRangeFanSector',
 ]);
 
-const tacticalGraphicCommonNames = Object.freeze([
-    'MainAxisOfAdvance',
-    'SupportingAxisOfAdvance',
-    'AttackHelicopterAxisOfAdvance',
-    'DirectionOfMainAttack',
-    'Breach',
-    'Bypass',
-    'Secure',
-    'Ambush',
-    'AirCorridor',
-    'MineCluster'
-]);
-
 const tacticalGraphicCategoryTranslations = Object.freeze({
     AirspaceCoordinatingMeasures: 'Medidas de Coordenação do Espaço Aéreo',
     Areas: 'Áreas',
@@ -1106,11 +1093,12 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
     },
 
     /**
-     * Cria seções de seleção com os gráficos mais comuns e o catálogo restante por categoria.
+     * Cria seções de seleção com os gráficos mais utilizados e o catálogo por categoria.
      * @param {Object} library - API compilada de @zaes/tactical-graphics.
+     * @param {string[]} [frequentNames=[]] - Identificadores em ordem de frequência.
      * @returns {Array<{name: string, label: string, graphics: Array<{name: string, label: string}>}>}
      */
-    buildSections(library) {
+    buildSections(library, frequentNames = []) {
         const names = library.listTacticalGraphicNames();
         const nameSet = new Set(names);
         const missingUsefulNames = tacticalGraphicUsefulNames.filter(name => !nameSet.has(name));
@@ -1125,9 +1113,9 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
             label: this.translateName(library.getDisplayName(name), name)
         });
         const sections = [{
-            name: 'common',
-            label: '10 mais comuns',
-            graphics: tacticalGraphicCommonNames.map(toGraphic)
+            name: 'frequent',
+            label: 'Mais utilizados',
+            graphics: []
         }];
         const categories = new Map();
 
@@ -1159,6 +1147,10 @@ window.PlanMilT.tacticalGraphicsCatalog = Object.freeze({
                 sections.push(section);
             });
 
+        const availableNames = new Set(sections.slice(1).flatMap(section => section.graphics.map(graphic => graphic.name)));
+        sections[0].graphics = frequentNames.filter((name, index) =>
+            availableNames.has(name) && frequentNames.indexOf(name) === index
+        ).slice(0, 10).map(toGraphic);
         return sections;
     }
 });

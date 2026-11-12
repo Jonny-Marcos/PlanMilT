@@ -10,6 +10,7 @@ global.document = {
 const L = require('../../js/library/leaflet.js');
 require('../../js/features/geojson-serialization.js');
 require('../../js/features/tactical-graphics.js');
+window.PlanMilT.localHistory = { graphics: () => [], recordGraphic() {} };
 
 test('real Leaflet groups with 150,000 features serialize without exceeding the call stack', () => {
     const coverage = L.layerGroup();

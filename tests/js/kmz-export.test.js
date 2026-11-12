@@ -256,3 +256,81 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
             URL.createObjectURL = previousCreate;
         }
 });
+
+        test('exports tactical graphics as PNG overlays while keeping ordinary lines as vectors', async () => {
+            let handler;
+            let archive;
+            let clicked = false;
+            const previousDocument = global.document;
+            const previousCreate = URL.createObjectURL;
+            const originalRenderer = window.PlanMilT.kmzTacticalImages;
+            const tactical = { type: 'Feature', properties: {
+                role: 'graphic', color: '#000000', tacticalGraphic: { name: 'Boundary', boundary: { count: 2 } }
+            }, geometry: { type: 'LineString', coordinates: [[-50, -20], [-49, -20]] } };
+            const regular = { type: 'Feature', properties: { name: 'Linha comum' },
+                geometry: { type: 'LineString', coordinates: [[-51, -21], [-50, -21]] } };
+            const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
+            const map = {};
+            const boundaryLayout = () => {};
+            window.PlanMilT.coverageImage = { getGroup: () => group([]) };
+            window.PlanMilT.kmzTacticalImages = { async render(features, actualMap, layout) {
+                assert.deepEqual(features, [tactical]);
+                assert.equal(actualMap, map);
+                assert.equal(layout, boundaryLayout);
+                return [{ blob: 'PNG', bounds: { north: -19, south: -21, east: -48, west: -51 } }];
+            } };
+            global.document = { createElement: () => ({ click() { clicked = true; },
+                set innerHTML(value) { this.textContent = value; } }) };
+            URL.createObjectURL = () => 'blob:test';
+            try {
+                window.PlanMilT.kmzExport.attach({
+                    map, boundaryLayout, drawnItems: group([tactical, regular].map(feature => ({ toGeoJSON: () => feature }))),
+                    layerRegistry: {}, button: { addEventListener(name, callback) { handler = callback; } },
+                    zipArchive: class {
+                        constructor() { archive = this; this.files = {}; }
+                        file(name, data) { this.files[name] = data; }
+                        async generateAsync() { return {}; }
+                    },
+                    sweetAlert: { fire: async () => ({ isConfirmed: false }) }, captureCanvas: () => {}
+                });
+                await handler();
+                assert.equal(clicked, true);
+                assert.equal(archive.files['tactical/graphic-1.png'], 'PNG');
+                assert.match(archive.files['doc.kml'], /planmilt-tactical-image/);
+                assert.match(archive.files['doc.kml'], /tactical\/graphic-1\.png/);
+                assert.match(archive.files['doc.kml'], /Linha comum/);
+                assert.doesNotMatch(archive.files['doc.kml'], /-50,-20 -49,-20/);
+            } finally {
+                global.document = previousDocument;
+                URL.createObjectURL = previousCreate;
+                window.PlanMilT.kmzTacticalImages = originalRenderer;
+            }
+        });
+
+        test('does not download an incomplete KMZ when tactical rasterization fails', async () => {
+            let handler;
+            let downloaded = false;
+            const alerts = [];
+            const previousRenderer = window.PlanMilT.kmzTacticalImages;
+            const previousError = console.error;
+            const group = children => ({ eachLayer(callback) { children.forEach(callback); }, toGeoJSON() {} });
+            const feature = { type: 'Feature', properties: { tacticalGraphic: { name: 'Boundary' } },
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] } };
+            window.PlanMilT.coverageImage = { getGroup: () => group([]) };
+            window.PlanMilT.kmzTacticalImages = { render: async () => { throw new Error('Afaste o zoom'); } };
+            console.error = () => {};
+            try {
+                window.PlanMilT.kmzExport.attach({
+                    map: {}, drawnItems: group([{ toGeoJSON: () => feature }]), layerRegistry: {},
+                    button: { addEventListener(name, callback) { handler = callback; } },
+                    zipArchive: class { async generateAsync() { downloaded = true; } },
+                    sweetAlert: { fire: async (...args) => { alerts.push(args); } }, captureCanvas: () => {}
+                });
+                await handler();
+                assert.equal(downloaded, false);
+                assert.match(alerts.at(-1)[1], /Afaste o zoom/);
+            } finally {
+                window.PlanMilT.kmzTacticalImages = previousRenderer;
+                console.error = previousError;
+            }
+        });

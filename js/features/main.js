@@ -5,7 +5,7 @@
 
 
 
-            var defaultColor = '#bada55'; // Cor padrão
+            var defaultColor = '#000000'; // Cor padrão
             var map = L.map('map', {
                 zoomControl: true,
                 maxZoom: 28,
@@ -197,6 +197,9 @@
                 : {
                     handleCreated: () => false,
                     convertLineToBoundary: async () => {
+                        throw new Error('A biblioteca de gráficos táticos não está disponível.');
+                    },
+                    getBoundaryLayout: () => {
                         throw new Error('A biblioteca de gráficos táticos não está disponível.');
                     }
                 };

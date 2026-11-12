@@ -65,30 +65,19 @@ test('the curated catalog contains only distinct tactical graphics, grouped once
     assert.equal(new Set(names).size, names.length);
     assert.ok(names.every(name => library.listTacticalGraphicNames().includes(name)));
     assert.ok(names.every(name => name === 'Boundary' || addsDistinctiveGeometry(library, name)));
-    assert.equal(sections[0].name, 'common');
-    assert.equal(sections[0].label, '10 mais comuns');
-    assert.equal(sections[0].graphics.length, 10);
+    assert.equal(sections[0].name, 'frequent');
+    assert.equal(sections[0].label, 'Mais utilizados');
+    assert.equal(sections[0].graphics.length, 0);
     assert.ok(sections.slice(1).every(section => section.graphics.length > 0));
     assert.ok(sections.length < Object.keys(library.TacticalGraphicCategory).length + 1);
 });
 
-test('redundant basic geometry is omitted and the ten common graphics remain categorized', () => {
-    const sections = catalog.buildSections(library);
+test('frequent graphics follow usage and remain categorized without unknown names', () => {
+    const sections = catalog.buildSections(library, ['Boundary', 'Breach', 'Boundary', 'LowLevelTransitRoute', 'not-a-graphic']);
     const common = sections[0].graphics.map(graphic => graphic.name);
     const categorized = sections.slice(1).flatMap(section => section.graphics.map(graphic => graphic.name));
 
-    assert.deepEqual(common, [
-        'MainAxisOfAdvance',
-        'SupportingAxisOfAdvance',
-        'AttackHelicopterAxisOfAdvance',
-        'DirectionOfMainAttack',
-        'Breach',
-        'Bypass',
-        'Secure',
-        'Ambush',
-        'AirCorridor',
-        'MineCluster'
-    ]);
+    assert.deepEqual(common, ['Boundary', 'Breach']);
     assert.ok(common.every(name => categorized.includes(name)));
     assert.ok(categorized.includes('Boundary'));
     assert.ok(!categorized.includes('PhaseLine'));
@@ -123,7 +112,12 @@ test('redundant basic geometry is omitted and the ten common graphics remain cat
         ['AirCorridor']
     );
     assert.ok(!sections.some(section => section.label === 'Medidas de Coordenação do Apoio de Fogo'));
-    assert.ok(sections[0].graphics.some(graphic => graphic.label === 'Eixo principal de progressão'));
+});
+
+test('frequent section shows at most ten valid catalog entries in usage order', () => {
+    const names = catalog.buildSections(library).slice(1).flatMap(section => section.graphics.map(graphic => graphic.name));
+    const sections = catalog.buildSections(library, ['unknown', ...names.slice(0, 12)]);
+    assert.deepEqual(sections[0].graphics.map(graphic => graphic.name), names.slice(0, 10));
 });
 
 test('all library names retain Portuguese translations, including omitted graphics', () => {

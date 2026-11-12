@@ -260,6 +260,13 @@
                     window.PlanMilT.apiClient.getJson(endpoint).then(catalog => {
                         Swal.close();
                         const categories = catalog.categories || [];
+                        const services = catalog.services || [];
+                        const recentLayers = window.PlanMilT.localHistory.layers().flatMap(layer => {
+                            const service = services.find(item => Number(item.id) === layer.serviceId);
+                            return service && service.url ? [{
+                                ...layer, serviceName: service.name, serviceUrl: service.url
+                            }] : [];
+                        });
 
                         Swal.fire({
                             title: 'Adicionar camada',
@@ -531,6 +538,10 @@
 
                                     searchGeneration++;
                                     const categoryCode = categorySelect.value;
+                                    if (categoryCode === 'all' && recentLayers.length) {
+                                        renderLayers(recentLayers, 'Últimas camadas adicionadas neste navegador.');
+                                        return;
+                                    }
                                     const visibleCategories = categoryCode === 'all'
                                         ? categories
                                         : categories.filter(category => category.code === categoryCode);
@@ -631,7 +642,7 @@
                                 });
 
                                 categorySelect.value = 'all';
-                                if (categories.length > 0) {
+                                if (categories.length > 0 || recentLayers.length > 0) {
                                     renderLocalLayers();
                                 } else {
                                     renderLayers([], 'O catálogo ainda não possui recomendações. Use a busca para localizar camadas.');
@@ -660,6 +671,7 @@
                                     }
                                     addWMSLayerToMap(layer.serviceUrl, layer.layerName, overlayName);
                                 });
+                                window.PlanMilT.localHistory.recordLayers(result.value);
                             }
                         });
                     }).catch(error => {

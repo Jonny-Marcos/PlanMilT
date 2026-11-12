@@ -26,8 +26,9 @@ window.PlanMilT.kmzExport = Object.freeze({
      * @param {Object} dependencies.zipArchive - Biblioteca JSZip usada para gerar o arquivo compactado.
      * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
      * @param {Function} dependencies.captureCanvas - Função que captura canvas para incluí-los na exportação.
+     * @param {Function} dependencies.boundaryLayout - Calcula as lacunas dos limites no mapa.
      */
-    attach({ map, drawnItems, layerRegistry, button, zipArchive, sweetAlert, captureCanvas }) {
+    attach({ map, drawnItems, layerRegistry, button, zipArchive, sweetAlert, captureCanvas, boundaryLayout }) {
         const JSZip = zipArchive;
         const Swal = sweetAlert;
         const html2canvas = captureCanvas;
@@ -38,7 +39,7 @@ window.PlanMilT.kmzExport = Object.freeze({
             async function exportDrawingsToKMZ() {
                 try {
                     // Obtém os dados dos desenhos existentes
-                    var geoJsonData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems);
+                    var geoJsonData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems, false);
                     const coverageFeatures = window.PlanMilT.geoJsonSerialization.toFeatureCollection(window.PlanMilT.coverageImage.getGroup()).features;
 
                     // Verifica se a camada "Sugestão de Planejamento" existe no layerRegistry
@@ -49,7 +50,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                         if (sugestaoLayer.getLayers && sugestaoLayer.getLayers().length > 0) {
 
                             // Obtém os dados da camada "Sugestão de Planejamento"
-                            var sugestaoGeoJSON = window.PlanMilT.geoJsonSerialization.toFeatureCollection(sugestaoLayer);
+                            var sugestaoGeoJSON = window.PlanMilT.geoJsonSerialization.toFeatureCollection(sugestaoLayer, false);
 
                             // Verifica se há features no GeoJSON
                             if (sugestaoGeoJSON.features && sugestaoGeoJSON.features.length > 0) {
@@ -66,6 +67,12 @@ window.PlanMilT.kmzExport = Object.freeze({
                             }
                         }
                     }
+
+                    const tacticalFeatures = geoJsonData.features.filter(feature => feature.properties?.tacticalGraphic);
+                    geoJsonData.features = geoJsonData.features.filter(feature => !feature.properties?.tacticalGraphic);
+                    const tacticalImages = tacticalFeatures.length
+                        ? await window.PlanMilT.kmzTacticalImages.render(tacticalFeatures, map, boundaryLayout)
+                        : [];
 
                     // Função para inserir o Folder "Sugestão de Planejamento" no KML
                             // Converte GeoJSON para KML com suporte para ícones e estilos usando geojsontokml
@@ -103,6 +110,13 @@ window.PlanMilT.kmzExport = Object.freeze({
 
                         // Continua com a criação do ZIP e download
                         var zip = new JSZip();
+                        tacticalImages.forEach((image, index) => {
+                            const filename = `tactical/graphic-${index + 1}.png`;
+                            zip.file(filename, image.blob);
+                            const { north, south, east, west } = image.bounds;
+                            const overlay = `<GroundOverlay><name>Gráfico tático</name><ExtendedData><Data name="planmilt-tactical-image"><value>1</value></Data></ExtendedData><Icon><href>${filename}</href></Icon><LatLonBox><north>${north}</north><south>${south}</south><east>${east}</east><west>${west}</west></LatLonBox></GroundOverlay>`;
+                            kmlData = kmlData.replace('</Document>', `${overlay}\n</Document>`);
+                        });
                         coverageFeatures.forEach((feature, index) => {
                             const data = feature.properties.coverageImage;
                             const filename = `coverage/coverage-${index + 1}.png`;
@@ -188,7 +202,7 @@ window.PlanMilT.kmzExport = Object.freeze({
                         }
                     } catch (error) {
                         console.error("Erro na função exportDrawingsToKMZ:", error);
-                        Swal.fire('Erro', 'Não foi possível preparar a exportação KMZ.', 'error');
+                        Swal.fire('Erro', `Não foi possível preparar a exportação KMZ. ${error.message}`, 'error');
                     }
                 }
 

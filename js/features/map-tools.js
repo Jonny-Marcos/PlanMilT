@@ -40,7 +40,8 @@
                 button: document.getElementById('exportKMZ'),
                 zipArchive: JSZip,
                 sweetAlert: Swal,
-                captureCanvas: html2canvas
+                captureCanvas: html2canvas,
+                boundaryLayout: tacticalGraphics.getBoundaryLayout
             });
 
 

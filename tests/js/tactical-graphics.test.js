@@ -72,6 +72,7 @@ global.document = {
     }
 };
 require('../../js/features/tactical-graphics.js');
+window.PlanMilT.localHistory = { graphics: () => [], recordGraphic() {} };
 
 test('boundary label icon is centered with escaped text and its screen offset', () => {
     const icon = window.PlanMilT.tacticalGraphics.createBoundaryLabelIcon(
@@ -94,8 +95,11 @@ function createHarness({
     renderError = null,
     graphicName = 'MainAxisOfAdvance',
     boundaryType = 'Companhia',
-    boundaryCount = 1
+    boundaryCount = 1,
+    emptyFrequent = false
 } = {}) {
+    const recordedGraphics = [];
+    window.PlanMilT.localHistory = { graphics: () => [], recordGraphic: name => recordedGraphics.push(name) };
     const layers = [];
     const mapLayers = [];
     const removedMapLayers = [];
@@ -329,7 +333,7 @@ function createHarness({
                     {
                         name: 'common',
                         label: '10 mais comuns',
-                        graphics: [{
+                        graphics: emptyFrequent ? [] : [{
                             name: graphicName,
                             label: graphicName === 'Boundary' ? 'Limite' : 'Eixo principal de progressão'
                         }]
@@ -364,7 +368,8 @@ function createHarness({
         mapLayers,
         mapListeners,
         removedMapLayers,
-        renderedFeatures
+        renderedFeatures,
+        recordedGraphics
     };
 }
 
@@ -405,6 +410,7 @@ test('selecting a line graphic starts native Leaflet drawing and adds rendered g
     assert.equal(harness.layers[1].feature.geometry.type, 'LineString');
     assert.ok(harness.layers.slice(0, 2).every(layer => layer.editing));
     assert.equal(harness.layers[2].options.icon.html, '1ª Cia');
+    assert.deepEqual(harness.recordedGraphics, ['MainAxisOfAdvance']);
     assert.equal(harness.integration.handleCreated({}), false);
 });
 
@@ -581,6 +587,7 @@ test('converts an already visible freehand line into an editable boundary withou
     assert.equal(harness.alerts[0].title, 'Editar limite');
     assert.match(harness.alerts[0].html, /tacticalGraphicBoundaryCount/);
     assert.equal(harness.layers[0], line);
+    assert.deepEqual(harness.recordedGraphics, ['Boundary']);
     assert.equal(line.redrawn, true);
     assert.deepEqual(line.toGeoJSON(false).geometry, geometry);
     assert.equal(line.feature.properties.color, '#aabbcc');
@@ -610,6 +617,7 @@ test('cancelling boundary configuration leaves the original line untouched', asy
     assert.equal(line.feature, feature);
     assert.deepEqual(line.feature.properties, { name: 'original' });
     assert.equal(harness.layers.length, 0);
+    assert.deepEqual(harness.recordedGraphics, []);
 });
 
 test('boundary conversion validates editor fields and uses the selected values', async () => {
@@ -724,6 +732,15 @@ test('graphic selector puts compact symbol thumbnails beside single-choice rows'
     assert.match(harness.popupElements.get('tacticalGraphicSelection').textContent, /Eixo principal de progressão/);
 });
 
+test('graphic selector omits the frequent filter until there is usage history', async () => {
+    const harness = createHarness({ emptyFrequent: true });
+    await harness.integration.startDrawing();
+    assert.deepEqual(harness.popupElements.get('tacticalGraphicCategory').children.map(option => option.value), ['Lines']);
+    assert.ok(harness.popupElements.get('tacticalGraphicResults').children.some(
+        option => option.classNames.has('tactical-graphic-result')
+    ));
+});
+
 test('point graphics use the native marker tool and carry the default range', async () => {
     const harness = createHarness({ geometryType: 'Point', designation: '' });
     await harness.integration.startDrawing();
@@ -835,6 +852,7 @@ test('renderer errors are surfaced to the user and consumed', async () => {
     assert.equal(handled, true);
     assert.equal(harness.alerts.at(-1).title, 'Não foi possível gerar o gráfico');
     assert.equal(harness.layers.length, 0);
+    assert.deepEqual(harness.recordedGraphics, []);
 });
 
 test('military symbology control is a Leaflet button below freehand drawing', () => {
