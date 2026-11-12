@@ -22,23 +22,25 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
     assert.match(documentSource, /app\.css\?v=20261112-3d-integrated/);
-    assert.match(documentSource, /radio-planning\.js\?v=20261112-radial-resolution/);
+    assert.match(documentSource, /radio-planning\.js\?v=20261130-default-marker/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
     assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
-    for (const script of ['elevation-tools', 'shared-layers', 'kmz-import', 'tactical-graphics', 'local-session']) {
+    for (const script of ['elevation-tools', 'kmz-import', 'tactical-graphics']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
     }
+    for (const script of ['icon-selector', 'radio-planning', 'shared-layers', 'drawing-loading', 'layer-management', 'local-session']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261130-default-marker`));
+    }
     assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-save-dialog'));
-    assert.ok(documentSource.includes('js/features/drawing-loading.js?v=20261112-autosave'));
     for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }
     assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261112-drawing-patterns'));
-    for (const script of ['drawing-patterns', 'kmz-tactical-images', 'layer-management']) {
+    for (const script of ['drawing-patterns', 'kmz-tactical-images']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261129-area-patterns`));
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
@@ -49,9 +51,6 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
     assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-radial-resolution'));
-    for (const script of ['icon-selector']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
-    }
     assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));

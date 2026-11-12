@@ -119,6 +119,7 @@ test('shared planning restores the military symbol icon and its original dimensi
         map: {}, layerRegistry: {}, addNewOverlayLayer() {}, isValidGeoJson: () => true,
         console: { info() {}, warn() {}, error(error) { throw new Error(error); } }
     };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/features/icon-selector.js'), 'utf8'), context);
     vm.runInNewContext(source, context);
     await load();
     assert.equal(icon.data, symbol);

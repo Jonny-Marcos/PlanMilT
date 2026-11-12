@@ -5,6 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/drawing-loading.js'), 'utf8');
+const iconSource = fs.readFileSync(path.join(__dirname, '../../js/features/icon-selector.js'), 'utf8');
 
 test('local restoration reuses editable drawing loading without a server request or dialog', async () => {
     const feature = { type: 'Feature', properties: { color: '#123456', fillPattern: 'patternDots' },
@@ -186,11 +187,57 @@ for (const editable of [true, false]) {
             addNewOverlayLayer() {}, isValidGeoJson: () => true,
             console: { info() {}, error(error) { throw new Error(error); } }
         };
+        vm.runInNewContext(iconSource, context);
         vm.runInNewContext(source, context);
         await context.window.PlanMilT.drawingLoading.load('teste');
         assert.equal(restored.length, 1);
         assert.equal(icon.data, data);
         assert.equal(restored[0].feature.properties.militarySymbol.config.sidc, data.config.sidc);
+    });
+}
+
+for (const mode of ['local', 'editable', 'overlay']) {
+    test(`restores default and custom markers in ${mode} drawings`, async () => {
+        const features = ['marker-icon.png', 'css/images/marker-icon.png', 'symbols/custom/marker-icon.png'].map(iconUrl => ({
+            type: 'Feature', properties: { iconUrl }, geometry: { type: 'Point', coordinates: [-50, -20] }
+        }));
+        const restored = [];
+        class DefaultIcon {}
+        const L = {
+            Icon: { Default: DefaultIcon },
+            icon: options => ({ options }),
+            geoJson(data, options) {
+                if (!data) return { addTo() { return this; }, addLayer(layer) { restored.push(layer); }, getBounds: () => ({}) };
+                data.features.forEach(feature => {
+                    const layer = { feature, setIcon(icon) { this.icon = icon; } };
+                    options.onEachFeature(feature, layer);
+                });
+                return { addTo() { return this; } };
+            }
+        };
+        const data = { type: 'FeatureCollection', features };
+        const context = {
+            document: { getElementById: () => ({ addEventListener() {} }) },
+            window: { location: { href: 'https://example.test/app/' }, PlanMilT: {
+                apiClient: { request: async () => ({ ok: true, json: async () => data }) },
+                welcome: { record: () => true },
+                coverageImage: { clear() {} }
+            } },
+            Swal: { fire: async () => ({ isConfirmed: mode === 'editable' }) },
+            L, map: { fitBounds() {} },
+            drawnItems: { clearLayers() {}, addLayer(layer) { restored.push(layer); }, getLayers: () => [], getBounds: () => ({}) },
+            addNewOverlayLayer() {}, isValidGeoJson: () => true,
+            console: { info() {}, error(error) { throw error; } }
+        };
+        vm.runInNewContext(iconSource, context);
+        vm.runInNewContext(source, context);
+        if (mode === 'local') await context.window.PlanMilT.drawingLoading.restore(data);
+        else await context.window.PlanMilT.drawingLoading.load('teste');
+        assert.equal(restored.length, 3);
+        assert.ok(restored[0].icon instanceof DefaultIcon);
+        assert.ok(restored[1].icon instanceof DefaultIcon);
+        assert.equal(restored[2].icon.options.iconUrl, 'symbols/custom/marker-icon.png');
+        assert.equal(restored[2].icon.options.iconSize.join(','), '40,40');
     });
 }
 

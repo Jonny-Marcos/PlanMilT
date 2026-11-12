@@ -217,8 +217,7 @@ window.PlanMilT.localSession = (() => {
                 pointToLayer(item, latlng) {
                     const props = item.properties || {};
                     if (props.iconUrl) {
-                        const icon = props.militarySymbol ? window.PlanMilT.militarySymbols.createIcon(props.militarySymbol, L)
-                            : L.icon({ iconUrl: props.iconUrl, iconSize: props.iconSize || [40, 40], iconAnchor: props.iconAnchor || [15, 15] });
+                        const icon = window.PlanMilT.iconSelector.createStoredIcon(props, L, props);
                         return L.marker(latlng, { icon });
                     }
                     if (props.text) {

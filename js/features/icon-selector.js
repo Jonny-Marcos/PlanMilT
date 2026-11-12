@@ -6,6 +6,26 @@
 window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.iconSelector = Object.freeze({
+    defaultMarkerUrl: 'css/images/marker-icon.png',
+
+    /**
+     * Recria ícones persistidos, incluindo o nome legado do marcador padrão do Leaflet.
+     * @param {Object} properties - Propriedades da feição.
+     * @param {Object} leaflet - Namespace Leaflet.
+     * @param {Object} [options] - Dimensões padrão para ícones personalizados.
+     * @returns {Object} Ícone Leaflet.
+     */
+    createStoredIcon(properties, leaflet, options = {}) {
+        if (properties.militarySymbol) {
+            return window.PlanMilT.militarySymbols.createIcon(properties.militarySymbol, leaflet);
+        }
+        if (properties.iconUrl === 'marker-icon.png' || properties.iconUrl === this.defaultMarkerUrl) {
+            return new leaflet.Icon.Default();
+        }
+        return leaflet.icon({ iconUrl: properties.iconUrl, iconSize: options.iconSize || [40, 40],
+            iconAnchor: options.iconAnchor || [15, 15] });
+    },
+
     /**
      * Carrega e conecta o seletor de ícones à toolbar e à prévia.
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.

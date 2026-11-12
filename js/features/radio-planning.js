@@ -686,9 +686,12 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 } }
                             }, L);
                             
-                            let txMarker = L.marker(center) 
-                             .bindPopup(`<b>Base/Origem</b><br>Modo: ${p.isOptical ? 'Ótico (Visual)' : 'RF'}${p.isOptical ? '' : `<br>Faixa: ${window.PlanMilT.coveragePropagation.bandForFrequency(p.freq).name}<br>Penetração/Difração: ${{ high: 'Alta (Otimista)', medium: 'Média (Equilibrada)', low: 'Baixa (Pessimista)' }[p.penetration || 'medium']}`}`)
-                             .addTo(drawnItems);
+                            let txMarker = L.marker(center)
+                             .bindPopup(`<b>Base/Origem</b><br>Modo: ${p.isOptical ? 'Ótico (Visual)' : 'RF'}${p.isOptical ? '' : `<br>Faixa: ${window.PlanMilT.coveragePropagation.bandForFrequency(p.freq).name}<br>Penetração/Difração: ${{ high: 'Alta (Otimista)', medium: 'Média (Equilibrada)', low: 'Baixa (Pessimista)' }[p.penetration || 'medium']}`}`);
+                            txMarker.feature = { type: 'Feature',
+                                geometry: { type: 'Point', coordinates: [center.lng, center.lat] },
+                                properties: { iconUrl: window.PlanMilT.iconSelector.defaultMarkerUrl } };
+                            txMarker.addTo(drawnItems);
                              
                             rfGeneratedLayers.push(coverageLayer);
                             rfGeneratedLayers.push(txMarker);

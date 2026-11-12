@@ -163,7 +163,47 @@ for (const mode of ['shared', 'refresh']) {
             h.context.selectedLayers.push('teste');
             await h.context.reloadLayer();
         }
+
         assert.equal(restored.feature.properties.fillPattern, 'patternDots');
         assert.equal(restored.styles[0].fillPattern.shape.options.fillColor, '#123456');
+    });
+}
+
+for (const mode of ['shared', 'refresh']) {
+    test(`restores legacy default markers in ${mode} layers`, async () => {
+        const h = harness();
+        const feature = { type: 'Feature', geometry: { type: 'Point', coordinates: [-50, -20] },
+            properties: { iconUrl: 'marker-icon.png' } };
+        let restored;
+        class DefaultIcon {}
+        Object.assign(h.context, {
+            URL, URLSearchParams,
+            document: { addEventListener() {}, getElementById: () => ({ addEventListener() {} }),
+                querySelector: () => ({}), querySelectorAll: () => [] },
+            addNewOverlayLayer() {}, layerRegistry: {}, isValidGeoJson: () => true,
+            Swal: { fire() {} }, console: { info() {}, error(error) { throw error; } }
+        });
+        h.context.window.location = { href: 'https://example.test/?camada=teste' };
+        h.context.window.PlanMilT.apiClient = { request: async () => ({
+            ok: true, json: async () => ({ type: 'FeatureCollection', features: [feature] })
+        }) };
+        h.L.Icon = { Default: DefaultIcon };
+        h.L.geoJson = (data, options) => {
+            if (!data) return { addTo() { return this; }, addLayer(layer) { restored = layer; } };
+            const layer = { feature, setIcon(icon) { this.icon = icon; } };
+            options.onEachFeature(feature, layer);
+            return {};
+        };
+        vm.runInNewContext(read('icon-selector.js'), h.context);
+        if (mode === 'shared') {
+            vm.runInNewContext(read('shared-layers.js'), h.context);
+            await h.context.loadSharedLayers();
+        } else {
+            const source = read('layer-management.js').split('// Função para verificar se o objeto é um GeoJSON válido')[0];
+            vm.runInNewContext(source, h.context);
+            h.context.selectedLayers.push('teste');
+            await h.context.reloadLayer();
+        }
+        assert.ok(restored.icon instanceof DefaultIcon);
     });
 }

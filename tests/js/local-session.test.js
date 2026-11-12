@@ -5,6 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/local-session.js'), 'utf8');
+const iconSource = fs.readFileSync(path.join(__dirname, '../../js/features/icon-selector.js'), 'utf8');
 
 function database(records) {
     return {
@@ -113,6 +114,7 @@ function createHarness(records, pathname = '/app/') {
         setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; },
         clearTimeout(id) { timers.delete(id); }
     };
+    vm.runInNewContext(iconSource, context);
     vm.runInNewContext(source, context);
     const deps = { map, leaflet: L, drawnItems, layerRegistry: registry,
         tacticalGraphics: {},
@@ -248,4 +250,59 @@ test('restores planning markers as direct real Leaflet layers usable by task sel
     assert.equal(restored.options.icon.options.iconUrl, '/symbols/unit.png');
     assert.equal(restored.getLatLng().lat, -20);
     assert.equal(restored.getLatLng().lng, -50);
+});
+
+test('preserves legacy default and custom planning markers after a local session reload', async () => {
+    global.window = global;
+    global.screen = {};
+    global.document = { documentElement: { style: {} }, createElement: () => ({ getContext: () => ({}), style: {} }) };
+    const L = require('../../js/library/leaflet.js');
+    const records = new Map();
+    const first = createHarness(records);
+    first.deps.leaflet = L;
+    await first.start();
+    first.planning.addLayer(L.marker([-20, -50]));
+    first.planning.addLayer(L.marker([-21, -51], { icon: L.icon({
+        iconUrl: 'symbols/custom/marker-icon.png', iconSize: [60, 30], iconAnchor: [30, 30]
+    }) }));
+    await first.flush();
+    const saved = records.get('planmilt.session.v1:/app/');
+    assert.match(JSON.stringify(saved), /marker-icon\.png/);
+
+    const second = createHarness(records);
+    second.deps.leaflet = L;
+    await second.start();
+    const [standard, custom] = second.planning.children;
+    assert.ok(standard.options.icon instanceof L.Icon.Default);
+    assert.equal(standard.options.icon.options.iconSize.join(','), '25,41');
+    L.Icon.Default.imagePath = '/app/css/images/';
+    assert.equal(standard.options.icon._getIconUrl('icon'), '/app/css/images/marker-icon.png');
+    assert.equal(standard.options.icon._getIconUrl('shadow'), '/app/css/images/marker-shadow.png');
+    delete L.Icon.Default.imagePath;
+    assert.equal(custom.options.icon.options.iconUrl, 'symbols/custom/marker-icon.png');
+    assert.equal(custom.options.icon.options.iconSize.join(','), '60,30');
+    assert.equal(custom.options.icon.options.iconAnchor.join(','), '30,30');
+});
+
+test('a coverage origin marker keeps its icon when serialized by real Leaflet and stored locally', async () => {
+    global.window = global;
+    global.screen = {};
+    global.document = { documentElement: { style: {} }, createElement: () => ({ getContext: () => ({}), style: {} }) };
+    const L = require('../../js/library/leaflet.js');
+    const records = new Map();
+    const first = createHarness(records);
+    first.deps.leaflet = L;
+    await first.start();
+    const marker = L.marker([-20, -50]);
+    marker.feature = { type: 'Feature', geometry: { type: 'Point', coordinates: [-50, -20] },
+        properties: { iconUrl: first.context.window.PlanMilT.iconSelector.defaultMarkerUrl } };
+    assert.equal(marker.toGeoJSON().geometry.type, 'Point');
+    first.drawnItems.addLayer(marker);
+    await first.flush();
+
+    const second = createHarness(records);
+    second.deps.leaflet = L;
+    await second.start();
+    assert.equal(second.restored().features[0].properties.iconUrl, 'css/images/marker-icon.png');
+    assert.equal(second.restored().features[0].geometry.coordinates.join(','), '-50,-20');
 });

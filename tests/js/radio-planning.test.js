@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 global.window = {};
+require('../../js/features/icon-selector.js');
 require('../../js/features/coverage-propagation.js');
 require('../../js/features/coverage-image.js');
 
@@ -365,6 +366,8 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             if (optical) assert.equal(renderedCells[0].color, '#ffff00');
             assert.equal(savedImage.geometry, null);
             assert.equal(savedImage.properties.coverageImage.mode, optical ? 'optical' : 'radio');
+            assert.equal(marker.feature.properties.iconUrl, 'css/images/marker-icon.png');
+            assert.deepEqual(marker.feature.geometry.coordinates, [0, 0]);
             if (optical) {
                 assert.equal(savedImage.properties.coverageImage.powerSamples, undefined);
             } else {
