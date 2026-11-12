@@ -251,10 +251,10 @@ window.PlanMilT.mapSetup = Object.freeze({
 
             // Insere os botões de Adicionar e Remover Camadas
             buttonsDiv.innerHTML += `
-<i id="addLayerButton" class="fas fa-plus-square toolbar-icon" title="Adicionar Camadas" role="button" tabindex="0" aria-label="Adicionar camadas"></i>
-<i id="removeLayerButton" class="fas fa-minus-square toolbar-icon" title="Remover Camadas" role="button" tabindex="0" aria-label="Remover camadas"></i>
-<i id="savePlanningButton" class="fas fa-save toolbar-icon" title="Salvar Sugestão de Planejamento" role="button" tabindex="0" aria-label="Salvar sugestão"></i>
-<i id="startUpdateButton" class="fas fa-sync-alt toolbar-icon" title="Inserir camada atualizável" role="button" tabindex="0" aria-label="Camada atualizável"></i>
+<i id="addLayerButton" class="fas fa-plus-square toolbar-icon" title="Adicionar Camadas" style="cursor: pointer; margin-right: 5px;"></i>
+<i id="removeLayerButton" class="fas fa-minus-square toolbar-icon" title="Remover Camadas" style="cursor: pointer;"></i>
+<i id="savePlanningButton" class="fas fa-save toolbar-icon" title="Salvar Sugestão de Planejamento" style="cursor: pointer;"></i>
+<i id="startUpdateButton" class="fas fa-sync-alt toolbar-icon" title="Inserir camada atualizável" style="cursor: pointer; margin-left: 5px;"></i>
 `;
 
             // Impede que cliques nos botões interfiram com as interações do mapa

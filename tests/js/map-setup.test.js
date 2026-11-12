@@ -179,5 +179,5 @@ test('map defaults remove unselected layers from the visible map', () => {
 
 test('index.html busts the browser cache for map defaults changes', () => {
     const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
-    assert.match(html, /js\/features\/map-setup\.js\?v=20261112-mobile-map/);
+    assert.match(html, /js\/features\/map-setup\.js\?v=20261019-map-default-layer-selection/);
 });

@@ -1,5 +1,3 @@
-            .mobile-map-nav, .mobile-layer-slot { display: none; }
-
             body {
                 margin: 0;
             }
@@ -1286,6 +1284,63 @@
                 color: #495057;
             }
 
+            @media (max-width: 600px) {
+                #map {
+                    --map-control-size: clamp(20px, calc(16px + 2.333vw), 30px);
+                    --map-control-icon-size: clamp(16px, calc(12px + 2vw), 24px);
+                }
+
+                #map .leaflet-control-zoom a,
+                #map .leaflet-draw-toolbar a,
+                #map .leaflet-control-geocoder-icon,
+                #map .leaflet-control-measure-toggle,
+                #map .leaflet-control-freehand,
+                #map .leaflet-control-tactical-graphic {
+                    width: var(--map-control-size);
+                    height: var(--map-control-size);
+                    line-height: var(--map-control-size);
+                }
+
+                #map .leaflet-control-geocoder {
+                    min-width: var(--map-control-size);
+                    min-height: var(--map-control-size);
+                }
+
+                #map .leaflet-control-zoom a,
+                #map .leaflet-control-freehand i,
+                #map .leaflet-control-tactical-graphic i,
+                #map .leaflet-control-measure-toggle {
+                    font-size: var(--map-control-icon-size);
+                }
+
+                #map .map-toolbar .toolbar-icons i {
+                    font-size: clamp(8px, calc(6px + 1vw), 12px);
+                }
+
+                /* Cada posição corresponde a uma célula do sprite original do Leaflet Draw. */
+                #map .leaflet-draw-toolbar a {
+                    background-size: 1000% 100%;
+                }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-polyline { background-position: 0 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-polygon { background-position: 11.111111% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-rectangle { background-position: 22.222222% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-circle { background-position: 33.333333% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-marker { background-position: 44.444444% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-edit-edit { background-position: 55.555556% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-edit-remove { background-position: 66.666667% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-edit-edit.leaflet-disabled { background-position: 77.777778% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-edit-remove.leaflet-disabled { background-position: 88.888889% 0; }
+                #map .leaflet-draw-toolbar .leaflet-draw-draw-circlemarker { background-position: 100% 0; }
+
+                #map .leaflet-draw-actions {
+                    left: calc(var(--map-control-size) + 2px);
+                }
+                #map .leaflet-right .leaflet-draw-actions {
+                    left: auto;
+                    right: calc(var(--map-control-size) + 2px);
+                }
+            }
+
             .leaflet-control-tactical-graphic.is-disabled {
                 cursor: not-allowed;
                 opacity: 0.5;
@@ -1529,174 +1584,6 @@
                 color: #333;
                 cursor: pointer;
             }
-
-            body.mobile-map-ui .map-toolbar {
-                position: fixed;
-                left: 8px;
-                right: 8px;
-                bottom: max(8px, env(safe-area-inset-bottom));
-                width: auto;
-                max-width: none;
-                margin: 0;
-                padding: 6px;
-                display: flex;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 4px;
-                border-radius: 8px;
-                box-shadow: 0 2px 12px #0004;
-            }
-            body.mobile-map-ui .mobile-map-nav {
-                display: flex;
-                order: 10;
-                gap: 4px;
-            }
-            body.mobile-map-ui .mobile-map-nav button {
-                flex: 1 1 0;
-                min-width: 0;
-                min-height: 44px;
-                padding: 4px;
-                border: 1px solid #c5cad2;
-                border-radius: 6px;
-                background: #fff;
-                color: #263445;
-                font: 600 11px Arial, sans-serif;
-                overflow-wrap: anywhere;
-            }
-            body.mobile-map-ui .mobile-map-nav button[data-mobile-panel="tools"] { flex-grow: 1.25; }
-            body.mobile-map-ui .mobile-map-nav button[aria-expanded="true"] {
-                background: #435f88;
-                color: #fff;
-            }
-            body.mobile-map-ui .mobile-map-nav #mobileToggleControls {
-                flex: 0 0 44px;
-            }
-            body.mobile-map-ui .mobile-controls-hidden {
-                left: auto;
-                right: 8px;
-            }
-            body.mobile-map-ui .mobile-controls-hidden .mobile-map-nav button[data-mobile-panel] {
-                display: none;
-            }
-            body.mobile-map-ui .map-toolbar .mobile-draw-item,
-            body.mobile-map-ui .map-toolbar .mobile-layer-item,
-            body.mobile-map-ui .map-toolbar .toolbar-icons,
-            body.mobile-map-ui .map-toolbar .mobile-layer-slot {
-                display: none;
-            }
-            body.mobile-map-ui .map-toolbar[data-mobile-panel="draw"] .mobile-draw-item,
-            body.mobile-map-ui .map-toolbar[data-mobile-panel="layers"] .mobile-layer-item,
-            body.mobile-map-ui .map-toolbar[data-mobile-panel="tools"] .toolbar-icons {
-                display: flex;
-            }
-            body.mobile-map-ui .map-toolbar[data-mobile-panel="layers"] .mobile-layer-slot {
-                display: block;
-                width: 100%;
-                min-width: 0;
-                max-height: min(28vh, 260px);
-                max-height: min(28dvh, 260px);
-                overflow-y: auto;
-                overscroll-behavior: contain;
-            }
-            body.mobile-map-ui .mobile-layer-slot .leaflet-control-layers {
-                float: none;
-                margin: 0;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            body.mobile-map-ui .mobile-layer-slot .leaflet-control-layers label {
-                min-height: 40px;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                white-space: normal;
-                overflow-wrap: anywhere;
-            }
-            body.mobile-map-ui .mobile-layer-slot input[type="checkbox"] {
-                width: 20px;
-                height: 20px;
-            }
-            body.mobile-map-ui .mobile-layer-slot .layer-control-buttons {
-                display: flex;
-                justify-content: space-around;
-                position: sticky;
-                bottom: 0;
-                background: #fff;
-            }
-            body.mobile-map-ui .map-toolbar .toolbar-item {
-                flex: none;
-                width: 100%;
-                margin: 0;
-                box-sizing: border-box;
-                white-space: normal;
-                gap: 6px;
-            }
-            body.mobile-map-ui .mobile-draw-item button,
-            body.mobile-map-ui .mobile-layer-item select {
-                min-height: 44px;
-            }
-            body.mobile-map-ui .map-toolbar .toolbar-icons {
-                max-height: min(35vh, 280px);
-                max-height: min(35dvh, 280px);
-                overflow-y: auto;
-                justify-content: flex-start;
-                gap: 4px;
-            }
-            body.mobile-map-ui .toolbar-icons .toolbar-icon,
-            body.mobile-map-ui .layer-control-buttons .toolbar-icon {
-                display: inline-flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                gap: 3px;
-                min-width: 68px;
-                min-height: 48px;
-                margin: 0;
-                padding: 4px;
-                border-radius: 5px;
-                font-size: 16px;
-            }
-            body.mobile-map-ui .toolbar-icon[role="button"]::after {
-                content: attr(aria-label);
-                font: 11px Arial, sans-serif;
-                text-align: center;
-            }
-            body.mobile-map-ui .layer-control-buttons .toolbar-icon {
-                flex: 1 1 0;
-                min-width: 0;
-            }
-            body.mobile-map-ui .map-toolbar .view-3d-button {
-                flex: 0 0 auto;
-                min-width: 68px;
-                min-height: 48px;
-                margin: 0;
-                justify-content: center;
-            }
-            body.mobile-map-ui .map-toolbar .toggle-controls { display: none; }
-            body.mobile-map-ui:not(.mobile-map-draw) .leaflet-draw-toolbar { display: none !important; }
-            body.mobile-map-ui .leaflet-control-freehand,
-            body.mobile-map-ui .leaflet-control-tactical-graphic {
-                width: 44px;
-                height: 44px;
-            }
-            body.mobile-map-ui.mobile-map-draw .leaflet-draw-toolbar {
-                display: flex !important;
-            }
-            body.mobile-map-ui .leaflet-draw-toolbar a {
-                width: 44px;
-                height: 44px;
-                background-size: 440px 44px;
-            }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-draw-polyline { background-position: 0 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-draw-polygon { background-position: -44px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-draw-rectangle { background-position: -88px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-draw-circle { background-position: -132px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-draw-marker { background-position: -176px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-edit-edit { background-position: -220px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-edit-remove { background-position: -264px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-edit-edit.leaflet-disabled { background-position: -308px 0; }
-            body.mobile-map-ui .leaflet-draw-toolbar .leaflet-draw-edit-remove.leaflet-disabled { background-position: -352px 0; }
-            body.mobile-map-ui .leaflet-draw-actions { left: 0; top: 44px; }
 
             @media (max-width: 600px) {
                 #imageEditorTools {

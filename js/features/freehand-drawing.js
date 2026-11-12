@@ -53,7 +53,6 @@ window.PlanMilT.freehandDrawing = Object.freeze({
             }
 
             updateButtonAppearance();
-            map.fire('planmilt:freehand-mode', { enabled: freehandDrawingEnabled });
         }
 
         /**
@@ -163,7 +162,6 @@ window.PlanMilT.freehandDrawing = Object.freeze({
                 freehandButton.innerHTML = '<i class="fas fa-pencil-alt"></i>';
                 freehandButton.title = 'Desenho à mão livre';
                 freehandButton.onclick = () => toggleDrawing();
-                leaflet.DomEvent.disableClickPropagation(freehandButton);
                 return freehandButton;
             }
         });
