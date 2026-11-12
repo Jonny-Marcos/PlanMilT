@@ -219,7 +219,8 @@
                 padding: 10px;
                 max-height: 300px;
                 overflow-y: auto;
-                width: 400px;
+                width: min(400px, calc(100vw - 64px));
+                box-sizing: border-box;
 
                 /* Adicione ou altere estas propriedades */
                 bottom: 100%;
@@ -246,9 +247,25 @@
                 background-color: #e0e0e0;
             }
 
+            #iconSelectorContent .folder-button[aria-pressed="true"] {
+                background-color: #435f88;
+                color: #fff;
+            }
+
+            #iconSelectorContent .icon-category-list {
+                border-top: 1px solid #d3d8e0;
+                padding-top: 5px;
+            }
+
             .icon-list {
                 display: flex;
                 flex-wrap: wrap;
+            }
+
+            #iconSelectorContent .icon-group-heading {
+                flex-basis: 100%;
+                margin: 8px 5px 2px;
+                font-weight: 600;
             }
 
             #iconSelectorContent .recent-symbol-tray {
@@ -1134,7 +1151,7 @@
 
                 /* Ajustes para o container do seletor de ícones */
                 #iconSelectorContent {
-                    width: 100%;
+                    width: min(400px, calc(100vw - 64px));
                     max-height: 50vh;
                     overflow-y: auto;
                     bottom: 100%;

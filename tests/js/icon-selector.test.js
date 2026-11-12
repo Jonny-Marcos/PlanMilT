@@ -17,6 +17,7 @@ class FakeElement {
         this.dataset = {};
         this.style = {};
         this.listeners = new Map();
+        this.attributes = {};
         this.textContent = '';
     }
 
@@ -32,6 +33,10 @@ class FakeElement {
 
     addEventListener(eventName, listener) {
         this.listeners.set(eventName, listener);
+    }
+
+    setAttribute(name, value) {
+        this.attributes[name] = value;
     }
 
     click() {
@@ -86,19 +91,21 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     const toggleButton = container.children[0];
     const selectorContent = container.children[1];
     const folderList = selectorContent.children[0];
-    const iconList = selectorContent.children[1];
+    const categoryList = selectorContent.children[1];
+    const iconList = selectorContent.children[2];
     assert.equal(folderList.children.length, 3);
 
     toggleButton.click();
     assert.equal(selectorContent.style.display, 'block');
-    folderList.children[2].click();
+    folderList.children[1].click();
+    categoryList.children.find(button => button.textContent === 'Outros').click();
 
     const selectedImage = iconList.children[0].children[0];
     selectedImage.click();
 
-    assert.equal(selector.getSelectedIconKey(), 'c2/bravo');
-    assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/c2/bravo.svg');
-    assert.equal(preview.src, 'symbols/c2/bravo.svg');
+    assert.equal(selector.getSelectedIconKey(), 'friend/alpha');
+    assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
+    assert.equal(preview.src, 'symbols/friend/alpha.svg');
     assert.equal(preview.style.display, 'inline');
     assert.equal(selectorContent.style.display, 'none');
     assert.equal(toggleButton.textContent, 'Ícone selecionado: ');
@@ -119,7 +126,8 @@ test('a generated calunga can be selected without removing existing icons', asyn
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
     container.children[1].children[0].children[1].click();
-    container.children[1].children[1].children[0].children[0].click();
+    container.children[1].children[1].children.find(button => button.textContent === 'Outros').click();
+    container.children[1].children[2].children[0].children[0].click();
     assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
 });
 
@@ -144,8 +152,86 @@ test('generated icon tray in the selector selects a saved symbol', async () => {
     container.children[0].click();
     panel.children[0].children[0].click();
     assert.equal(panel.children[0].children[0].textContent, 'Ícones gerados anteriormente');
-    panel.children[1].children[0].children[0].click();
+    panel.children[2].children[0].children[0].click();
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
     assert.equal(panel.style.display, 'none');
+});
+
+test('existing icons are accessible in their divisions and C2 is shared without changing paths', async () => {
+    const container = new FakeElement('div');
+    const directories = ['friend', 'enemy', 'c2'];
+    const paths = directories.flatMap(directory =>
+        fs.readdirSync(path.join(__dirname, '../../symbols', directory))
+            .filter(name => name.endsWith('.svg'))
+            .map(name => `symbols/${directory}/${name}`)
+    );
+    paths.push('symbols/friend/new-unclassified.svg');
+    const selector = window.PlanMilT.iconSelector.attach({
+        container, preview: new FakeElement('img'), leaflet: { icon: options => ({ options }) },
+        apiClient: { getJson: async () => paths }
+    });
+    await selector.load();
+    const [folders, categories, icons] = container.children[1].children;
+    const categoryNames = ['Infantaria', 'Cavalaria', 'Artilharia', 'Engenharia', 'Logística', 'Comunicações', 'Outros'];
+    const samples = {
+        friend: {
+            Infantaria: 'bda-inf-mtz-planejada', Cavalaria: 'rgt-cav-mec', Artilharia: 'gac-105ar',
+            Engenharia: 'btl-eng-cnst', Logística: 'gpt-log', Comunicações: 'bcom'
+        },
+        enemy: {
+            Infantaria: 'ft-blt-inf-mec', Cavalaria: 'reg-cav-mec', Artilharia: 'gac-155-AR',
+            Engenharia: 'btl-eng', Logística: 'btl-log', Comunicações: 'btl-com'
+        }
+    };
+
+    for (const [directory, label] of [['friend', 'Amigo'], ['enemy', 'Inimigo']]) {
+        const folder = folders.children.find(button => button.textContent === label);
+        folder.click();
+        assert.equal(folder.attributes['aria-pressed'], 'true');
+        assert.deepEqual(categories.children.map(button => button.textContent), categoryNames);
+        const seen = [];
+        for (const category of categories.children) {
+            category.click();
+            assert.equal(category.attributes['aria-pressed'], 'true');
+            const images = icons.children.flatMap(item => item.children.filter(child => child.tagName === 'img'));
+            const local = images.filter(image => image.dataset.optionValue.startsWith(`${directory}/`));
+            const shared = images.filter(image => image.dataset.optionValue.startsWith('c2/'));
+            if (category.textContent !== 'Outros') {
+                assert.ok(local.length > 0, `${label}: ${category.textContent} está vazia`);
+                assert.ok(local.some(image => image.alt === samples[directory][category.textContent]));
+            }
+            seen.push(...local.map(image => image.src));
+            if (category.textContent === 'Comunicações') {
+                assert.equal(shared.length, paths.filter(icon => icon.startsWith('symbols/c2/')).length);
+                assert.ok(icons.children.some(item => item.textContent === 'C2 (comum)'));
+                shared[0].click();
+                assert.equal(selector.getSelectedIcon().options.iconUrl, shared[0].src);
+                assert.equal(selector.getSelectedIconKey(), shared[0].dataset.optionValue);
+                assert.ok(local.some(image => image.alt === 'cia-ge'));
+                if (directory === 'enemy') {
+                    for (const name of ['btl-com-ge', 'mae-confirmada', 'mae-estimada', 'mage-confirmada', 'mage-estimada', 'pel-ge']) {
+                        assert.ok(local.some(image => image.alt === name), name);
+                    }
+                }
+            }
+            if (category.textContent === 'Infantaria') {
+                for (const name of ['cia-ac', 'corpo-ex', ...(directory === 'enemy' ? ['pc-de'] : [])]) {
+                    assert.ok(local.some(image => image.alt === name), name);
+                }
+            }
+            if (category.textContent === 'Artilharia' && directory === 'friend') {
+                assert.ok(local.some(image => image.alt === 'gaaae'));
+            }
+            if (category.textContent === 'Outros' && directory === 'friend') {
+                assert.deepEqual(local.map(image => image.alt).sort(), [
+                    'bavex', 'bcomge', 'bge', 'bia-cmdo', 'cia-ass-civ', 'cia-busc-alvos',
+                    'cia-c-ap', 'cia-pe', 'de', 'esqd-avex', 'ft-bil-amv', 'gce',
+                    'gp-cntr-sist', 'new-unclassified', 'pc-de-pcp-planejada'
+                ].sort());
+            }
+            if (category.textContent === 'Outros' && directory === 'enemy') assert.equal(local.length, 0);
+        }
+        assert.deepEqual(seen.sort(), paths.filter(icon => icon.startsWith(`symbols/${directory}/`)).sort());
+    }
 });
