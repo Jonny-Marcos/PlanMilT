@@ -23,7 +23,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(documentSource, /app\.css\?v=20261125-icon-divisions/);
     assert.match(documentSource, /radio-planning\.js\?v=20261115-rx-power/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261119-calungas/);
+    assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
@@ -31,13 +31,13 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['drawing-storage', 'elevation-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261117-welcome`));
     }
-    for (const script of ['kmz-export', 'main', 'kmz-import', 'shared-layers', 'drawing-loading', 'layer-management']) {
+    for (const script of ['kmz-export', 'shared-layers', 'drawing-loading', 'layer-management']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261119-calungas`));
     }
+    for (const script of ['main', 'kmz-import', 'military-symbols', 'icon-selector', 'help-and-planning']) {
+        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261127-icon-tray`));
+    }
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
-    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261124-calunga-bandeja'));
-    assert.ok(documentSource.includes('js/features/icon-selector.js?v=20261126-aviation-icons'));
-    assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261124-calunga-bandeja'));
     assert.ok(documentSource.indexOf('chunk-vendors.4e5d8119.js') < documentSource.indexOf('planmilt-generator.js'));
     assert.ok(documentSource.indexOf('brazilian-symbol-catalog.js') < documentSource.indexOf('military-symbols.js'));
     for (const script of ['welcome']) {

@@ -30,7 +30,7 @@
             </div>
             </div>
 <img id="iconPreview" src="" alt="Pré-visualização do ícone selecionado" style="width: 30px; height: 30px; display: none;">
-<button id="createMilitarySymbol" type="button" title="Criar e selecionar calunga">Criar calunga</button>
+<button id="createMilitarySymbol" type="button" title="Criar e selecionar ícone">Criar ícone</button>
             </div>
 <div class="toolbar-icons">
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
@@ -143,10 +143,10 @@
                     const symbol = await window.PlanMilT.militarySymbols.open();
                     if (!symbol) return;
                     iconSelector.selectMilitarySymbol(symbol);
-                    Swal.fire('Calunga selecionada', 'Use a ferramenta de marcador no mapa e escolha “Ícone” para inseri-la.', 'info');
+                    Swal.fire('Ícone selecionado', 'Use a ferramenta de marcador no mapa e escolha “Ícone” para inseri-lo.', 'info');
                 } catch (error) {
-                    console.error('[PlanMilT][Calungas] Falha ao abrir criador.', error);
-                    Swal.fire('Erro', 'Não foi possível abrir o criador de calungas.', 'error');
+                    console.error('[PlanMilT][Ícones] Falha ao abrir criador.', error);
+                    Swal.fire('Erro', 'Não foi possível abrir o criador de ícones.', 'error');
                 }
             });
 

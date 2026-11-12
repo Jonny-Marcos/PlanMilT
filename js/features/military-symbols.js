@@ -8,6 +8,7 @@ window.PlanMilT = window.PlanMilT || {};
 window.PlanMilT.militarySymbols = (() => {
     const storageKey = `planmilt.military-symbols.br.v1:${new URL('.', window.location.href).pathname}`;
     const recentKey = `planmilt.military-symbols.recent.v1:${new URL('.', window.location.href).pathname}`;
+    const recentLimit = 100;
     const amplifierFields = ['uniqueDesignation', 'higherFormation', 'staffComments', 'dtg',
         'hostile', 'location', 'altitudeDepth', 'speed'];
     const otherFields = ['additionalInformation', 'quantity',
@@ -63,7 +64,7 @@ window.PlanMilT.militarySymbols = (() => {
         const symbol = new window.PlanMilTBrazilian.ms.Symbol(normalized.sidc, { ...normalized.options, size: 35 });
         const code = normalized.sidc;
         const category = window.PlanMilT.brazilianSymbolCatalog[code.slice(4, 6)];
-        if (!category) throw new Error('Categoria de calunga não disponível no catálogo brasileiro.');
+        if (!category) throw new Error('Categoria de ícone não disponível no catálogo brasileiro.');
         if (code.length === 30 && code.slice(20, 23) !== '076') {
             throw new Error('Informe uma extensão brasileira de SIDC.');
         }
@@ -108,7 +109,7 @@ window.PlanMilT.militarySymbols = (() => {
             !Array.isArray(data.iconAnchor) || data.iconSize.length !== 2 || data.iconAnchor.length !== 2 ||
             !data.iconSize.every(value => Number.isFinite(value) && value > 0) ||
             !data.iconAnchor.every(Number.isFinite)) {
-            throw new Error('Dados da calunga inválidos.');
+            throw new Error('Dados do ícone inválidos.');
         }
         return leaflet.icon({ iconUrl: data.iconUrl, iconSize: data.iconSize, iconAnchor: data.iconAnchor });
     }
@@ -123,24 +124,24 @@ window.PlanMilT.militarySymbols = (() => {
         const entries = JSON.parse(raw);
         if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry.id !== 'string' ||
             typeof entry.name !== 'string' || !entry.name || entry.name.length > 80)) {
-            throw new Error('Biblioteca de calungas inválida.');
+            throw new Error('Biblioteca de ícones inválida.');
         }
         return entries.map(entry => ({ id: entry.id, name: entry.name, config: normalize(entry.config) }));
     }
 
-    /** @returns {Array<Object>} Calungas recentes e modelos anteriores, sem alterar os dados originais. */
+    /** @returns {Array<Object>} Ícones recentes e modelos anteriores, sem alterar os dados originais. */
     function readRecent() {
         const raw = localStorage.getItem(recentKey);
-        if (raw === null) return readLibrary().slice(0, 50);
+        if (raw === null) return readLibrary().slice(0, recentLimit);
         const entries = JSON.parse(raw);
-        if (!Array.isArray(entries) || entries.length > 50 || entries.some(entry =>
+        if (!Array.isArray(entries) || entries.length > recentLimit || entries.some(entry =>
             !entry || typeof entry.id !== 'string' || typeof entry.name !== 'string')) {
-            throw new Error('Bandeja de calungas inválida.');
+            throw new Error('Bandeja de ícones inválida.');
         }
         return entries.map(entry => ({ id: entry.id, name: entry.name, config: normalize(entry.config) }));
     }
 
-    /** @param {Object} config - Configuração confirmada da calunga. */
+    /** @param {Object} config - Configuração confirmada do ícone. */
     function saveRecent(config) {
         const normalized = normalize(config);
         const entries = readRecent();
@@ -148,14 +149,14 @@ window.PlanMilT.militarySymbols = (() => {
         const existing = entries.find(entry => JSON.stringify(entry.config) === key);
         const entry = existing || {
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: normalized.options.uniqueDesignation || 'Calunga gerada',
+            name: normalized.options.uniqueDesignation || 'Ícone gerado',
             config: normalized
         };
-        localStorage.setItem(recentKey, JSON.stringify([entry, ...entries.filter(item => item.id !== entry.id)].slice(0, 50)));
+        localStorage.setItem(recentKey, JSON.stringify([entry, ...entries.filter(item => item.id !== entry.id)].slice(0, recentLimit)));
     }
 
     /**
-     * Monta uma bandeja reutilizável de calungas com seleção e exclusão.
+     * Monta uma bandeja reutilizável de ícones com seleção e exclusão.
      * @param {HTMLElement} container - Elemento que recebe a bandeja.
      * @param {Function} onSelect - Recebe o símbolo selecionado.
      */
@@ -171,30 +172,32 @@ window.PlanMilT.militarySymbols = (() => {
             status.setAttribute('role', 'status');
             for (const entry of entries) {
                 const data = render(entry.config);
+                const name = entry.name === 'Calunga gerada' && !entry.config.options.uniqueDesignation
+                    ? 'Ícone gerado' : entry.name;
                 const item = document.createElement('div');
                 item.className = 'recent-symbol-item';
                 const select = document.createElement('button');
                 select.type = 'button';
                 select.className = 'recent-symbol-select';
-                select.title = entry.name;
-                select.setAttribute('aria-label', `Selecionar ${entry.name}`);
+                select.title = name;
+                select.setAttribute('aria-label', `Selecionar ${name}`);
                 const image = document.createElement('img');
                 image.src = data.iconUrl;
-                image.alt = entry.name;
+                image.alt = name;
                 select.appendChild(image);
                 select.addEventListener('click', () => onSelect(data));
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.className = 'recent-symbol-remove';
                 remove.textContent = '×';
-                remove.setAttribute('aria-label', `Excluir ${entry.name} da bandeja`);
+                remove.setAttribute('aria-label', `Excluir ${name} da bandeja`);
                 remove.addEventListener('click', () => {
                     try {
                         localStorage.setItem(recentKey, JSON.stringify(readRecent().filter(item => item.id !== entry.id)));
                         renderRecentTray(container, onSelect);
                     } catch (error) {
-                        console.error('[PlanMilT][Calungas] Falha ao excluir da bandeja.', error);
-                        status.textContent = 'Não foi possível excluir a calunga da bandeja.';
+                        console.error('[PlanMilT][Ícones] Falha ao excluir da bandeja.', error);
+                        status.textContent = 'Não foi possível excluir o ícone da bandeja.';
                     }
                 });
                 item.appendChild(select);
@@ -203,7 +206,7 @@ window.PlanMilT.militarySymbols = (() => {
             }
             container.appendChild(status);
         } catch (error) {
-            console.error('[PlanMilT][Calungas] Falha ao carregar bandeja.', error);
+            console.error('[PlanMilT][Ícones] Falha ao carregar bandeja.', error);
             container.replaceChildren();
             container.textContent = 'Não foi possível carregar os ícones gerados anteriormente.';
         }
@@ -219,7 +222,7 @@ window.PlanMilT.militarySymbols = (() => {
         const sets = window.PlanMilT.brazilianSymbolCatalog;
         let current = normalize(initial);
         const result = await Swal.fire({
-            title: editing ? 'Editar calunga' : 'Criar calunga',
+            title: editing ? 'Editar ícone' : 'Criar ícone',
             customClass: { popup: 'military-symbol-modal' },
             html: `<style>
 .swal2-popup.military-symbol-modal{box-sizing:border-box;width:calc(100vw - 24px)!important;max-width:none;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;padding:16px!important}
@@ -242,8 +245,8 @@ window.PlanMilT.militarySymbols = (() => {
 @media(max-width:700px){#militarySymbolEditor .symbol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:400px){#militarySymbolEditor .symbol-grid{grid-template-columns:1fr}}
 </style><div id="militarySymbolEditor">
-<p>Personalize uma calunga com o gerador e catálogo do Portal de Simbologia Militar.</p>
-<div class="symbol-preview"><img id="symbolPreview" alt="Prévia da calunga"></div>
+<p>Personalize um ícone com o gerador e catálogo do Portal de Simbologia Militar.</p>
+<div class="symbol-preview"><img id="symbolPreview" alt="Prévia do ícone"></div>
 <p id="symbolError" role="status"></p>
 <div class="symbol-grid">
 <div><label for="symbolSet">Categoria</label><select id="symbolSet"></select></div>
@@ -261,11 +264,11 @@ window.PlanMilT.militarySymbols = (() => {
 <div><label for="symbolModifier2">Modificador 2</label><select id="symbolModifier2"></select></div>
 </div>
 <fieldset><legend>Amplificadores textuais</legend>
-<p>Textos opcionais posicionados ao redor da calunga; a posição depende do tipo de símbolo.</p>
+<p>Textos opcionais posicionados ao redor do ícone; a posição depende do tipo de símbolo.</p>
 <div class="symbol-grid">${amplifierFields.map(field => `<div><label for="symbol-${field}">${labels[field]}</label><input id="symbol-${field}" maxlength="50"></div>`).join('')}</div>
 </fieldset>
 <fieldset><legend>Ícones gerados anteriormente</legend>
-<p>Guardados neste navegador. Excluir da bandeja não remove calungas do mapa.</p>
+<p>Guardados neste navegador. Excluir da bandeja não remove ícones do mapa.</p>
 <div id="symbolRecentTray" class="recent-symbol-tray"></div></fieldset></div>`,
             showCancelButton: true,
             confirmButtonText: editing ? 'Aplicar alterações' : 'Selecionar para inserir',
@@ -355,7 +358,7 @@ window.PlanMilT.militarySymbols = (() => {
                     current = normalize(config);
                     for (const field of amplifierFields) get(`symbol-${field}`).value = current.options[field];
                     set.value = config.sidc.slice(4, 6);
-                    if (!sets[set.value]) throw new Error('Categoria de calunga não disponível no catálogo brasileiro.');
+                    if (!sets[set.value]) throw new Error('Categoria de ícone não disponível no catálogo brasileiro.');
                     get('symbolAffiliation').value = config.sidc.slice(3, 4);
                     get('symbolStatus').value = config.sidc.slice(6, 7);
                     get('symbolHeadquarters').value = config.sidc.slice(7, 8);
@@ -455,8 +458,8 @@ window.PlanMilT.militarySymbols = (() => {
         try {
             saveRecent(result.value.config);
         } catch (error) {
-            console.error('[PlanMilT][Calungas] Falha ao guardar na bandeja.', error);
-            await Swal.fire('Aviso', 'A calunga foi criada, mas não pôde ser guardada na bandeja deste navegador.', 'warning');
+            console.error('[PlanMilT][Ícones] Falha ao guardar na bandeja.', error);
+            await Swal.fire('Aviso', 'O ícone foi criado, mas não pôde ser guardado na bandeja deste navegador.', 'warning');
         }
         return result.value;
     }

@@ -46,8 +46,11 @@ class FakeElement {
 
 require('../../js/features/icon-selector.js');
 
-test('the create calunga button shares the selector button styles on desktop and mobile', () => {
+test('the create icon button shares the selector button styles on desktop and mobile', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
+    const main = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+    assert.match(main, /title="Criar e selecionar ícone">Criar ícone<\/button>/);
+    assert.match(main, /Ícone selecionado/);
     assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*background-color:\s*#007bff/s);
     assert.match(css, /#iconSelectorToggle:hover,\s*#createMilitarySymbol:hover\s*\{[^}]*#0056b3/s);
     assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*font-size:\s*12px/s);
@@ -98,9 +101,8 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     toggleButton.click();
     assert.equal(selectorContent.style.display, 'block');
     folderList.children[1].click();
-    categoryList.children.find(button => button.textContent === 'Outros').click();
-
-    const selectedImage = iconList.children[0].children[0];
+    assert.equal(iconList.children[0].textContent, 'Ícones sem classificação');
+    const selectedImage = iconList.children[1].children[0];
     selectedImage.click();
 
     assert.equal(selector.getSelectedIconKey(), 'friend/alpha');
@@ -111,7 +113,7 @@ test('icon selector loads paths and exposes the selected Leaflet icon', async ()
     assert.equal(toggleButton.textContent, 'Ícone selecionado: ');
 });
 
-test('a generated calunga can be selected without removing existing icons', async () => {
+test('a generated icon can be selected without removing existing icons', async () => {
     const container = new FakeElement('div');
     const preview = new FakeElement('img');
     const leaflet = { icon: options => ({ options }) };
@@ -126,8 +128,7 @@ test('a generated calunga can be selected without removing existing icons', asyn
     assert.equal(selector.getSelectedIcon().militarySymbol, symbol);
     assert.equal(preview.src, symbol.iconUrl);
     container.children[1].children[0].children[1].click();
-    container.children[1].children[1].children.find(button => button.textContent === 'Outros').click();
-    container.children[1].children[2].children[0].children[0].click();
+    container.children[1].children[2].children[1].children[0].click();
     assert.equal(selector.getSelectedIcon().options.iconUrl, 'symbols/friend/alpha.svg');
 });
 
@@ -173,7 +174,7 @@ test('existing icons are accessible in their divisions and C2 is shared without 
     });
     await selector.load();
     const [folders, categories, icons] = container.children[1].children;
-    const categoryNames = ['Infantaria', 'Cavalaria', 'Artilharia', 'Engenharia', 'Logística', 'Comunicações', 'Aviação', 'Outros'];
+    const categoryNames = ['Infantaria', 'Cavalaria', 'Artilharia', 'Engenharia', 'Logística', 'Comunicações', 'Aviação'];
     const samples = {
         friend: {
             Infantaria: 'bda-inf-mtz-planejada', Cavalaria: 'rgt-cav-mec', Artilharia: 'gac-105ar',
@@ -190,14 +191,23 @@ test('existing icons are accessible in their divisions and C2 is shared without 
         folder.click();
         assert.equal(folder.attributes['aria-pressed'], 'true');
         assert.deepEqual(categories.children.map(button => button.textContent), categoryNames);
-        const seen = [];
+        const unclassified = icons.children.flatMap(item => item.children.filter(child => child.tagName === 'img'));
+        if (directory === 'friend') {
+            assert.equal(icons.children[0].textContent, 'Ícones sem classificação');
+            assert.deepEqual(unclassified.map(image => image.alt), ['new-unclassified']);
+            unclassified[0].click();
+            assert.equal(selector.getSelectedIconKey(), 'friend/new-unclassified');
+        } else {
+            assert.equal(unclassified.length, 0);
+        }
+        const seen = unclassified.map(image => image.src);
         for (const category of categories.children) {
             category.click();
             assert.equal(category.attributes['aria-pressed'], 'true');
             const images = icons.children.flatMap(item => item.children.filter(child => child.tagName === 'img'));
             const local = images.filter(image => image.dataset.optionValue.startsWith(`${directory}/`));
             const shared = images.filter(image => image.dataset.optionValue.startsWith('c2/'));
-            if (category.textContent !== 'Outros' && !(directory === 'enemy' && category.textContent === 'Aviação')) {
+            if (!(directory === 'enemy' && category.textContent === 'Aviação')) {
                 assert.ok(local.length > 0, `${label}: ${category.textContent} está vazia`);
                 assert.ok(local.some(image => image.alt === samples[directory][category.textContent]));
             }
@@ -223,10 +233,6 @@ test('existing icons are accessible in their divisions and C2 is shared without 
             if (category.textContent === 'Artilharia' && directory === 'friend') {
                 assert.ok(local.some(image => image.alt === 'gaaae'));
             }
-            if (category.textContent === 'Outros' && directory === 'friend') {
-                assert.deepEqual(local.map(image => image.alt), ['new-unclassified']);
-            }
-            if (category.textContent === 'Outros' && directory === 'enemy') assert.equal(local.length, 0);
             if (directory === 'friend') {
                 const reassigned = {
                     Aviação: ['bavex', 'esqd-avex'],

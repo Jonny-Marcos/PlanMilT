@@ -117,6 +117,9 @@ test('editor puts the preview above the controls and adapts its layout to the vi
     const fixture = setup();
     const pending = fixture.symbols.open();
     const html = fixture.active().html;
+    assert.equal(fixture.active().title, 'Criar ícone');
+    assert.match(html, /Prévia do ícone/);
+    assert.doesNotMatch(html, /calunga/i);
     assert.ok(html.indexOf('id="symbolPreview"') < html.indexOf('id="symbolSet"'));
     assert.ok(html.indexOf('id="symbolError"') < html.indexOf('id="symbolSet"'));
     assert.match(html, /width:calc\(100vw - 24px\)!important/);
@@ -247,7 +250,7 @@ test('storage errors remain visible without preventing confirmation', async () =
     assert.equal(fixture.active().warning, 'Aviso');
 });
 
-test('tray keeps 50 most recent symbols and preserves existing named models', async () => {
+test('tray keeps 100 most recent symbols and preserves existing named models', async () => {
     const fixture = setup();
     const legacyKey = 'planmilt.military-symbols.br.v1:/plan/';
     const key = 'planmilt.military-symbols.recent.v1:/plan/';
@@ -263,7 +266,7 @@ test('tray keeps 50 most recent symbols and preserves existing named models', as
     await pending;
     assert.equal(fixture.values.has(key), false);
     const entries = Array.from({ length: 50 }, (_, index) => ({
-        id: String(index), name: `Calunga ${index}`, config: { sidc, options: { uniqueDesignation: String(index) } }
+        id: String(index), name: `Ícone ${index}`, config: { sidc, options: { uniqueDesignation: String(index) } }
     }));
     fixture.values.set(key, JSON.stringify(entries));
     pending = fixture.symbols.open();
@@ -272,11 +275,71 @@ test('tray keeps 50 most recent symbols and preserves existing named models', as
     const result = fixture.active().preConfirm();
     fixture.active().finish({ isConfirmed: true, value: result });
     await pending;
-    const saved = JSON.parse(fixture.values.get(key));
-    assert.equal(saved.length, 50);
+    let saved = JSON.parse(fixture.values.get(key));
+    assert.equal(saved.length, 51);
     assert.equal(saved[0].config.options.uniqueDesignation, 'Nova');
-    assert.equal(saved[49].id, '48');
+    assert.equal(saved[50].id, '49');
+
+    fixture.values.set(key, JSON.stringify(Array.from({ length: 100 }, (_, index) => ({
+        id: String(index), name: `Ícone ${index}`, config: { sidc, options: { uniqueDesignation: String(index) } }
+    }))));
+    pending = fixture.symbols.open();
+    fixture.elements['symbol-uniqueDesignation'].value = 'Nova';
+    fixture.elements['symbol-uniqueDesignation'].dispatch('input');
+    const nextResult = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: nextResult });
+    await pending;
+    saved = JSON.parse(fixture.values.get(key));
+    assert.equal(saved.length, 100);
+    assert.equal(saved[0].config.options.uniqueDesignation, 'Nova');
+    assert.equal(saved[99].id, '98');
     assert.equal(fixture.values.get(legacyKey), legacy);
+});
+
+test('legacy default names display as icons without changing saved data or user designations', async () => {
+    const fixture = setup();
+    const key = 'planmilt.military-symbols.recent.v1:/plan/';
+    const sidc = '10031000001211000000';
+    const stored = JSON.stringify([
+        { id: 'legacy', name: 'Calunga gerada', config: { sidc, options: {} } },
+        { id: 'custom', name: 'Calunga gerada', config: { sidc, options: { uniqueDesignation: 'Calunga gerada' } } }
+    ]);
+    fixture.values.set(key, stored);
+    const pending = fixture.symbols.open();
+    assert.equal(fixture.elements.symbolRecentTray.children[0].children[0].title, 'Ícone gerado');
+    assert.equal(fixture.elements.symbolRecentTray.children[1].children[0].title, 'Calunga gerada');
+    assert.equal(fixture.values.get(key), stored);
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('legacy library exposes up to 100 models without modifying its storage', async () => {
+    const fixture = setup();
+    const legacyKey = 'planmilt.military-symbols.br.v1:/plan/';
+    const key = 'planmilt.military-symbols.recent.v1:/plan/';
+    const sidc = '10031000001211000000';
+    const legacy = JSON.stringify(Array.from({ length: 101 }, (_, index) => ({
+        id: String(index), name: `Modelo ${index}`, config: { sidc, options: {} }
+    })));
+    fixture.values.set(legacyKey, legacy);
+    const pending = fixture.symbols.open();
+    const tray = fixture.elements.symbolRecentTray;
+    assert.equal(tray.children.length, 101);
+    assert.equal(tray.children[99].children[0].title, 'Modelo 99');
+    assert.equal(fixture.values.get(legacyKey), legacy);
+    assert.equal(fixture.values.has(key), false);
+    fixture.active().finish({ isConfirmed: false });
+    await pending;
+});
+
+test('new unnamed icons use the standardized default name', async () => {
+    const fixture = setup();
+    const pending = fixture.symbols.open();
+    const result = fixture.active().preConfirm();
+    fixture.active().finish({ isConfirmed: true, value: result });
+    await pending;
+    const saved = JSON.parse(fixture.values.get('planmilt.military-symbols.recent.v1:/plan/'));
+    assert.equal(saved[0].name, 'Ícone gerado');
 });
 
 test('category and icon labels omit numeric codes but retain meaningful parentheses', async () => {
@@ -297,6 +360,7 @@ test('editing changes the persisted icon while cancel leaves it untouched', asyn
     const layer = { feature: { properties: { militarySymbol: data, iconUrl: data.iconUrl } }, setIcon(icon) { this.icon = icon; } };
     const leaflet = { icon: options => ({ options }) };
     let pending = fixture.symbols.edit(layer, leaflet);
+    assert.equal(fixture.active().title, 'Editar ícone');
     fixture.active().finish({ isConfirmed: false });
     await pending;
     assert.equal(layer.icon, undefined);

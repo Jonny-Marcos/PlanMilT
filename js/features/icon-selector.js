@@ -33,8 +33,7 @@ window.PlanMilT.iconSelector = Object.freeze({
             { label: 'Comunicações', names: `bcom cia-c2 cia-com pel-com btl-com pc-cia-com pel-rad
                 btl-com-ge cia-ge mae-confirmada mae-estimada mage-confirmada mage-estimada pel-ge
                 bcomge bge gce gp-cntr-sist` },
-            { label: 'Aviação', names: 'bavex esqd-avex' },
-            { label: 'Outros', names: '' }
+            { label: 'Aviação', names: 'bavex esqd-avex' }
         ].map(category => ({ ...category, names: category.names.split(/\s+/).filter(Boolean) }));
         const icons = Object.create(null);
         const iconPaths = Object.create(null);
@@ -171,6 +170,16 @@ window.PlanMilT.iconSelector = Object.freeze({
                     selectButton(folderList, folderButton);
                     categoryList.innerHTML = '';
                     iconList.innerHTML = '';
+                    const unclassified = (iconsByDirectory[directoryName] || []).filter(icon =>
+                        !iconCategories.some(category => category.names.includes(icon.iconName))
+                    );
+                    if (unclassified.length) {
+                        const heading = document.createElement('div');
+                        heading.className = 'icon-group-heading';
+                        heading.textContent = 'Ícones sem classificação';
+                        iconList.appendChild(heading);
+                        renderIcons(unclassified);
+                    }
 
                     iconCategories.forEach(category => {
                         const categoryButton = document.createElement('button');
@@ -181,10 +190,9 @@ window.PlanMilT.iconSelector = Object.freeze({
                         categoryButton.addEventListener('click', () => {
                             selectButton(categoryList, categoryButton);
                             iconList.innerHTML = '';
-                            const group = (iconsByDirectory[directoryName] || []).filter(icon => {
-                                const match = iconCategories.find(item => item.names.includes(icon.iconName));
-                                return (match || iconCategories[iconCategories.length - 1]) === category;
-                            });
+                            const group = (iconsByDirectory[directoryName] || []).filter(icon =>
+                                category.names.includes(icon.iconName)
+                            );
                             if (category.label === 'Comunicações' && (iconsByDirectory.c2 || []).length) {
                                 const heading = document.createElement('div');
                                 heading.className = 'icon-group-heading';
@@ -222,7 +230,7 @@ window.PlanMilT.iconSelector = Object.freeze({
         }
 
         /**
-         * Seleciona uma calunga sem alterar os ícones existentes.
+         * Seleciona um ícone criado sem alterar os ícones existentes.
          * @param {Object} data - Imagem e metadados do símbolo.
          */
         function selectMilitarySymbol(data) {
@@ -250,7 +258,7 @@ window.PlanMilT.iconSelector = Object.freeze({
                 return icons[selectedIconKey] || null;
             },
             /**
-             * Seleciona uma calunga criada sem alterar o catálogo de ícones existente.
+             * Seleciona um ícone criado sem alterar o catálogo de ícones existente.
              * @param {Object} data - Imagem e metadados do símbolo.
              */
             selectMilitarySymbol

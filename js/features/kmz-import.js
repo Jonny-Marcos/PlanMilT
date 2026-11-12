@@ -34,8 +34,8 @@
                 var latlng = e.latlng; // Certifique-se de obter as coordenadas do clique
                 if (layer.feature && layer.feature.properties && layer.feature.properties.militarySymbol) {
                     window.PlanMilT.militarySymbols.edit(layer, L).catch(error => {
-                        console.error('[PlanMilT][Calungas] Falha ao editar símbolo.', error);
-                        Swal.fire('Erro', 'Não foi possível editar esta calunga.', 'error');
+                        console.error('[PlanMilT][Ícones] Falha ao editar símbolo.', error);
+                        Swal.fire('Erro', 'Não foi possível editar este ícone.', 'error');
                     });
                 }
                 else if (layer.feature && layer.feature.properties && layer.feature.properties.text) {
@@ -250,7 +250,7 @@
                         }).catch(function(error) {
                             console.error('Falha ao ler imagem do KMZ:', error);
                             if (/^files\/planmilt-symbol-\d+\.png$/.test(iconPath)) {
-                                Swal.fire('Erro', 'Não foi possível carregar uma calunga do KMZ.', 'error');
+                                Swal.fire('Erro', 'Não foi possível carregar um ícone do KMZ.', 'error');
                             }
                         });
                     }

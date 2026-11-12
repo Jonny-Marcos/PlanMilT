@@ -221,7 +221,7 @@ test('task icon selectors show only markers in the chosen layer and refresh when
     assert.equal(group2.value, friend);
     assert.match(group1.innerHTML, /1 disponível/);
     assert.match(status.textContent, /3 tipos de ícone encontrados/);
-    assert.match(group1.innerHTML, /Calunga 3 \(1 disponível\)/);
+    assert.match(group1.innerHTML, /Ícone 3 \(1 disponível\)/);
 
     layerSelect.value = 'planningSuggestions';
     listeners.change();

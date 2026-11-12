@@ -175,7 +175,7 @@ ${preset.label}
                             select.innerHTML = icons.length > 0
                                 ? icons.map(([icon, count], index) => {
                                     const fileName = icon.substring(icon.lastIndexOf('/') + 1).split('.')[0];
-                                    const name = icon.startsWith('data:image/') ? `Calunga ${index + 1}` : `${icon.split('/')[2]}/${fileName}`;
+                                    const name = icon.startsWith('data:image/') ? `Ícone ${index + 1}` : `${icon.split('/')[2]}/${fileName}`;
                                     const label = `${name} (${count} ${count === 1 ? 'disponível' : 'disponíveis'})`;
                                     return `<option value="${escapeHtml(icon)}" ${selectedValues.includes(icon) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
                                 }).join('')
