@@ -97,7 +97,6 @@ function createHarness({
     graphicName = 'MainAxisOfAdvance',
     boundaryType = 'Companhia',
     boundaryCount = 1,
-    coordinationDiameter = 100,
     emptyFrequent = false
 } = {}) {
     const recordedGraphics = [];
@@ -119,9 +118,7 @@ function createHarness({
         'tacticalGraphicBoundaryType',
         'tacticalGraphicBoundaryLeft',
         'tacticalGraphicBoundaryRight',
-        'tacticalGraphicBoundaryCount',
-        'tacticalGraphicCoordinationField',
-        'tacticalGraphicCoordinationDiameter'
+        'tacticalGraphicBoundaryCount'
     ];
     popupElements.clear();
     popupElementIds.forEach(id => popupElements.set(id, new FakeSelectElement('div')));
@@ -191,7 +188,6 @@ function createHarness({
                 popupElements.get('tacticalGraphicBoundaryLeft').value = '1ª Cia';
                 popupElements.get('tacticalGraphicBoundaryRight').value = '2ª Cia';
                 popupElements.get('tacticalGraphicBoundaryCount').value = String(boundaryCount);
-                popupElements.get('tacticalGraphicCoordinationDiameter').value = String(coordinationDiameter);
                 options.didOpen();
                 return { isConfirmed: true, value: options.preConfirm() };
             }
@@ -218,6 +214,14 @@ function createHarness({
             Marker: class {
                 constructor(map, options) {
                     drawTools.push({ geometryType: 'Point', map, options });
+                }
+                enable() {
+                    drawTools.at(-1).enabled = true;
+                }
+            },
+            Circle: class {
+                constructor(map, options) {
+                    drawTools.push({ geometryType: 'Circle', map, options });
                 }
                 enable() {
                     drawTools.at(-1).enabled = true;
@@ -765,15 +769,22 @@ test('point graphics use the native marker tool and carry the default range', as
     assert.equal(harness.layers.length, 1);
 });
 
-test('coordination point uses a user-defined diameter and circle-touching diagonals', async () => {
-    const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '', coordinationDiameter: 200 });
+test('coordination point uses the circle drawn by the user for its center and diameter', async () => {
+    const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '' });
     await harness.integration.startDrawing();
-    assert.equal(harness.drawTools[0].geometryType, 'Point');
-    assert.equal(harness.popupElements.get('tacticalGraphicCoordinationField').style.display, 'grid');
-    assert.match(harness.alerts[0].html, /Diâmetro \(metros\)/);
-    harness.integration.handleCreated({ layer: { toGeoJSON: () => ({
-        type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [-50, -20] }
-    }) } });
+    assert.equal(harness.drawTools[0].geometryType, 'Circle');
+    assert.equal(harness.drawTools[0].enabled, true);
+    assert.equal(harness.drawTools[0].options.shapeOptions.color, '#123456');
+    assert.doesNotMatch(harness.alerts[0].html, /tacticalGraphicCoordinationDiameter/);
+    harness.mapListeners.get('mousemove')({ latlng: { lat: -20, lng: -50 } });
+    assert.equal(harness.mapLayers.length, 0);
+    harness.integration.handleCreated({ layerType: 'circle', layer: {
+        toGeoJSON: precision => {
+            assert.equal(precision, false);
+            return { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [-50, -20] } };
+        },
+        getRadius: () => 100
+    } });
     const feature = harness.layers[0].feature;
     assert.equal(feature.properties.tacticalGraphic.diameter, 200);
     assert.equal(feature.geometry.type, 'LineString');
@@ -787,12 +798,27 @@ test('coordination point uses a user-defined diameter and circle-touching diagon
     assert.ok(Math.abs((Math.max(...points.map(point => point[1])) + 20) - radiusLat) < 1e-10);
 });
 
-test('coordination point rejects invalid diameters before starting the draw tool', async () => {
-    for (const coordinationDiameter of [0, -1, 100001]) {
-        const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '', coordinationDiameter });
-        await assert.rejects(harness.integration.startDrawing(), /diâmetro entre/);
-        assert.equal(harness.drawTools.length, 0);
+test('coordination point reports invalid drawn diameters without adding a graphic', async () => {
+    for (const radius of [0, 0.49, 50000.5, NaN]) {
+        const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '' });
+        await harness.integration.startDrawing();
+        assert.equal(harness.integration.handleCreated({ layerType: 'circle', layer: {
+            toGeoJSON: () => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [-50, -20] } }),
+            getRadius: () => radius
+        } }), true);
+        assert.equal(harness.layers.length, 0);
+        assert.equal(harness.recordedGraphics.length, 0);
+        assert.match(harness.alerts.at(-1).text, /diâmetro entre 1 e 100.000 metros/);
     }
+});
+
+test('cancelling coordination point drawing does not affect the next circle', async () => {
+    const harness = createHarness({ graphicName: 'CoordinationPoint', designation: '' });
+    await harness.integration.startDrawing();
+    harness.mapListeners.get('draw:drawstop')();
+    assert.equal(harness.integration.handleCreated({ layerType: 'circle' }), false);
+    assert.equal(harness.layers.length, 0);
+    assert.equal(harness.recordedGraphics.length, 0);
 });
 
 test('drawing displays a live tactical-symbol preview that is removed when drawing stops', async () => {

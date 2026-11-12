@@ -48,9 +48,8 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['main', 'layer-management']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-catalog-history`));
     }
-    for (const script of ['tactical-graphics', 'tactical-graphics-catalog']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-coordination-point`));
-    }
+    assert.ok(documentSource.includes('js/features/tactical-graphics-catalog.js?v=20261112-coordination-point'));
+    assert.ok(documentSource.includes('js/features/tactical-graphics.js?v=20261112-coordination-circle'));
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261128-symbol-search'));
     assert.ok(documentSource.includes('js/features/brazilian-symbol-catalog.js?v=20261121-brasil'));
