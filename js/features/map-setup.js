@@ -158,8 +158,6 @@ window.PlanMilT.mapSetup = Object.freeze({
                     },
                 }
             });
-            map.addLayer(openInfraMapLayer);
-
             // Inicializa a camada composta para as quadrículas UTM do Brasil
             var utmGrids = L.layerGroup();
 
@@ -233,7 +231,6 @@ window.PlanMilT.mapSetup = Object.freeze({
             var layerRegistry = {
                 "OpenTopo": layer_OpenTopo_0,
                 "Google Satellite": layer_GoogleSatellite_1,
-                "Infraestruturas": openInfraMapLayer,
                 "Quadrículas - UTM": utmGrids,
                 "BDGEx - CTM50": layer_BDGEx_2,
                 "Sugestão de Planejamento": planejamentoLayer
@@ -270,7 +267,6 @@ window.PlanMilT.mapSetup = Object.freeze({
                 var camadasParaRemover = [
                     layer_GoogleSatellite_1,
                     layer_BDGEx_2,
-                    openInfraMapLayer,
                     utmGrids,
                     planejamentoLayer
                 ];

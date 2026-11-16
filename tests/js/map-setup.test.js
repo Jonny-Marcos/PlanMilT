@@ -89,12 +89,12 @@ test('setup returns standard layers and planning state in its registry', () => {
     assert.deepEqual(Object.keys(setup.layerRegistry), [
         'OpenTopo',
         'Google Satellite',
-        'Infraestruturas',
         'Quadrículas - UTM',
         'BDGEx - CTM50',
         'Sugestão de Planejamento'
     ]);
     assert.deepEqual(layerSelector.children.map(option => option.value), Object.keys(setup.layerRegistry));
+    assert.equal([...layersOnMap].some(layer => layer.type === 'vector'), false);
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
     assert.equal(typeof setup.layerControl.addOverlay, 'function');
 });
@@ -179,5 +179,5 @@ test('map defaults remove unselected layers from the visible map', () => {
 
 test('index.html busts the browser cache for map defaults changes', () => {
     const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
-    assert.match(html, /js\/features\/map-setup\.js\?v=20261019-map-default-layer-selection/);
+    assert.match(html, /js\/features\/map-setup\.js\?v=20261116-remove-openinframap/);
 });
