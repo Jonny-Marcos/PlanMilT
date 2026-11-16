@@ -4,6 +4,7 @@
     "build:tactical-graphics": "node tools/build-tactical-graphics.mjs",
     "build:military-symbols": "node tools/build-military-symbols.mjs",
     "build:brazilian-symbols": "node tools/build-brazilian-symbols.cjs",
+    "build:planmilt-symbols": "npm run build:brazilian-symbols && node tools/build-planmilt-symbols-library.mjs",
     "test:js": "node --test tests/js/*.test.js"
   },
   "devDependencies": {

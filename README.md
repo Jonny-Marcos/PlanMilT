@@ -102,6 +102,11 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou env
 ### Testes de desenvolvimento
 Para atualizar o bundle local da biblioteca de gráficos táticos, execute `npm install` e depois `npm run build:tactical-graphics`. O comando `npm run build:brazilian-symbols` reconstrói o adaptador e o catálogo compacto de ícones a partir dos arquivos do portal em `js/library/simbologia/`; ele verifica a versão esperada do bundle e falha caso ela mude.
 
+### Biblioteca estática de simbologia
+`js/library/planmilt-symbols.js` é um bundle único para uso direto em páginas web, sem imports, servidor ou chamadas externas. Inclui os símbolos brasileiros, renderização MilSymbols para SIDCs padrão, extensões brasileiras do Portal de Simbologia Militar e os gráficos táticos usados pelo PlanMilT, incluindo o Ponto de coordenação. Carregue com `<script src="js/library/planmilt-symbols.js"></script>` e use o global `PlanMilTSymbols`; por exemplo, `PlanMilTSymbols.renderSymbol('10031000001211000000').svg` ou `PlanMilTSymbols.listTacticalGraphics()`. O bundle preserva os avisos de licença do PlanMilT, do Portal de Simbologia Militar (`simbologia.eb.mil.br`), do MilSymbols e de `@zaes/tactical-graphics`.
+
+Para reconstruir o arquivo após alterar os componentes, execute `npm run build:planmilt-symbols`. O teste isolado correspondente é `node --test tests/js/planmilt-symbols-library.test.js`.
+
 Node.js é necessário apenas para executar os testes JavaScript: `node --test tests/js/*.test.js`.
 Os testes PHP são scripts isolados: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/admin-service.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php` e `php tests/php/images-service.test.php`.
 Os métodos e formatos atuais dos endpoints estão registrados em [docs/api-contracts.md](docs/api-contracts.md).
@@ -191,6 +196,12 @@ Contributions are welcome! Feel free to open an issue or submit a pull request o
 
 ### Development tests
 Rebuild the local tactical graphics bundle with `npm install` followed by `npm run build:tactical-graphics`.
+
+### Static military symbols library
+`js/library/planmilt-symbols.js` is a single browser-ready bundle with no imports, server, or external requests. It includes Brazilian symbols, MilSymbols rendering for standard SIDCs, Brazilian extensions adapted from the Brazilian Army Symbol Portal, and the tactical graphics used by PlanMilT, including the Coordination Point. Load it with `<script src="js/library/planmilt-symbols.js"></script>` and use the `PlanMilTSymbols` global. For example, call `PlanMilTSymbols.renderSymbol('10031000001211000000').svg` or `PlanMilTSymbols.listTacticalGraphics()`. License notices for PlanMilT, `simbologia.eb.mil.br`, MilSymbols, and `@zaes/tactical-graphics` are preserved in the bundle.
+
+Rebuild the file after changing its components with `npm run build:planmilt-symbols`. Its focused test is `node --test tests/js/planmilt-symbols-library.test.js`.
+
 Node.js is only required to run the JavaScript tests: `node --test tests/js/*.test.js`.
 PHP tests are isolated scripts: `php tests/php/map-layer-catalog-service.test.php`, `php tests/php/schema-migrator.test.php`, `php tests/php/admin-service.test.php`, `php tests/php/task-sequences-service.test.php`, `php tests/php/drawings-service.test.php`, and `php tests/php/images-service.test.php`.
 Current endpoint methods and payloads are documented in [docs/api-contracts.md](docs/api-contracts.md).
