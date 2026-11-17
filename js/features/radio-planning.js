@@ -225,12 +225,13 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             });
 
                             document.getElementById('btnClearRFLayers').addEventListener('click', function() {
-                                if(rfGeneratedLayers.length > 0) {
+                                const coverageGroup = window.PlanMilT.coverageImage.getGroup();
+                                if (rfGeneratedLayers.length > 0 || coverageGroup.getLayers().length > 0) {
                                     rfGeneratedLayers.forEach(layer => {
                                         if (map.hasLayer(layer)) map.removeLayer(layer);
                                         if (drawnItems.hasLayer(layer)) drawnItems.removeLayer(layer);
-                                        window.PlanMilT.coverageImage.remove(layer);
                                     });
+                                    window.PlanMilT.coverageImage.clear();
                                     rfGeneratedLayers.length = 0;
                                     Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Camadas apagadas!', showConfirmButton: false, timer: 3000 });
                                 } else {

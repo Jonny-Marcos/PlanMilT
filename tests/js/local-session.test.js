@@ -185,6 +185,25 @@ test('persists edited drawings and flushes pending changes when the page becomes
     assert.equal(records.get('planmilt.session.v1:/app/').drawings.features[0].properties.text, 'depois');
 });
 
+test('removing restored coverage updates the local snapshot so it does not return on reload', async () => {
+    const records = new Map();
+    const h = createHarness(records);
+    const feature = { type: 'Feature', geometry: null, properties: { coverageImage: { mode: 'radio' } } };
+    h.context.window.PlanMilT.geoJsonSerialization.toFeatureCollection = group => ({
+        type: 'FeatureCollection', features: group.children.map(layer => layer.feature)
+    });
+    await h.start();
+    h.coverage.addLayer({ feature });
+    await h.flush();
+    assert.equal(records.get('planmilt.session.v1:/app/').drawings.features.length, 1);
+    h.coverage.children.splice(0, 1);
+    h.coverage.fire('layerremove');
+    await h.flush();
+    const reloaded = createHarness(records);
+    await reloaded.start();
+    assert.equal(reloaded.restored().features.length, 0);
+});
+
 test('storage quota failures preserve the last committed snapshot and notify the user', async () => {
     const records = new Map();
     const h = createHarness(records);

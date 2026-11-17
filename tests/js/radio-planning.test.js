@@ -144,6 +144,58 @@ test('manual coverage form offers the three scenarios and validates supported fr
     }
 });
 
+test('clearing simulations removes restored coverage from a hidden group without deleting other drawings', async () => {
+    const listeners = new Map();
+    const originalDocument = global.document;
+    const originalCoverage = window.PlanMilT.coverageImage;
+    const restored = [{ id: 'radio' }, { id: 'optical' }];
+    const drawings = [{ id: 'unrelated' }];
+    const messages = [];
+    let removals = 0;
+    const group = { getLayers: () => [...restored] };
+    window.PlanMilT.coverageImage = {
+        getGroup: () => group,
+        clear() { removals += restored.length; restored.length = 0; }
+    };
+    const elements = new Map();
+    global.document = {
+        getElementById(id) {
+            if (!elements.has(id)) elements.set(id, {
+                style: {},
+                addEventListener(name, callback) { listeners.set(`${id}:${name}`, callback); }
+            });
+            return elements.get(id);
+        }
+    };
+    try {
+        window.PlanMilT.radioPlanning.attach({
+            map: { on() {}, hasLayer: () => false },
+            leaflet: { layerGroup: () => temporaryLayer },
+            turf: {},
+            drawnItems: { hasLayer: layer => drawings.includes(layer), removeLayer: layer => drawings.splice(drawings.indexOf(layer), 1) },
+            sweetAlert: {
+                fire(options) {
+                    if (options.didOpen) options.didOpen();
+                    else messages.push(options.title);
+                    return Promise.resolve({});
+                }
+            },
+            chartConstructor: class {}
+        });
+        await listeners.get('linkPredictionBtn:click').call({ style: {} });
+        listeners.get('btnClearRFLayers:click')();
+        assert.equal(restored.length, 0);
+        assert.equal(removals, 2);
+        assert.deepEqual(drawings, [{ id: 'unrelated' }]);
+        assert.equal(messages.at(-1), 'Camadas apagadas!');
+        listeners.get('btnClearRFLayers:click')();
+        assert.equal(messages.at(-1), 'Nada para limpar.');
+    } finally {
+        global.document = originalDocument;
+        window.PlanMilT.coverageImage = originalCoverage;
+    }
+});
+
 test('coverage boundary changes with scenario for an obstructed SHF terrain profile', async () => {
     const previousClient = window.PlanMilT.apiClient;
     window.PlanMilT.apiClient = {
@@ -237,7 +289,7 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const requestUrls = [];
         let requestedPoints;
         const renderedCells = [];
-        const removedLayers = [];
+        const coverageLayers = [];
         let savedImage;
         let finish;
         const finished = new Promise(resolve => { finish = resolve; });
@@ -257,8 +309,9 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
                 draw(points, color, opacity) { renderedCells.push({ points, color, opacity }); },
                 finish: () => ({ image: 'data:image/png;base64,AA==', mapImage: 'data:image/png;base64,AA==', bounds: [[-1, -1], [1, 1]] })
             }),
-            add(feature) { savedImage = feature; return {}; },
-            remove(layer) { removedLayers.push(layer); }
+            add(feature) { savedImage = feature; const layer = {}; coverageLayers.push(layer); return layer; },
+            getGroup: () => ({ getLayers: () => coverageLayers }),
+            clear() { coverageLayers.length = 0; }
         };
         global.document = {
             getElementById(id) {
@@ -382,7 +435,7 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             }
             listeners.get('btnClearRFLayers:click')();
             listeners.get('btnClearRFLayers:click')();
-            assert.equal(removedLayers.length, 2);
+            assert.equal(coverageLayers.length, 0);
         } finally {
             global.document = originalDocument;
             window.PlanMilT.apiClient = originalClient;
