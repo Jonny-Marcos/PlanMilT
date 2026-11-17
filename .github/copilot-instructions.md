@@ -129,7 +129,7 @@ Referência: o catálogo "Adicionar camada" (`LAYER_CATALOG_STYLES` em `js/featu
 2. **Escopo e prioridade**: prefixe tudo com o id do seletor (`#tacticalGraphicPicker …`) e use `customClass: { popup: 'meu-modal' }` com `.swal2-popup.meu-modal{width:min(820px,calc(100vw - 28px))!important;padding:20px!important}`. Use `!important` apenas na largura/padding do popup e no tamanho de SVGs.
 3. **Estrutura**: filtros compactos no topo (rótulo 13px/600 acima de input/select de 40px, borda `#c5cad2`, raio 6px); lista rolável (`height:min(45vh,380px)`, borda `#d3d8e0`); uma linha por item (`<label>` com `display:flex`, `border-bottom:1px solid #e1e5eb`, hover `#f3f6fa`, selecionado `#e6edf7` + `box-shadow:inset 3px 0 0 #435f88`); títulos de seção sticky (12px, maiúsculas, fundo `#f4f6f9`); barra de resumo "Selecionado: …" no rodapé (`#eef1f5`).
 4. **Linha**: controle à esquerda (radio ou checkbox 17px, `accent-color:#435f88`), nome 14px/600 e miniatura à direita em caixa fixa (64×40, `overflow:hidden`) com o SVG forçado a `60×36`. Miniaturas devem aparecer sem precisar selecionar o item.
-5. **Cache**: sempre que mudar JS/CSS do modal, acrescente/atualize `?v=` na tag `<script>`/`<link>` de `index.html` e ajuste o teste que confere a versão (`tests/js/layer-management.test.js`).
+5. **Cache**: não altere `?v=` nas tags de `index.html` (veja “Orientações para mudanças futuras”).
 6. **Testes**: o DOM falso de `tests/js/tactical-graphics.test.js` não tem `querySelector` nem `classList.toggle`; ao mudar a estrutura, mantenha os ids (`tacticalGraphicCategory`, `tacticalGraphicSearch`, `tacticalGraphicResults`, `tacticalGraphicSelection`) e atualize os índices de filhos.
 
 ## Direção arquitetural
@@ -244,6 +244,7 @@ No backend, centralizar criação da conexão PDO, configuração, validação d
 
 ## Orientações para mudanças futuras
 
+- **Não use versionamento de cache (`?v=`)**: ao alterar JS/CSS, apenas edite o arquivo. Não acrescente `?v=` nas tags `<script>`/`<link>` nem testes que verifiquem versões; os existentes foram removidos. Não há CDN em uso.
 - **Toda alteração de arquitetura deve constar neste `copilot-instructions.md`**, que é o principal documento para balizar o projeto. Registre aqui estrutura, caminhos, contratos e decisões no mesmo conjunto de mudanças que as introduz.
 - **Toda alteração deve ter ao menos um teste correspondente em `tests/`** (`tests/js/` ou `tests/php/`) que cubra o comportamento alterado ou adicionado. Inclua o teste no mesmo conjunto de mudanças e execute-o antes de concluir.
 - **Ao concluir cada conjunto de alterações, sugira uma mensagem profissional de commit sempre em português** no formato Conventional Commits (`tipo(escopo): descrição`), com tipo e descrição em português e escopo coerente com as mudanças. Não crie o commit sem solicitação explícita.

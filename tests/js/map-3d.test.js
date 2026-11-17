@@ -89,7 +89,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
 test('opens the embedded viewer, sends a snapshot, and returns to the unchanged map', async () => {
     const h = setup();
     h.click();
-    assert.equal(h.frame.src, 'visualizador-3d.html?v=20261112-mobile-controls');
+    assert.equal(h.frame.src, 'visualizador-3d.html');
     assert.equal(h.overlay.hidden, false);
     assert.ok(h.classes.has('map-3d-open'));
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
@@ -382,5 +382,5 @@ test('mobile layout keeps the compact control toggle and attribution accessible'
     assert.match(viewerHtml, /\.viewer-controls\s*\{\s*width:\s*min\(164px,\s*calc\(100vw - 16px\)\)/);
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
     assert.match(viewerHtml, /id="viewerControlFields"[\s\S]*id="closeViewer"[\s\S]*<\/div>\s*<p id="viewerAttribution"/);
-    assert.match(viewerHtml, /map-3d-viewer\.js\?v=20261112-mobile-controls/);
+    assert.match(viewerHtml, /map-3d-viewer\.js/);
 });

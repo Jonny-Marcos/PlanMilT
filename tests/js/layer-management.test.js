@@ -21,45 +21,45 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261128-icon-picker/);
-    assert.match(documentSource, /radio-planning\.js\?v=20261130-default-marker/);
-    assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261128-icon-picker/);
-    assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
-    assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
-    assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
-    assert.match(documentSource, /task-execution\.js\?v=20261113-auto-download/);
+    assert.match(documentSource, /app\.css/);
+    assert.match(documentSource, /radio-planning\.js/);
+    assert.match(documentSource, /coverage-image\.js/);
+    assert.match(documentSource, /task-parameters\.js/);
+    assert.match(documentSource, /task-sequence-editor\.js/);
+    assert.match(documentSource, /task-radio-links\.js/);
+    assert.match(documentSource, /task-radio-operations\.js/);
+    assert.match(documentSource, /task-execution\.js/);
     for (const script of ['elevation-tools', 'kmz-import', 'tactical-graphics']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-session`));
+        assert.ok(documentSource.includes(`js/features/${script}.js`));
     }
     for (const script of ['radio-planning', 'shared-layers', 'drawing-loading', 'layer-management', 'local-session']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261130-default-marker`));
+        assert.ok(documentSource.includes(`js/features/${script}.js`));
     }
-    assert.ok(documentSource.includes('js/features/icon-selector.js?v=20261128-icon-browser'));
-    assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-save-dialog'));
+    assert.ok(documentSource.includes('js/features/icon-selector.js'));
+    assert.ok(documentSource.includes('js/features/drawing-storage.js'));
     for (const script of ['map-tools']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
+        assert.ok(documentSource.includes(`js/features/${script}.js`));
     }
-    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261128-folders-themes'));
+    assert.ok(documentSource.includes('js/features/kmz-export.js'));
     for (const script of ['drawing-patterns', 'kmz-tactical-images']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261129-area-patterns`));
+        assert.ok(documentSource.includes(`js/features/${script}.js`));
         if (script !== 'drawing-patterns') {
             assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf(`js/features/${script}.js`));
         }
-        assert.ok(documentSource.includes('js/features/main.js?v=20261116-library-integration'));
-        assert.ok(documentSource.includes('js/features/map-3d.js?v=20261112-mobile-controls'));
-        assert.ok(documentSource.includes('js/features/map-3d-texture.js?v=20261112-coverage'));
+        assert.ok(documentSource.includes('js/features/main.js'));
+        assert.ok(documentSource.includes('js/features/map-3d.js'));
+        assert.ok(documentSource.includes('js/features/map-3d-texture.js'));
         assert.ok(documentSource.indexOf('js/features/drawing-patterns.js') < documentSource.indexOf('js/features/main.js'));
     }
-    assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-suggestions'));
-    assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
-    assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261116-library-integration'));
-    assert.ok(documentSource.includes('js/library/planmilt-symbols/planmilt-symbols.js?v=20261117-symbol-creator'));
+    assert.ok(documentSource.includes('js/features/help-and-planning.js'));
+    assert.ok(documentSource.includes('js/features/local-history.js'));
+    assert.ok(documentSource.includes('js/features/military-symbols.js'));
+    assert.ok(documentSource.includes('js/library/planmilt-symbols/planmilt-symbols.js'));
     assert.ok(documentSource.indexOf('js/library/planmilt-symbols/planmilt-symbols.js') < documentSource.indexOf('js/features/military-symbols.js'));
     assert.ok(documentSource.indexOf('js/library/planmilt-symbols/planmilt-symbols.js') < documentSource.indexOf('js/features/main.js'));
     assert.doesNotMatch(documentSource, /(?:tactical-graphics\.min|chunk-vendors\.4e5d8119|planmilt-generator|brazilian-symbol-catalog|tactical-graphics-catalog)\.js/);
     for (const script of ['welcome']) {
-        assert.ok(documentSource.includes(`js/features/${script}.js?v=20261118-help`));
+        assert.ok(documentSource.includes(`js/features/${script}.js`));
     }
     for (const consumer of ['drawing-storage', 'drawing-loading', 'help-and-planning']) {
         assert.ok(documentSource.indexOf('js/features/welcome.js') < documentSource.indexOf(`js/features/${consumer}.js`));

@@ -9,7 +9,7 @@ test('radio operation module loads before the task executor', () => {
     const path = require('node:path');
     const html = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
     const executorSource = fs.readFileSync(path.join(__dirname, '../../js/features/task-execution.js'), 'utf8');
-    assert.ok(html.indexOf('task-radio-operations.js?') < html.indexOf('task-execution.js?'));
+    assert.ok(html.indexOf('task-radio-operations.js') < html.indexOf('task-execution.js'));
     assert.match(executorSource, /title: 'Calculando áreas de cobertura…'/);
     assert.match(executorSource, /Swal\.update\(\{ text: message \}\)/);
 });

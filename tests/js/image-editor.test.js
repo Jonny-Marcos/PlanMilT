@@ -11,7 +11,7 @@ const editorSource = fs.readFileSync(path.join(root, 'js/features/image-editor.j
 
 test('theme editor is embedded in index and the former page redirects to it', () => {
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
-    assert.match(indexSource, /image-editor\.js\?v=20261019-edit-saved-themes/);
+    assert.match(indexSource, /image-editor\.js/);
     assert.match(indexSource, /id="imageEditorLoadTheme"/);
     assert.match(indexSource, /image_editor_google_translate_element/);
     assert.match(fs.readFileSync(path.join(root, 'css/app.css'), 'utf8'),
