@@ -39,6 +39,7 @@ test('static bundle exposes Brazilian symbols and credits included dependencies'
     assert.equal(library.findSymbol('10031000001211000000').name, 'Infantaria');
     assert.equal(typeof library.getExtensions('10'), 'object');
     assert.equal(library.getExtensions('unknown'), null);
+    assert.equal(typeof library.openSymbolCreator, 'function');
     assert.equal(typeof library.tacticalGraphics.renderTacticalGraphic, 'function');
     assert.equal(typeof library.tacticalGraphicsCatalog.buildSections, 'function');
     assert.match(source, /simbologia\.eb\.mil\.br/);
@@ -49,6 +50,7 @@ test('static bundle exposes Brazilian symbols and credits included dependencies'
     assert.match(readme, /Installation/);
     assert.match(readme, /simbologia\.eb\.mil\.br/);
     assert.match(readme, /MilSymbols/);
+    assert.match(readme, /openSymbolCreator/);
 });
 
 test('standard SIDCs render with MilSymbols and Brazilian extensions with the portal adaptation', () => {

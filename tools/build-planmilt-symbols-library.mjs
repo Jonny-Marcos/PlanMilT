@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -20,6 +20,7 @@ const contents = [
     read('tools/planmilt-symbols-source/planmilt-generator.js'),
     read('js/features/brazilian-symbol-catalog.js'),
     read('js/features/tactical-graphics-catalog.js'),
+    read('tools/planmilt-symbols-creator.js'),
     read('tools/planmilt-symbols-library-entry.js')
 ].join('\n');
 
@@ -41,3 +42,6 @@ await build({
     logOverride: { 'duplicate-object-key': 'silent' },
     banner: { js: `/*! PlanMilT Symbols static library. Third-party licenses:\n${notices}\n*/` }
 });
+
+const output = resolve(root, 'js/library/planmilt-symbols/planmilt-symbols.js');
+writeFileSync(output, readFileSync(output, 'utf8').replace(/[ \t]+$/gm, ''));

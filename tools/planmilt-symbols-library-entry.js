@@ -171,6 +171,7 @@ window.PlanMilTSymbols = Object.freeze({
     findSymbol,
     getExtensions: category => brazilianGenerator.extensions[String(category)] || null,
     renderSymbol,
+    openSymbolCreator,
     listTacticalGraphics: frequentNames => tacticalCatalog.buildSections(tacticalGraphics, frequentNames),
     renderTacticalGraphic
 });

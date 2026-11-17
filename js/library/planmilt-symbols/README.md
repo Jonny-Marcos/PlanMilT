@@ -32,8 +32,21 @@ Outras funções disponíveis:
 - `listSymbols({ category, includeExamples })`: lista símbolos e exemplos do catálogo brasileiro.
 - `findSymbol(sidc)`: encontra uma entrada do catálogo por SIDC.
 - `getExtensions(category)`: retorna os modificadores brasileiros da categoria.
+- `openSymbolCreator({ initial })`: abre uma tela independente para escolher, personalizar e gerar um símbolo.
 - `listTacticalGraphics(frequentNames)`: retorna o catálogo de gráficos táticos agrupado em seções.
 - `renderTacticalGraphic(feature)`: renderiza uma feição GeoJSON de gráfico tático.
+
+O criador usa um diálogo HTML nativo e não depende da interface do PlanMilT, Leaflet ou SweetAlert2. A Promise retorna `null` ao cancelar ou um objeto com `config`, `svg`, `dataUrl`, dimensões e âncora ao gerar:
+
+```js
+(async () => {
+    const result = await PlanMilTSymbols.openSymbolCreator();
+    if (result) {
+        document.querySelector('#symbol-preview').src = result.dataUrl;
+        console.log(result.config.sidc);
+    }
+})();
+```
 
 Consulte `planmilt-symbols.js` para os avisos de licença completos e o contrato da API. O bundle é autossuficiente; a doutrina aplicável deve ser consultada para validar o uso operacional dos símbolos.
 
@@ -84,8 +97,21 @@ Other available functions:
 - `listSymbols({ category, includeExamples })`: lists symbols and examples from the Brazilian catalog.
 - `findSymbol(sidc)`: finds a catalog entry by SIDC.
 - `getExtensions(category)`: returns Brazilian modifiers for a category.
+- `openSymbolCreator({ initial })`: opens a standalone screen to select, customize, and generate a symbol.
 - `listTacticalGraphics(frequentNames)`: returns the tactical graphics catalog grouped into sections.
 - `renderTacticalGraphic(feature)`: renders a tactical-graphic GeoJSON feature.
+
+The creator uses a native HTML dialog and does not depend on the PlanMilT UI, Leaflet, or SweetAlert2. Its Promise resolves to `null` when cancelled, or to an object containing `config`, `svg`, `dataUrl`, dimensions, and anchor when a symbol is generated:
+
+```js
+(async () => {
+    const result = await PlanMilTSymbols.openSymbolCreator();
+    if (result) {
+        document.querySelector('#symbol-preview').src = result.dataUrl;
+        console.log(result.config.sidc);
+    }
+})();
+```
 
 See `planmilt-symbols.js` for complete license notices and the API contract. The bundle is self-contained; consult applicable doctrine to validate operational use of the symbols.
 

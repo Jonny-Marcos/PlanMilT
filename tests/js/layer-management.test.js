@@ -54,7 +54,7 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.ok(documentSource.includes('js/features/help-and-planning.js?v=20261112-suggestions'));
     assert.ok(documentSource.includes('js/features/local-history.js?v=20261112-history'));
     assert.ok(documentSource.includes('js/features/military-symbols.js?v=20261116-library-integration'));
-    assert.ok(documentSource.includes('js/library/planmilt-symbols/planmilt-symbols.js?v=20261117-library-package'));
+    assert.ok(documentSource.includes('js/library/planmilt-symbols/planmilt-symbols.js?v=20261117-symbol-creator'));
     assert.ok(documentSource.indexOf('js/library/planmilt-symbols/planmilt-symbols.js') < documentSource.indexOf('js/features/military-symbols.js'));
     assert.ok(documentSource.indexOf('js/library/planmilt-symbols/planmilt-symbols.js') < documentSource.indexOf('js/features/main.js'));
     assert.doesNotMatch(documentSource, /(?:tactical-graphics\.min|chunk-vendors\.4e5d8119|planmilt-generator|brazilian-symbol-catalog|tactical-graphics-catalog)\.js/);
