@@ -489,6 +489,7 @@ test('manual radio form restores saved adjustments and saves new ones while edit
         'rfRadius', 'rfResolution', 'rfPenetration', 'rfPenetrationField', 'colRadius', 'wattsDisplay', 'btnClearRFLayers'];
     const fields = Object.fromEntries(ids.map(id => [id, { value: '', style: {} }]));
     fields.rfPreset.options = [{ value: 'custom' }, { value: 'optical' }, { value: 'harris_hh' }];
+    fields.rfSpecificOptions = { style: {} };
     for (const field of Object.values(fields)) {
         field.addEventListener = (name, callback) => { field[name] = callback; };
     }
@@ -497,7 +498,7 @@ test('manual radio form restores saved adjustments and saves new ones while edit
     const previousPreferences = window.PlanMilT.localPreferences;
     window.PlanMilT.localPreferences = {
         mostUsed: (field, fallback) => fallback,
-        getRadioForm: () => ({ presetId: 'harris_hh', mode: 'coverage', freq: 70, txPower: 41, txGain: 3, txHeight: 4,
+        getRadioForm: presetId => presetId === 'optical' ? null : ({ presetId: presetId || 'harris_hh', mode: 'coverage', freq: 70, txPower: 41, txGain: 3, txHeight: 4,
             rxGain: 1, rxHeight: 2, rxSens: -110, radius: 12, radialCount: 360, penetration: 'high' }),
         setRadioForm: form => saved.push(form)
     };
@@ -525,6 +526,12 @@ test('manual radio form restores saved adjustments and saves new ones while edit
         rfForm.input();
         assert.equal(saved.at(-1).radius, 20);
         assert.equal(saved.at(-1).radialCount, 360);
+        fields.rfPreset.value = 'custom';
+        fields.rfPreset.change({ target: fields.rfPreset });
+        assert.equal(fields.rfRadius.value, 12);
+        fields.rfPreset.value = 'optical';
+        fields.rfPreset.change({ target: fields.rfPreset });
+        assert.equal(fields.rfRadius.value, 3);
     } finally {
         global.document = originalDocument;
         window.PlanMilT.localPreferences = previousPreferences;

@@ -52,7 +52,7 @@ window.PlanMilT.localPreferences = (() => {
      * @returns {Object} Preferências sem uso registrado.
      */
     function emptyData() {
-        return { usage: {}, ui: {}, draft: null, radioForm: null };
+        return { usage: {}, ui: {}, draft: null, radioForms: {}, radioLast: null };
     }
 
     /**
@@ -67,7 +67,7 @@ window.PlanMilT.localPreferences = (() => {
             if (!data || typeof data.usage !== 'object' || typeof data.ui !== 'object' || !data.usage || !data.ui) {
                 throw new Error('Preferências locais inválidas.');
             }
-            return { usage: data.usage, ui: data.ui, draft: data.draft || null, radioForm: data.radioForm || null };
+            return { usage: data.usage, ui: data.ui, draft: data.draft || null, radioForms: data.radioForms && typeof data.radioForms === 'object' ? data.radioForms : {}, radioLast: data.radioLast || null };
         } catch (error) {
             console.error('[PlanMilT][Preferências] Não foi possível ler as preferências locais.', { name: error?.name });
             return emptyData();
@@ -220,22 +220,27 @@ window.PlanMilT.localPreferences = (() => {
                 ? draft : null;
         },
         /**
-         * Guarda os últimos ajustes confirmados no formulário manual de rádio.
-         * @param {Object} form - Valores confirmados (`preConfirm`).
+         * Guarda os ajustes do formulário manual de rádio para o preset usado.
+         * @param {Object} form - Valores do formulário, com `presetId`.
          */
         setRadioForm(form) {
             const clean = sanitizeRadioForm(form);
             if (!clean) return;
             const data = read();
-            data.radioForm = clean;
+            data.radioForms[clean.presetId] = clean;
+            data.radioLast = clean.presetId;
             write(data);
         },
         /**
-         * Retorna os últimos ajustes do formulário manual de rádio.
-         * @returns {Object|null} Ajustes válidos ou nulo.
+         * Retorna os ajustes guardados de um preset ou, sem argumento, os do último preset usado.
+         * @param {string} [presetId] - Preset desejado.
+         * @returns {Object|null} Ajustes válidos ou nulo se o usuário nunca ajustou o preset.
          */
-        getRadioForm() {
-            return sanitizeRadioForm(read().radioForm);
+        getRadioForm(presetId) {
+            const data = read();
+            const id = presetId === undefined ? data.radioLast : presetId;
+            return typeof id === 'string' && Object.prototype.hasOwnProperty.call(data.radioForms, id)
+                ? sanitizeRadioForm(data.radioForms[id]) : null;
         },
         /** Descarta o rascunho do formulário. */
         clearDraft() {

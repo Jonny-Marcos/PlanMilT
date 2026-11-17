@@ -150,6 +150,21 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     document.getElementById('rfPreset').value !== 'optical' ? 'block' : 'none';
                             };
 
+                            /**
+                             * Preenche os campos com ajustes guardados pelo usuário.
+                             * @param {Object} form - Ajustes válidos de `localPreferences.getRadioForm`.
+                             */
+                            const applySavedForm = form => {
+                                const fieldIds = { freq: 'rfFreq', txPower: 'rfTxPower', txGain: 'rfTxGain', txHeight: 'rfTxHeight',
+                                    rxGain: 'rfRxGain', rxHeight: 'rfRxHeight', rxSens: 'rfRxSens', radius: 'rfRadius',
+                                    mode: 'rfMode', penetration: 'rfPenetration' };
+                                Object.entries(fieldIds).forEach(([name, id]) => { document.getElementById(id).value = form[name]; });
+                                document.getElementById('rfResolution').value = String(form.radialCount);
+                                document.getElementById('colRadius').style.display = form.mode === 'coverage' ? 'block' : 'none';
+                                updateWatts();
+                                updatePenetrationField();
+                            };
+
                             // Dinâmica de exibir/ocultar campos dependendo do Preset
                             document.getElementById('rfPreset').addEventListener('change', function(e) {
                                 let val = e.target.value;
@@ -175,6 +190,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 // Oculta opções de RF se for Linha de Visada (Ótico)
                                 document.getElementById('rfSpecificOptions').style.display = (val === 'optical') ? 'none' : 'block';
                                 updatePenetrationField();
+
+                                // Ajustes do usuário para este preset têm prioridade sobre os padrões
+                                const savedForm = window.PlanMilT.localPreferences?.getRadioForm(val);
+                                if (savedForm) applySavedForm(savedForm);
                             });
 
                             document.getElementById('rfMode').addEventListener('change', function(e) {
@@ -217,11 +236,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 const lastForm = preferences.getRadioForm();
                                 if (lastForm && hasPreset(lastForm.presetId)) {
                                     presetSelect.value = lastForm.presetId;
-                                    const fieldIds = { freq: 'rfFreq', txPower: 'rfTxPower', txGain: 'rfTxGain', txHeight: 'rfTxHeight',
-                                        rxGain: 'rfRxGain', rxHeight: 'rfRxHeight', rxSens: 'rfRxSens', radius: 'rfRadius',
-                                        mode: 'rfMode', penetration: 'rfPenetration' };
-                                    Object.entries(fieldIds).forEach(([name, id]) => { document.getElementById(id).value = lastForm[name]; });
-                                    document.getElementById('rfResolution').value = String(lastForm.radialCount);
+                                    applySavedForm(lastForm);
                                 }
                                 document.getElementById('colRadius').style.display =
                                     document.getElementById('rfMode').value === 'coverage' ? 'block' : 'none';
