@@ -133,6 +133,7 @@
                     getStorage: () => taskSequenceStorage,
                     drawSelectionArea,
                     executeSequence: () => executeTaskSequence(),
+                    onChange: () => window.PlanMilT.localTaskSequence?.save(),
                     sweetAlert: Swal
                 });
 

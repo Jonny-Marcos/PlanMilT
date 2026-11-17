@@ -266,7 +266,12 @@
         <script src="js/features/help-and-planning.js"></script>
         <script src="js/features/image-editor.js"></script>
         <script src="js/features/local-session.js"></script>
+        <script src="js/features/local-task-sequence.js"></script>
         <script>
+            window.PlanMilT.localTaskSequence.start({
+                getTasks: () => taskSequence,
+                setTasks: tasks => { taskSequence = tasks; }
+            });
             window.PlanMilT.localSessionReady = window.PlanMilT.localSession.start({
                 map, leaflet: L, drawnItems, layerRegistry, addNewOverlayLayer, tacticalGraphics
             });

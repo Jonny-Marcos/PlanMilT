@@ -11,13 +11,14 @@ window.PlanMilT.taskSequenceEditor = Object.freeze({
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
      * @param {Function} dependencies.getTasks - Função que fornece a lista atual de tarefas.
      * @param {Function} dependencies.setTasks - Função que substitui a lista atual de tarefas.
+     * @param {Function} [dependencies.onChange] - Chamada após a lista de tarefas ser alterada.
      * @param {Object} dependencies.taskParameters - Controlador dos formulários de parâmetros das tarefas.
      * @param {Function} dependencies.getStorage - Função que fornece o armazenamento da sequência.
      * @param {Function} dependencies.drawSelectionArea - Função que permite selecionar uma área no mapa.
      * @param {Function} dependencies.executeSequence - Função que executa a sequência de tarefas.
      * @param {Object} dependencies.sweetAlert - Interface SweetAlert para confirmação, carregamento e notificações.
      */
-    attach({ getTasks, setTasks, taskParameters, getStorage, drawSelectionArea, executeSequence, sweetAlert }) {
+    attach({ getTasks, setTasks, taskParameters, getStorage, drawSelectionArea, executeSequence, sweetAlert, onChange = () => {} }) {
         const Swal = sweetAlert;
         let existingParameters = {};
         let selectedTask = '';
@@ -277,6 +278,7 @@ ${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:<
                              * Atualiza a lista visual de tarefas da sequência.
                              */
                             function updateTaskSequenceList() {
+                                onChange();
                                 if (getTasks().length === 0) {
                                     taskSequenceList.innerHTML = '<p>Nenhuma tarefa adicionada.</p>';
                                 } else {
