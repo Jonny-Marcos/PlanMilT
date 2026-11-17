@@ -526,7 +526,10 @@ test('manual radio form restores saved adjustments and saves new ones while edit
         rfForm.input();
         assert.equal(saved.at(-1).radius, 20);
         assert.equal(saved.at(-1).radialCount, 360);
+        const savedBefore = saved.length;
         fields.rfPreset.value = 'custom';
+        rfForm.input({ type: 'input', target: fields.rfPreset });
+        assert.equal(saved.length, savedBefore);
         fields.rfPreset.change({ target: fields.rfPreset });
         assert.equal(fields.rfRadius.value, 12);
         fields.rfPreset.value = 'optical';

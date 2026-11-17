@@ -245,7 +245,9 @@ window.PlanMilT.radioPlanning = Object.freeze({
 
                                 // Guarda os ajustes a cada alteração válida, mesmo que o formulário seja cancelado
                                 const rfForm = document.querySelector('.rf-form');
-                                const saveForm = () => {
+                                const saveForm = event => {
+                                    // O navegador dispara "input" no seletor antes de "change"; nesse momento os campos ainda são do preset anterior
+                                    if (event?.type === 'input' && event.target === presetSelect) return;
                                     const num = id => parseFloat(document.getElementById(id).value);
                                     preferences.setRadioForm({
                                         presetId: presetSelect.value,
