@@ -24,6 +24,7 @@ window.PlanMilT.translation = (() => {
                 new window.google.translate.TranslateElement(options, id);
                 element.dataset.initialized = 'true';
             }
+            element.hidden = false;
             const hidden = id === 'google_translate_element'
                 && document.getElementById('toggleControlsBtn')?.getAttribute('aria-pressed') === 'true';
             element.style.display = hidden ? 'none' : 'block';
@@ -44,7 +45,14 @@ window.PlanMilT.translation = (() => {
                 return;
             }
             settings = config;
-            if (!settings.enabled) return;
+            if (!settings.enabled) {
+                ready = false;
+                targets.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.hidden = true;
+                });
+                return;
+            }
             const script = document.createElement('script');
             script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
             script.onerror = () => console.error('[PlanMilT][Tradução] Não foi possível carregar o Google Tradutor.');

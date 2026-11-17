@@ -199,6 +199,10 @@
                 display: none;
             }
 
+            .google-translate-control[hidden] {
+                display: none !important;
+            }
+
             #map .map-toolbar {
                 width: calc(100vw - 20px);
                 max-width: calc(100vw - 20px);

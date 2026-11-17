@@ -33,12 +33,15 @@ function harness() {
 
 test('disabled translation does not contact Google or expose controls', () => {
     const { window, service, scripts, elements } = harness();
-    const control = { dataset: {}, style: { display: 'none' } };
+    const control = { dataset: {}, style: { display: 'block' } };
+    const editor = { dataset: {}, style: { display: 'block' } };
     elements.set('google_translate_element', control);
+    elements.set('image_editor_google_translate_element', editor);
     service.configure({ enabled: false, languages: [] });
     window.googleTranslateElementInit();
     assert.equal(scripts.length, 0);
-    assert.equal(control.style.display, 'none');
+    assert.equal(control.hidden, true);
+    assert.equal(editor.hidden, true);
     assert.equal(service.isReady(), false);
 });
 
@@ -53,6 +56,7 @@ test('enabled translation applies configured languages and initializes late cont
     window.google = { translate: { TranslateElement: function (options, id) { calls.push({ options, id }); } } };
     window.googleTranslateElementInit();
     assert.equal(main.style.display, 'none');
+    assert.equal(main.hidden, false);
     const editor = { dataset: {}, style: {} };
     elements.set('image_editor_google_translate_element', editor);
     window.googleTranslateElementInit();
@@ -60,7 +64,18 @@ test('enabled translation applies configured languages and initializes late cont
     assert.equal(calls[0].options.pageLanguage, 'pt-br');
     assert.equal(calls[0].options.includedLanguages, 'en,es');
     assert.equal(editor.style.display, 'block');
+    assert.equal(editor.hidden, false);
     assert.equal(service.isReady(), true);
+});
+
+test('translation controls remain hidden even when another feature sets inline display', () => {
+    const root = path.join(__dirname, '../..');
+    const css = fs.readFileSync(path.join(root, 'css/app.css'), 'utf8');
+    const main = fs.readFileSync(path.join(root, 'js/features/main.js'), 'utf8');
+    const editor = fs.readFileSync(path.join(root, 'js/features/image-editor.js'), 'utf8');
+    assert.match(css, /\.google-translate-control\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+    assert.match(main, /id = 'google_translate_element';[^\n]*\n\s*div\.hidden = true/);
+    assert.match(editor, /id = 'image_editor_google_translate_element';\s*element\.hidden = true/);
 });
 
 test('all languages are available by default and load errors are reported', () => {

@@ -95,6 +95,7 @@
             onAdd: () => {
                 const element = L.DomUtil.create('div', 'google-translate-control leaflet-bar');
                 element.id = 'image_editor_google_translate_element';
+                element.hidden = true;
                 element.style.display = 'none';
                 element.style.backgroundColor = 'white';
                 element.style.padding = '5px';

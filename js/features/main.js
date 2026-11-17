@@ -109,6 +109,7 @@
                     // Cria um contêiner para o Google Translate
                     var div = L.DomUtil.create('div', 'google-translate-control leaflet-bar');
                     div.id = 'google_translate_element'; // O id que o Google Translate precisa
+                    div.hidden = true;
                     div.style.display = 'none';
                     div.style.backgroundColor = 'white'; // Fundo branco para se integrar ao estilo do Leaflet
                     div.style.padding = '5px';
