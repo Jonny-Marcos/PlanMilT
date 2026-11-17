@@ -37,7 +37,7 @@
 </div></details>
 <details><summary>Desenhos e simbologia</summary><div>
 <p>Desenhe linhas, polígonos, retângulos, círculos, marcadores e texto; use as ferramentas de edição e exclusão para modificá-los. A ferramenta de desenho livre permite traçar à mão.</p>
-<p><b>Ícones:</b> escolha Criar ícone ao lado do seletor de ícones, personalize o símbolo e selecione-o. Insira com a ferramenta de marcador escolhendo “Ícone”; clique em um ícone criado na camada de desenho para editá-lo. A bandeja de ícones gerados anteriormente guarda até 100 ícones neste navegador.</p>
+<p><b>Ícones:</b> use a ferramenta “Adicionar ícone ou texto”, marque o ponto e escolha “Ícone”. Selecione ou crie um ícone; o último selecionado pode ser reutilizado. Clique em um ícone criado na camada de desenho para editá-lo. A bandeja de ícones gerados anteriormente guarda até 100 ícones neste navegador.</p>
 <p><b>Simbologia militar:</b> use o controle de escudo para pesquisar gráficos táticos por seção, ver a prévia e informar uma designação opcional antes de desenhar.</p>
 </div></details>
 <details><summary>Salvar, carregar e compartilhar</summary><div>

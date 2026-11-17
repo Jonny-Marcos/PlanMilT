@@ -206,12 +206,10 @@
                 flex-wrap: nowrap;
             }
 
-            #map .map-toolbar .icon-tools,
             #map .map-toolbar .color-picker-label {
                 flex: 0 0 auto;
             }
 
-            #map .map-toolbar .icon-tools,
             #map .map-toolbar .toolbar-icons {
                 flex-wrap: nowrap;
             }
@@ -269,73 +267,6 @@
 
 
 
-
-            .map-toolbar .icon-tools {
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-
-            .icon-selection-group {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                position: relative;
-            }
-
-            .icon-preview-frame {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex: 0 0 44px;
-                width: 44px;
-                height: 40px;
-                box-sizing: border-box;
-                border: 1px solid #c5cad2;
-                border-radius: 4px;
-                background: #fff;
-                color: #64748b;
-                font-size: 9px;
-            }
-
-            .icon-preview-frame span {
-                display: none;
-            }
-
-            #iconPreview[hidden] + span {
-                display: block;
-            }
-
-            #iconSelectorToggle,
-            #createMilitarySymbol {
-                padding: 10px;
-                cursor: pointer;
-                border: 1px solid #007bff;
-                border-radius: 4px;
-            }
-
-            #iconSelectorToggle {
-                background-color: #007bff;
-                color: #ffffff;
-            }
-
-            #iconSelectorToggle:hover {
-                background-color: #0056b3;
-            }
-
-            #createMilitarySymbol {
-                background-color: #fff;
-                color: #0056b3;
-            }
-
-            #createMilitarySymbol:hover {
-                background-color: #e6f1ff;
-            }
-
-            #iconSelectorToggle:focus-visible,
-            #createMilitarySymbol:focus-visible {
-                outline: 2px solid #435f88;
-                outline-offset: 2px;
-            }
 
             #iconSelectorContent {
                 /* Suas outras propriedades existentes */
@@ -451,12 +382,6 @@
 
             .icon-image:hover {
                 transform: scale(1.1);
-            }
-
-            #iconPreview {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
             }
 
             .tactical-graphic-label {
@@ -1366,19 +1291,6 @@
                     left: 0;
                 }
 
-                /* Ajustes para o botão de alternância do seletor de ícones */
-                #iconSelectorToggle,
-                #createMilitarySymbol {
-                    padding: 5px;
-                    font-size: 12px;
-                }
-
-                .icon-preview-frame {
-                    flex-basis: 36px;
-                    width: 36px;
-                    height: 32px;
-                    font-size: 8px;
-                }
             }
 
 
@@ -1800,7 +1712,6 @@
                     justify-content: space-between;
                 }
 
-                #map .map-toolbar .icon-tools,
                 #map .map-toolbar .layer-transparency-selection,
                 #map .map-toolbar .layer-transparency-control {
                     grid-row: 2;
@@ -1817,7 +1728,6 @@
                     width: min(100%, 200px);
                 }
 
-                #map .map-toolbar .icon-tools,
                 #map .map-toolbar .color-picker-label,
                 #map .map-toolbar .layer-transparency-selection,
                 #map .map-toolbar .layer-transparency-control {
@@ -1826,23 +1736,8 @@
                     padding: 2px;
                 }
 
-                #map .map-toolbar .icon-tools,
-                #map .icon-selection-group {
-                    gap: 3px;
-                }
-
-                #map .map-toolbar .icon-preview-frame {
-                    flex-basis: clamp(26px, 6vw, 36px);
-                    width: clamp(26px, 6vw, 36px);
-                    height: clamp(26px, 6vw, 32px);
-                    font-size: clamp(6px, 1.8vw, 8px);
-                }
-
-                #map .map-toolbar #iconSelectorToggle,
-                #map .map-toolbar #createMilitarySymbol {
-                    padding: 4px 3px;
-                    font-size: clamp(8px, 2.4vw, 12px);
-                    white-space: nowrap;
+                #map .map-toolbar .layer-transparency-selection {
+                    grid-column: 1 / 3;
                 }
 
                 #map .map-toolbar .toolbar-icons i {

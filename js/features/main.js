@@ -22,21 +22,6 @@
 
                     // Aqui você pode adicionar os botões e outros elementos HTML à sua toolbar
                     div.innerHTML = `
-<div class="toolbar-item icon-tools">
-<div class="icon-selection-group">
-<div class="icon-preview-frame">
-<img id="iconPreview" alt="Ícone selecionado" hidden>
-<span>Nenhum</span>
-</div>
-<div id="iconSelectorContainer">
-<button id="iconSelectorToggle" type="button">Selecionar ícone</button>
-<div id="iconSelectorContent" style="display: none;">
-<!-- icon-selector.js monta esta área após carregar a lista de ícones. -->
-            </div>
-            </div>
-</div>
-<button id="createMilitarySymbol" type="button" title="Criar e selecionar ícone">Criar ícone</button>
-            </div>
 <div class="toolbar-icons">
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
 <i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ"></i>
@@ -139,22 +124,8 @@
 
 
             var iconSelector = window.PlanMilT.iconSelector.attach({
-                container: document.getElementById('iconSelectorContainer'),
-                preview: document.getElementById('iconPreview'),
                 leaflet: L,
                 apiClient: window.PlanMilT.apiClient
-            });
-            iconSelector.load().catch(error => console.error('Erro ao carregar ícones:', error));
-            document.getElementById('createMilitarySymbol').addEventListener('click', async () => {
-                try {
-                    const symbol = await window.PlanMilT.militarySymbols.open();
-                    if (!symbol) return;
-                    iconSelector.selectMilitarySymbol(symbol);
-                    Swal.fire('Ícone selecionado', 'Use a ferramenta de marcador no mapa e escolha “Ícone” para inseri-lo.', 'info');
-                } catch (error) {
-                    console.error('[PlanMilT][Ícones] Falha ao abrir criador.', error);
-                    Swal.fire('Erro', 'Não foi possível abrir o criador de ícones.', 'error');
-                }
             });
 
             // Adicione o controle de busca ao mapa
@@ -416,19 +387,18 @@
                 }
 
                 if (type === 'marker') {
-                    // Substituindo o confirm() por SweetAlert2
                     const result = await Swal.fire({
                         title: 'Adicionar Ícone ou Texto?',
                         text: "Clique em 'Ícone' para adicionar ícone ou 'Texto' para adicionar um texto.",
                         icon: 'question',
+                        showDenyButton: true,
                         showCancelButton: true,
                         confirmButtonText: 'Ícone',
-                        cancelButtonText: 'Texto'
+                        denyButtonText: 'Texto',
+                        cancelButtonText: 'Cancelar'
                     });
 
-                    var addText = !result.isConfirmed;
-
-                    if (addText) {
+                    if (result.isDenied) {
                         openTextEditor(layer.getLatLng(), function(content) {
                             var customIcon = L.divIcon({
                                 className: 'custom-text-label',
@@ -447,8 +417,10 @@
                             };
                             drawnItems.addLayer(layer);
                         });
-                    } else {
-                        var selectedIcon = iconSelector.getSelectedIcon();
+                        return;
+                    } else if (result.isConfirmed) {
+                        var selectedIcon = await iconSelector.selectForMarker(Swal);
+                        if (!selectedIcon) return;
                         var iconUrl = selectedIcon ? selectedIcon.options.iconUrl : '';
 
                         if (iconUrl) {
@@ -479,6 +451,8 @@
                             // Opcional: Retorna ou encerra a execução para evitar ações adicionais
                             return;
                         }
+                    } else {
+                        return;
                     }
 
 

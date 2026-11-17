@@ -46,17 +46,107 @@ class FakeElement {
 
 require('../../js/features/icon-selector.js');
 
-test('icon controls keep a fixed preview before the selector and a separate secondary create button', () => {
-    const css = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
+test('icon controls are no longer permanently displayed on the toolbar', () => {
     const main = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
-    assert.match(main, /title="Criar e selecionar ícone">Criar ícone<\/button>/);
-    assert.match(main, /class="icon-selection-group">[\s\S]*?id="iconPreview"[^>]*hidden>[\s\S]*?<span>Nenhum<\/span>[\s\S]*?id="iconSelectorContainer"[\s\S]*?id="iconSelectorToggle"[\s\S]*?id="createMilitarySymbol"/);
-    assert.match(css, /\.map-toolbar \.icon-tools\s*\{[^}]*flex-wrap:\s*wrap;[^}]*gap:\s*8px/s);
-    assert.match(css, /\.icon-selection-group\s*\{[^}]*gap:\s*8px/s);
-    assert.match(css, /#iconPreview\[hidden\] \+ span\s*\{\s*display:\s*block/);
-    assert.match(css, /#iconSelectorToggle\s*\{[^}]*background-color:\s*#007bff/s);
-    assert.match(css, /#createMilitarySymbol\s*\{[^}]*background-color:\s*#fff/s);
-    assert.match(css, /#iconSelectorToggle,\s*#createMilitarySymbol\s*\{[^}]*font-size:\s*12px/s);
+    assert.doesNotMatch(main, /id="(?:iconPreview|iconSelectorToggle|createMilitarySymbol)"/);
+});
+
+test('marker icon workflow selects, reuses, creates and cancels without losing the previous choice', async () => {
+    const previousBody = document.body;
+    const previousMilitary = window.PlanMilT.militarySymbols;
+    const symbol = { iconUrl: 'data:image/svg+xml,generated', config: { sidc: 'test' } };
+    let dialogAction = 'choose';
+    const dialogs = [];
+    document.body = { appendChild(dialog) { dialogs.push(dialog); } };
+    const originalCreate = document.createElement;
+    document.createElement = tag => {
+        const element = originalCreate(tag);
+        if (tag === 'dialog') {
+            element.append = (...children) => children.forEach(child => element.appendChild(child));
+            element.remove = () => {};
+            element.close = () => element.listeners.get('close')();
+            element.showModal = () => {
+                if (dialogAction === 'cancel') return element.close();
+                const browser = element.children[1];
+                browser.children[0].children[1].click();
+                browser.children[2].children[1].children[0].click();
+            };
+        }
+        return element;
+    };
+    window.PlanMilT.militarySymbols = {
+        open: async () => symbol,
+        createIcon: (data, leaflet) => leaflet.icon({ iconUrl: data.iconUrl })
+    };
+    const selector = window.PlanMilT.iconSelector.attach({
+        leaflet: { icon: options => ({ options }) },
+        apiClient: { getJson: async () => ['symbols/friend/alpha.svg'] }
+    });
+    let action = 'select';
+    let html;
+    const preview = {};
+    const alert = {
+        fire: async options => {
+            html = options.html;
+            options.didOpen();
+            return action === 'cancel' ? { isDismissed: true } : { isConfirmed: true, value: action };
+        },
+        getPopup: () => ({ querySelector: () => preview })
+    };
+    try {
+        const first = await selector.selectForMarker(alert);
+        assert.equal(first.options.iconUrl, 'symbols/friend/alpha.svg');
+        assert.doesNotMatch(html, /Usar este ícone/);
+        action = 'use';
+        assert.equal(await selector.selectForMarker(alert), first);
+        assert.match(html, /Usar este ícone/);
+        assert.equal(preview.src, first.options.iconUrl);
+        action = 'create';
+        const created = await selector.selectForMarker(alert);
+        assert.equal(created.militarySymbol, symbol);
+        action = 'cancel';
+        assert.equal(await selector.selectForMarker(alert), null);
+        window.PlanMilT.militarySymbols.open = async () => null;
+        action = 'create';
+        assert.equal(await selector.selectForMarker(alert), null);
+        action = 'select';
+        dialogAction = 'cancel';
+        assert.equal(await selector.selectForMarker(alert), null);
+        assert.equal(selector.getSelectedIcon(), created);
+    } finally {
+        document.body = previousBody;
+        document.createElement = originalCreate;
+        window.PlanMilT.militarySymbols = previousMilitary;
+    }
+});
+
+test('a catalog loading error is reported and the next selection retries', async () => {
+    let attempts = 0;
+    const messages = [];
+    const previousError = console.error;
+    console.error = () => {};
+    const selector = window.PlanMilT.iconSelector.attach({
+        leaflet: { icon: options => ({ options }) },
+        apiClient: { getJson: async () => { attempts++; throw new Error('Rede indisponível'); } }
+    });
+    const alert = {
+        fire: async (...args) => {
+            if (typeof args[0] === 'string') {
+                messages.push(args[1]);
+                return {};
+            }
+            return { isConfirmed: true, value: 'select' };
+        }
+    };
+    try {
+        assert.equal(await selector.selectForMarker(alert), null);
+        assert.equal(await selector.selectForMarker(alert), null);
+        assert.equal(attempts, 2);
+        assert.equal(messages.length, 2);
+        assert.match(messages[0], /Não foi possível/);
+    } finally {
+        console.error = previousError;
+    }
 });
 
 test('icon selector loads paths and exposes the selected Leaflet icon', async () => {

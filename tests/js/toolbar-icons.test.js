@@ -75,7 +75,7 @@ test('toolbar keeps a single desktop row and two fixed compact rows without stre
     assert.match(compact[0], /\.color-picker-label\s*\{[^}]*grid-column:\s*4;[^}]*grid-row:\s*1/s);
     assert.match(compact[0], /\.layer-transparency-control\s*\{[^}]*grid-column:\s*3 \/ 5/s);
     assert.match(compact[0], /#transparencySlider\s*\{\s*max-width:\s*120px/);
-    assert.match(compact[0], /#iconSelectorToggle,[\s\S]*?font-size:\s*clamp\(/);
+    assert.match(compact[0], /\.layer-transparency-selection\s*\{\s*grid-column:\s*1 \/ 3/s);
     assert.match(compact[0], /\.map-toolbar\.controls-hidden\s*\{\s*display:\s*flex/);
     assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?label::after\s*\{\s*content:\s*"Transp\.";/);
     assert.match(styles, /@media \(min-width: 768px\) and \(max-width: 1200px\)[\s\S]*?#map \.map-toolbar\s*\{\s*display:\s*flex/);

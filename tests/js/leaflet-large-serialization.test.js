@@ -16,6 +16,45 @@ require('../../js/features/tactical-graphics.js');
 require('../../js/features/drawing-geometry.js');
 window.PlanMilT.localHistory = { graphics: () => [], recordGraphic() {} };
 
+test('marker workflow cancels cleanly and inserts text or the selected icon once', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+    let handler;
+    let choice = { isDismissed: true };
+    let selectedIcon = null;
+    let textCallback;
+    const layers = [];
+    const drawnItems = { addLayer: layer => layers.push(layer) };
+    L.Draw = { Event: { CREATED: 'draw:created' } };
+    vm.runInNewContext(source.slice(source.indexOf('map.on(L.Draw.Event.CREATED,')), {
+        window, L, map: { on(event, listener) { handler = listener; } }, drawnItems,
+        defaultColor: '#123456',
+        tacticalGraphics: { handleCreated: () => false },
+        Swal: { fire: async () => choice },
+        iconSelector: { selectForMarker: async () => selectedIcon },
+        openTextEditor: (position, callback) => { textCallback = callback; }
+    });
+    const marker = () => L.marker([-20, -50]);
+    await handler({ layerType: 'marker', layer: marker() });
+    assert.equal(layers.length, 0);
+    assert.equal(textCallback, undefined);
+    choice = { isConfirmed: true };
+    await handler({ layerType: 'marker', layer: marker() });
+    assert.equal(layers.length, 0);
+    const symbol = { sidc: 'test' };
+    selectedIcon = L.icon({ iconUrl: 'symbols/friend/alpha.svg' });
+    selectedIcon.militarySymbol = symbol;
+    await handler({ layerType: 'marker', layer: marker() });
+    assert.equal(layers.length, 1);
+    assert.equal(layers[0].feature.properties.iconUrl, 'symbols/friend/alpha.svg');
+    assert.equal(layers[0].feature.properties.militarySymbol, symbol);
+    choice = { isDenied: true };
+    await handler({ layerType: 'marker', layer: marker() });
+    assert.equal(layers.length, 1);
+    textCallback('Exemplo');
+    assert.equal(layers.length, 2);
+    assert.equal(layers[1].feature.properties.text, 'Exemplo');
+});
+
 test('real Leaflet serializes a patterned circle as a valid polygon with its fill', async () => {
     const source = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
     let handler;

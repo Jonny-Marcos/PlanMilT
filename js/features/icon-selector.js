@@ -1,5 +1,5 @@
 /**
- * @fileoverview Carrega ícones do servidor, monta o seletor da toolbar e expõe o ícone atualmente escolhido.
+ * @fileoverview Carrega ícones, oferece seleção para marcadores e mantém o último ícone escolhido.
  * @exports window.PlanMilT.iconSelector
  * @requires Container, preview, Leaflet e API client
  */
@@ -220,8 +220,8 @@ window.PlanMilT.iconSelector = Object.freeze({
     /**
      * Carrega e conecta o seletor de ícones à toolbar e à prévia.
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
-     * @param {HTMLElement} dependencies.container - Elemento DOM que recebe a interface do recurso.
-     * @param {HTMLElement} dependencies.preview - Elemento DOM que exibe a pré-visualização do ícone.
+     * @param {HTMLElement} [dependencies.container] - Contêiner opcional da navegação.
+     * @param {HTMLElement} [dependencies.preview] - Prévia opcional do ícone.
      * @param {Object} dependencies.leaflet - Namespace Leaflet usado para criar camadas e controles.
      * @param {Object} dependencies.apiClient - Cliente compartilhado para chamadas à API.
      */
@@ -229,6 +229,7 @@ window.PlanMilT.iconSelector = Object.freeze({
         const icons = Object.create(null);
         const iconPaths = Object.create(null);
         let selectedIconKey = 'null';
+        let pathsLoaded = false;
 
         /**
          * Carrega os dados de ícones e prepara o seletor.
@@ -252,7 +253,8 @@ window.PlanMilT.iconSelector = Object.freeze({
                 iconPaths[optionValue] = iconPath;
             });
 
-            buildSelector();
+            pathsLoaded = true;
+            if (container && preview) buildSelector();
         }
 
         /**
@@ -299,12 +301,65 @@ window.PlanMilT.iconSelector = Object.freeze({
             selectedIconKey = '__military_symbol__';
             icons[selectedIconKey] = window.PlanMilT.militarySymbols.createIcon(data, leaflet);
             icons[selectedIconKey].militarySymbol = data;
-            preview.src = data.iconUrl;
-            preview.hidden = false;
+            if (preview) {
+                preview.src = data.iconUrl;
+                preview.hidden = false;
+            }
         }
 
         return Object.freeze({
             load,
+            /**
+             * Permite reutilizar, selecionar ou criar o ícone de um novo marcador.
+             * @param {Object} sweetAlert - Interface SweetAlert2.
+             * @returns {Promise<Object|null>} Ícone Leaflet selecionado ou nulo ao cancelar.
+             */
+            async selectForMarker(sweetAlert) {
+                const current = icons[selectedIconKey] || null;
+                const result = await sweetAlert.fire({
+                    title: 'Adicionar ícone',
+                    html: `<div id="markerIconChoice" style="text-align:left">
+${current ? '<p>Ícone selecionado: <img id="markerIconPreview" alt="Ícone selecionado" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"></p><label><input type="radio" name="markerIconAction" value="use" checked> Usar este ícone</label><br>' : ''}
+<label><input type="radio" name="markerIconAction" value="select" ${current ? '' : 'checked'}> Selecionar ícone</label><br>
+<label><input type="radio" name="markerIconAction" value="create"> Criar ícone</label>
+</div>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                    didOpen: () => {
+                        const image = sweetAlert.getPopup().querySelector('#markerIconPreview');
+                        if (image && current) image.src = current.options.iconUrl;
+                    },
+                    preConfirm: () => sweetAlert.getPopup().querySelector('input[name="markerIconAction"]:checked').value
+                });
+                if (!result.isConfirmed) return null;
+                if (result.value === 'use') return current;
+                try {
+                    if (result.value === 'create') {
+                        const symbol = await window.PlanMilT.militarySymbols.open();
+                        if (!symbol) return null;
+                        selectMilitarySymbol(symbol);
+                    } else if (result.value === 'select') {
+                        if (!pathsLoaded) await load();
+                        const choice = await window.PlanMilT.iconSelector.pickIcon(Object.values(iconPaths));
+                        if (!choice) return null;
+                        if (choice.symbol) {
+                            selectMilitarySymbol(choice.symbol);
+                        } else {
+                            const key = Object.keys(iconPaths).find(name => iconPaths[name] === choice.iconUrl);
+                            if (!key) throw new Error('Ícone selecionado não encontrado no catálogo.');
+                            selectedIconKey = key;
+                        }
+                    } else {
+                        throw new Error('Ação de ícone desconhecida.');
+                    }
+                    return icons[selectedIconKey];
+                } catch (error) {
+                    console.error('[PlanMilT][Ícones] Falha ao selecionar ou criar ícone.', error);
+                    await sweetAlert.fire('Erro', 'Não foi possível selecionar ou criar o ícone.', 'error');
+                    return null;
+                }
+            },
             /**
              * Retorna a chave do ícone atualmente selecionado.
              */
