@@ -355,3 +355,28 @@ test('exports multiple raster-only coverages as PNG GroundOverlays without optio
                 console.error = previousError;
             }
         });
+test('features with folderName are grouped into a KML folder', () => {
+    const kml = createExporter().geojsontokml({
+        type: 'FeatureCollection',
+        features: [
+            { type: 'Feature', properties: { name: '' , folderName: 'Sugestão de Planejamento' }, geometry: { type: 'Point', coordinates: [-50, -20] } },
+            { type: 'Feature', properties: { name: 'Base' }, geometry: { type: 'Point', coordinates: [-51, -21] } }
+        ]
+    }, { documentName: 'PlanMilT', documentDescription: 'Teste' });
+    const folder = kml.match(/<Folder><name>Sugestão de Planejamento<\/name>[\s\S]*?<\/Folder>/)[0];
+    assert.match(folder, /-50,-20/);
+    assert.doesNotMatch(folder, /-51,-21/);
+});
+
+test('visible theme image overlays are listed and described as georeferenced GroundOverlay', () => {
+    const bounds = { getNorth: () => -20, getSouth: () => -21, getEast: () => -50, getWest: () => -51 };
+    const image = { _url: 'uploads/tema.png', getBounds: () => bounds };
+    const hidden = { _url: 'uploads/outro.png', getBounds: () => bounds };
+    const wms = { _url: 'https://wms', wmsParams: {}, getBounds: () => bounds };
+    const map = { hasLayer: layer => layer !== hidden };
+    const listed = window.PlanMilT.kmzExport.listImageOverlays({ 'Imagem: A&B': image, hidden, wms }, map);
+    assert.deepEqual(listed.map(item => item.name), ['Imagem: A&B']);
+    const kml = window.PlanMilT.kmzExport.groundOverlayKml('Imagem: A&B', 'themes/theme-1.png', bounds);
+    assert.match(kml, /<name>Imagem: A&amp;B<\/name>/);
+    assert.match(kml, /<north>-20<\/north><south>-21<\/south><east>-50<\/east><west>-51<\/west>/);
+});

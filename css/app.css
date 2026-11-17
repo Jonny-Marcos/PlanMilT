@@ -374,12 +374,14 @@
                 background-color: #e0e0e0;
             }
 
-            #iconSelectorContent .folder-button[aria-pressed="true"] {
+            #iconSelectorContent .folder-button[aria-pressed="true"],
+            .icon-browser .folder-button[aria-pressed="true"] {
                 background-color: #435f88;
                 color: #fff;
             }
 
-            #iconSelectorContent .icon-category-list {
+            #iconSelectorContent .icon-category-list,
+            .icon-browser .icon-category-list {
                 border-top: 1px solid #d3d8e0;
                 padding-top: 5px;
             }
@@ -389,26 +391,30 @@
                 flex-wrap: wrap;
             }
 
-            #iconSelectorContent .icon-group-heading {
+            #iconSelectorContent .icon-group-heading,
+            .icon-browser .icon-group-heading {
                 flex-basis: 100%;
                 margin: 8px 5px 2px;
                 font-weight: 600;
             }
 
-            #iconSelectorContent .recent-symbol-tray {
+            #iconSelectorContent .recent-symbol-tray,
+            .icon-browser .recent-symbol-tray {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
             }
 
-            #iconSelectorContent .recent-symbol-item {
+            #iconSelectorContent .recent-symbol-item,
+            .icon-browser .recent-symbol-item {
                 display: flex;
                 align-items: flex-start;
                 border: 1px solid #d3d8e0;
                 border-radius: 6px;
             }
 
-            #iconSelectorContent .recent-symbol-select {
+            #iconSelectorContent .recent-symbol-select,
+            .icon-browser .recent-symbol-select {
                 width: 90px;
                 height: 65px;
                 padding: 4px;
@@ -417,13 +423,15 @@
                 cursor: pointer;
             }
 
-            #iconSelectorContent .recent-symbol-select img {
+            #iconSelectorContent .recent-symbol-select img,
+            .icon-browser .recent-symbol-select img {
                 max-width: 100%;
                 max-height: 100%;
                 object-fit: contain;
             }
 
-            #iconSelectorContent .recent-symbol-remove {
+            #iconSelectorContent .recent-symbol-remove,
+            .icon-browser .recent-symbol-remove {
                 border: 0;
                 background: transparent;
                 cursor: pointer;
@@ -1892,3 +1900,26 @@
                     width: auto;
                 }
             }
+
+.icon-picker-dialog {
+    width: min(480px, calc(100vw - 32px));
+    max-height: 80vh;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.task-icon-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    margin-left: 10px;
+}
+
+.task-icon-picker img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}

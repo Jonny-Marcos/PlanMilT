@@ -17,6 +17,29 @@ window.PlanMilT.kmzExport = Object.freeze({
         return `files/${iconUrl.split('/').pop().replace(/\.\w+$/, '.png')}`;
     },
     /**
+     * Lista as camadas de imagem georreferenciada (temas) registradas e visíveis.
+     * @param {Object} layerRegistry - Registro de camadas por nome.
+     * @param {Object} map - Mapa Leaflet.
+     * @returns {Array<{name: string, layer: Object}>} Camadas com URL e limites geográficos.
+     */
+    listImageOverlays(layerRegistry, map) {
+        return Object.entries(layerRegistry)
+            .filter(([, layer]) => layer && !layer.wmsParams && typeof layer.getBounds === 'function'
+                && typeof layer._url === 'string' && layer._url && map.hasLayer(layer))
+            .map(([name, layer]) => ({ name, layer }));
+    },
+    /**
+     * Gera um GroundOverlay KML para uma imagem georreferenciada.
+     * @param {string} name - Nome exibido.
+     * @param {string} href - Caminho da imagem no KMZ.
+     * @param {Object} bounds - Limites com getNorth/getSouth/getEast/getWest.
+     * @returns {string} Elemento KML.
+     */
+    groundOverlayKml(name, href, bounds) {
+        const text = String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<GroundOverlay><name>${text}</name><Icon><href>${href}</href></Icon><LatLonBox><north>${bounds.getNorth()}</north><south>${bounds.getSouth()}</south><east>${bounds.getEast()}</east><west>${bounds.getWest()}</west></LatLonBox></GroundOverlay>`;
+    },
+    /**
      * Conecta o botão de exportação e prepara a conversão e o download KMZ.
      * @param {Object} dependencies - Dependências externas necessárias para inicializar o módulo.
      * @param {Object} dependencies.map - Instância Leaflet do mapa principal.
@@ -32,6 +55,27 @@ window.PlanMilT.kmzExport = Object.freeze({
         const JSZip = zipArchive;
         const Swal = sweetAlert;
         const html2canvas = captureCanvas;
+        const SUGGESTION_FOLDER = 'Sugestão de Planejamento';
+
+        /**
+         * Baixa as imagens de temas visíveis no mapa para exportá-las georreferenciadas.
+         * @returns {Promise<Array<{name: string, blob: Blob, extension: string, bounds: Object}>>}
+         */
+        async function collectThemeImages() {
+            const images = [];
+            for (const { name, layer } of window.PlanMilT.kmzExport.listImageOverlays(layerRegistry, map)) {
+                try {
+                    const response = await window.PlanMilT.apiClient.request(layer._url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const blob = await response.blob();
+                    const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif' }[blob.type] || 'png';
+                    images.push({ name, blob, extension, bounds: layer.getBounds() });
+                } catch (error) {
+                    console.error('[PlanMilT][KMZ] Imagem de tema não exportada.', error);
+                }
+            }
+            return images;
+        }
 
             /**
              * Serializa os desenhos e inicia o download de um arquivo KMZ.
@@ -72,43 +116,33 @@ window.PlanMilT.kmzExport = Object.freeze({
                         || feature.properties?.dashArray || feature.properties?.fillPattern;
                     const imageFeatures = geoJsonData.features.filter(needsImage);
                     geoJsonData.features = geoJsonData.features.filter(feature => !needsImage(feature));
-                    const tacticalImages = imageFeatures.length
-                        ? await window.PlanMilT.kmzTacticalImages.render(imageFeatures, map, boundaryLayout)
-                        : [];
+                    const tacticalImages = [];
+                    for (const folder of [undefined, SUGGESTION_FOLDER]) {
+                        const group = imageFeatures.filter(feature => (feature.properties.folderName === SUGGESTION_FOLDER) === (folder === SUGGESTION_FOLDER));
+                        if (!group.length) continue;
+                        const rendered = await window.PlanMilT.kmzTacticalImages.render(group, map, boundaryLayout);
+                        rendered.forEach(image => tacticalImages.push({ ...image, folder }));
+                    }
+                    const themeImages = await collectThemeImages();
 
-                    // Função para inserir o Folder "Sugestão de Planejamento" no KML
-                            // Converte GeoJSON para KML com suporte para ícones e estilos usando geojsontokml
-                            var kmlData = geojsontokml(geoJsonData, {
-                            name: 'name',
-                                  description: 'description',
-                                      documentName: 'A Escola da Tatica',
-                                          documentDescription: 'KMZ exportado por escoladatatica.fun',
-                                              folderName: function(properties) {
-                                                  return properties.folderName || 'Outras Features';
-                                              }
-                        });
-
-                        // Define as tags de início e fim do Folder
-                        const folderStartTag = `<Folder><name>Sugestão de Planejamento</name>`;
-                        const folderEndTag = `</Folder>`;
-
-                        // Expressão regular para encontrar todos os Placemark
-                        const placemarkRegex = /<Placemark>[\s\S]*?<\/Placemark>/g;
-                        const allPlacemarks = kmlData.match(placemarkRegex) || [];
-
-                        // Filtrar os Placemarks que pertencem à "Sugestão de Planejamento"
-                        const folderPlacemarks = allPlacemarks.filter(placemark => placemark.includes('<name>Conexão TAR</name>') || placemark.includes('<name>NA Sugerido</name>')|| placemark.includes('<name>Enlace Sugerido</name>')|| placemark.includes('<name>EIR Sugerido</name>')|| placemark.includes('<name>CN Sugerido</name>') || placemark.includes('<name>TAR Sugerido</name>') || placemark.includes('<name>Cobertura TAR</name>'));
-
-                        // Remover os Placemarks da "Sugestão de Planejamento" do kmlData original
-                        folderPlacemarks.forEach(placemark => {
-                            kmlData = kmlData.replace(placemark, '');
-                        });
-
-                        // Criar a seção do Folder com os Placemarks filtrados
-                        const folderKml = `${folderStartTag}\n${folderPlacemarks.join('\n')}\n${folderEndTag}`;
-
-                        // Inserir o Folder no KML antes do fechamento de </Document>
-                        kmlData = kmlData.replace('</Document>', `${folderKml}\n</Document>`);
+                    // Converte GeoJSON para KML com ícones e estilos; feições com folderName ficam em pastas
+                    var kmlData = geojsontokml(geoJsonData, {
+                        documentName: 'A Escola da Tatica',
+                        documentDescription: 'KMZ exportado por escoladatatica.fun'
+                    });
+                    const addOverlayKml = (overlay, folder) => {
+                        if (!folder) {
+                            kmlData = kmlData.replace('</Document>', `${overlay}\n</Document>`);
+                            return;
+                        }
+                        const folderTag = `<Folder><name>${folder}</name>`;
+                        if (!kmlData.includes(folderTag)) {
+                            kmlData = kmlData.replace('</Document>', `${folderTag}\n</Folder>\n</Document>`);
+                        }
+                        const start = kmlData.indexOf(folderTag);
+                        const end = kmlData.indexOf('</Folder>', start);
+                        kmlData = `${kmlData.slice(0, end)}${overlay}\n${kmlData.slice(end)}`;
+                    };
 
                         // Continua com a criação do ZIP e download
                         var zip = new JSZip();
@@ -117,7 +151,12 @@ window.PlanMilT.kmzExport = Object.freeze({
                             zip.file(filename, image.blob);
                             const { north, south, east, west } = image.bounds;
                             const overlay = `<GroundOverlay><name>${image.name === 'Desenho com padrão' ? image.name : 'Gráfico tático'}</name><ExtendedData><Data name="planmilt-tactical-image"><value>1</value></Data></ExtendedData><Icon><href>${filename}</href></Icon><LatLonBox><north>${north}</north><south>${south}</south><east>${east}</east><west>${west}</west></LatLonBox></GroundOverlay>`;
-                            kmlData = kmlData.replace('</Document>', `${overlay}\n</Document>`);
+                            addOverlayKml(overlay, image.folder);
+                        });
+                        themeImages.forEach((image, index) => {
+                            const filename = `themes/theme-${index + 1}.${image.extension}`;
+                            zip.file(filename, image.blob);
+                            addOverlayKml(window.PlanMilT.kmzExport.groundOverlayKml(image.name, filename, image.bounds), undefined);
                         });
                         coverageFeatures.forEach((feature, index) => {
                             const data = feature.properties.coverageImage;
@@ -624,7 +663,18 @@ ${hotspot}
                         }).join('');
                     }
 
-                    const placemarks = geojson.features.map(createPlacemark).join('');
+                    const escapeXml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const folders = new Map();
+                    let placemarks = '';
+                    geojson.features.forEach(feature => {
+                        const placemark = createPlacemark(feature);
+                        const folder = feature.properties.folderName;
+                        if (!folder) placemarks += placemark;
+                        else folders.set(folder, (folders.get(folder) || '') + placemark);
+                    });
+                    folders.forEach((content, folder) => {
+                        placemarks += `<Folder><name>${escapeXml(folder)}</name>\n${content}\n</Folder>`;
+                    });
                     const styles = createStyles(geojson.features);
 
                     return `${kmlHeader}${styles}${placemarks}${kmlFooter}`;

@@ -21,10 +21,10 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     assert.match(styles, /#layerCatalogPicker #layerCatalogResults \.layer-catalog-result > input\[type="checkbox"\]/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-content\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 48px/);
     assert.match(styles, /#tacticalGraphicPicker \.tactical-graphic-result-preview svg\s*\{[\s\S]*?max-width: 46px !important/);
-    assert.match(documentSource, /app\.css\?v=20261112-toolbar-layout/);
+    assert.match(documentSource, /app\.css\?v=20261128-icon-picker/);
     assert.match(documentSource, /radio-planning\.js\?v=20261130-default-marker/);
     assert.match(documentSource, /coverage-image\.js\?v=20261116-coverage-popup/);
-    assert.match(documentSource, /task-parameters\.js\?v=20261127-icon-tray/);
+    assert.match(documentSource, /task-parameters\.js\?v=20261128-icon-picker/);
     assert.match(documentSource, /task-sequence-editor\.js\?v=20261111-propagation-scenarios/);
     assert.match(documentSource, /task-radio-links\.js\?v=20261016-antenna-height/);
     assert.match(documentSource, /task-radio-operations\.js\?v=20261111-propagation-scenarios/);
@@ -35,12 +35,12 @@ test('layer catalog fetches only the selected WMS and keeps global recommendatio
     for (const script of ['radio-planning', 'shared-layers', 'drawing-loading', 'layer-management', 'local-session']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261130-default-marker`));
     }
-    assert.ok(documentSource.includes('js/features/icon-selector.js?v=20261112-icon-controls'));
+    assert.ok(documentSource.includes('js/features/icon-selector.js?v=20261128-icon-browser'));
     assert.ok(documentSource.includes('js/features/drawing-storage.js?v=20261112-save-dialog'));
     for (const script of ['map-tools']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261112-tactical-images`));
     }
-    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261112-drawing-patterns'));
+    assert.ok(documentSource.includes('js/features/kmz-export.js?v=20261128-folders-themes'));
     for (const script of ['drawing-patterns', 'kmz-tactical-images']) {
         assert.ok(documentSource.includes(`js/features/${script}.js?v=20261129-area-patterns`));
         if (script !== 'drawing-patterns') {

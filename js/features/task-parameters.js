@@ -18,6 +18,34 @@ window.PlanMilT.taskParameters = Object.freeze({
         const Swal = sweetAlert;
 
                 /**
+                 * Gera o campo de ícone: valor oculto com o mesmo id, prévia e botão que abre o seletor.
+                 * @param {string} id - Identificador do campo lido na coleta de parâmetros.
+                 * @param {string} value - Ícone inicialmente selecionado.
+                 * @returns {string} HTML do campo.
+                 */
+                function renderIconPickerField(id, value) {
+                    const safeValue = escapeHtml(value || '');
+                    return `<span class="task-icon-picker">
+<input type="hidden" id="${id}" value="${safeValue}">
+<img id="${id}Image" src="${safeValue}" alt="Ícone selecionado" onerror="this.src='symbols/default.svg'">
+<button type="button" class="swal2-styled" data-icon-picker-for="${id}">Selecionar ícone</button>
+</span>`;
+                }
+
+                document.addEventListener('click', async event => {
+                    const button = event.target.closest?.('[data-icon-picker-for]');
+                    if (!button) return;
+                    const id = button.dataset.iconPickerFor;
+                    const input = document.getElementById(id);
+                    if (!input) return;
+                    const choice = await window.PlanMilT.iconSelector.pickIcon(await getRadioTaskIcons());
+                    if (!choice) return;
+                    input.value = choice.iconUrl;
+                    const image = document.getElementById(`${id}Image`);
+                    if (image) image.src = choice.iconUrl;
+                });
+
+                /**
                  * Obtém o catálogo de ícones usado nos novos formulários de rádio.
                  * @returns {Promise<Array<string>>} Caminhos dos ícones disponíveis.
                  */
@@ -257,17 +285,6 @@ ${icon.split('/')[2]}/${iconName}
 `;
                             });
 
-                            // Para selecionar o ícone a ser inserido
-                            let iconInsertOptionsHtmlFind = '';
-                            iconListFind.forEach(icon => {
-                                const iconNameWithExtension = icon.substring(icon.lastIndexOf('/') + 1);
-                                const iconName = iconNameWithExtension.split('.')[0];
-                                iconInsertOptionsHtmlFind += `
-<option value="${icon}" ${existingParameters.iconToInsert === icon ? 'selected' : ''}>
-${icon.split('/')[2]}/${iconName}
-            </option>
-`;
-                            });
 
                             // Adicionar novos campos para quantidade de ícones e distância máxima entre eles
                             const newIconFieldsHtmlFind = `
@@ -308,11 +325,7 @@ ${iconOptionsHtmlFind}
 <label for="iconToInsert" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
 <i class="fas fa-plus-circle" style="margin-right: 8px;"></i> Selecione o Ícone para Inserir:
             </label>
-<select id="iconToInsert" class="swal2-input" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px;"
-onchange="document.getElementById('iconToInsertImage').src = this.value">
-${iconInsertOptionsHtmlFind}
-            </select>
-<img id="iconToInsertImage" src="${existingParameters.iconToInsert || iconListFind[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;">
+${renderIconPickerField('iconToInsert', existingParameters.iconToInsert || iconListFind[0])}
             </div>
 ${newIconFieldsHtmlFind}
 <div style="display: flex; justify-content: center; margin-top: 10px;">
@@ -333,18 +346,6 @@ ${newIconFieldsHtmlFind}
                                 return '<p style="text-align: center;"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Nenhum ícone disponível.</p>';
                             }
 
-                            // Criar as opções do select com os ícones disponíveis
-                            let iconOptionsHtmlPlace = '';
-                            iconListPlace.forEach(icon => {
-                                const iconNameWithExtension = icon.substring(icon.lastIndexOf('/') + 1);
-                                const iconName = iconNameWithExtension.split('.')[0];
-                                iconOptionsHtmlPlace += `
-<option value="${icon}" ${existingParameters.iconUrl === icon ? 'selected' : ''}>
-${icon.split('/')[2]}/${iconName}
-            </option>
-`;
-
-                            });
 
                             // Adicionar novos campos para quantidade máxima de ícones e distância mínima entre eles
                             const newIconFieldsHtmlPlace = `
@@ -367,11 +368,7 @@ ${icon.split('/')[2]}/${iconName}
 <label for="iconToInsert" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
 <i class="fas fa-plus-circle" style="margin-right: 8px;"></i> Selecione o Ícone para Inserir:
             </label>
-<select id="iconToInsert" class="swal2-input" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px;"
-onchange="document.getElementById('iconToInsertImage').src = this.value">
-${iconOptionsHtmlPlace}
-            </select>
-<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListPlace[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
+${renderIconPickerField('iconToInsert', existingParameters.iconUrl || iconListPlace[0])}
             </div>
 <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
 <label for="criteria" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
@@ -625,17 +622,6 @@ ${text}
                                 return '<p style="text-align: center;"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Nenhum ícone disponível.</p>';
                             }
 
-                            // Criar as opções do select com os ícones disponíveis
-                            let iconOptionsHtmlCoverage = '';                            
-                            iconListCoverage.forEach(icon => {
-                                const iconNameWithExtension = icon.substring(icon.lastIndexOf('/') + 1);
-                                const iconName = iconNameWithExtension.split('.')[0];
-                                iconOptionsHtmlCoverage += `
-<option value="${icon}" ${existingParameters.iconUrl === icon ? 'selected' : ''}>
-${icon.split('/')[2]}/${iconName}
-            </option>
-`;
-                            });
 
                             // Criar as opções para os tipos de ícones a cobrir
                             let iconTypesToCoverOptions = '';
@@ -668,11 +654,7 @@ ${layerSelectHtmlCoverage}
 <label for="iconToInsert" style="flex: 0 0 40%; display: flex; align-items: center; font-weight: bold; font-size: 14px;">
 <i class="fas fa-map-marker-alt" style="margin-right: 8px;"></i> Selecione o Ícone Central:
             </label>
-<select id="iconToInsert" class="swal2-input" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px;"
-onchange="document.getElementById('iconToInsertImage').src = this.value">
-${iconOptionsHtmlCoverage}
-            </select>
-<img id="iconToInsertImage" src="${existingParameters.iconUrl || iconListCoverage[0]}" alt="Ícone a Inserir" style="width: 24px; height: 24px; margin-left: 10px;" onerror="this.src='symbols/default.svg'">
+${renderIconPickerField('iconToInsert', existingParameters.iconUrl || iconListCoverage[0])}
             </div>
 
 <!-- Input para Raio da Cobertura -->
@@ -771,10 +753,6 @@ ${getAntennaHeightField('linkAntennaHeight', existingParameters)}
                             const stationOptions = getRadioTaskIconOptions(icons, existingParameters.stationIcon || existingParameters.iconType1 || defaultIcon);
                             const sourceOptions = getRadioTaskIconOptions(icons, existingParameters.iconType1 || defaultIcon);
                             const targetOptions = getRadioTaskIconOptions(icons, existingParameters.iconType2 || icons[Math.min(1, icons.length - 1)]);
-                            const repeaterIconOptions = getRadioTaskIconOptions(
-                                icons,
-                                existingParameters.repeaterIcon || existingParameters.candidateIcon || defaultIcon
-                            );
                             const targetIconSelection = existingParameters.iconTypesToCover ||
                                 [existingParameters.iconType1, existingParameters.iconType2].filter(Boolean);
                             const repeaterTargetOptions = icons.map(icon => {
@@ -825,7 +803,7 @@ ${getAntennaHeightField('routeAntennaHeight', existingParameters)}
 <div id="radioTaskLayerStatus" class="task-parameter-status" role="status"></div>
 <div class="task-parameter-field">
 <label for="repeaterIconUrl"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Ícone a colocar:</label>
-<select id="repeaterIconUrl" class="swal2-input">${repeaterIconOptions}</select>
+${renderIconPickerField('repeaterIconUrl', existingParameters.repeaterIcon || existingParameters.candidateIcon || defaultIcon)}
 </div>
 <div class="task-parameter-field">
 <label for="repeaterRadioPreset"><i class="fas fa-signal" aria-hidden="true"></i> Rádio ou visada:</label>

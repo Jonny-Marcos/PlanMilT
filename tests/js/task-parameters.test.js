@@ -2,6 +2,12 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 global.window = {};
+const documentListeners = [];
+const documentElements = {};
+global.document = {
+    addEventListener(name, listener) { documentListeners.push(listener); },
+    getElementById: id => documentElements[id]
+};
 require('../../js/features/task-parameters.js');
 
 function createParametersModule({
@@ -482,4 +488,21 @@ test('invalid task values show the validation warning and return null', async ()
 
     assert.equal(result, null);
     assert.equal(alerts[0][0], 'Aviso');
+});
+test('task icon picker button stores the icon chosen in the shared selector dialog', async () => {
+    createParametersModule({ icons: ['symbols/friend/a.svg'] });
+    const input = { value: 'symbols/friend/a.svg' };
+    const image = {};
+    documentElements.iconToInsert = input;
+    documentElements.iconToInsertImage = image;
+    window.PlanMilT.iconSelector = {
+        async pickIcon(paths) {
+            assert.deepEqual(paths, ['symbols/friend/a.svg']);
+            return { iconUrl: 'data:image/svg+xml;base64,AAA' };
+        }
+    };
+    const button = { dataset: { iconPickerFor: 'iconToInsert' } };
+    await documentListeners.at(-1)({ target: { closest: () => button } });
+    assert.equal(input.value, 'data:image/svg+xml;base64,AAA');
+    assert.equal(image.src, 'data:image/svg+xml;base64,AAA');
 });
