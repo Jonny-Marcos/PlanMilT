@@ -242,6 +242,14 @@ window.PlanMilT.localPreferences = (() => {
             return typeof id === 'string' && Object.prototype.hasOwnProperty.call(data.radioForms, id)
                 ? sanitizeRadioForm(data.radioForms[id]) : null;
         },
+        /** Remove os ajustes de todos os presets do formulário manual de rádio e o histórico de uso associado. */
+        resetRadioForms() {
+            const data = read();
+            data.radioForms = {};
+            data.radioLast = null;
+            for (const field of ['manualRadioPreset', 'manualAntennaHeight', 'manualResolution']) delete data.usage[field];
+            write(data);
+        },
         /** Descarta o rascunho do formulário. */
         clearDraft() {
             const data = read();

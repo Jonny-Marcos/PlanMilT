@@ -66,6 +66,11 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 .watts-display { color: #007bff; font-size: 11px; margin-left: 5px; font-weight: normal; }
                                 .btn-clear-rf { margin-top: 15px; width: 100%; background-color: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
                                 .btn-clear-rf:hover { background-color: #c82333; }
+                                .rf-actions { display: flex; gap: 10px; }
+                                .rf-actions .btn-clear-rf { flex: 1; }
+                                .btn-reset-rf { background-color: #6c757d; }
+                                .btn-reset-rf:hover { background-color: #5a6268; }
+                                @media (max-width: 520px) { .rf-actions { flex-direction: column; gap: 0; } }
                             </style>
                             <div class="rf-form">
                                 <label>Tipo de Simulação</label>
@@ -126,7 +131,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     </div>
                                 </div>
                                 
-                                <button type="button" id="btnClearRFLayers" class="btn-clear-rf"><i class="fas fa-trash"></i> Limpar Simulações Anteriores</button>
+                                <div class="rf-actions">
+                                    <button type="button" id="btnClearRFLayers" class="btn-clear-rf"><i class="fas fa-trash"></i> Limpar Simulações Anteriores</button>
+                                    <button type="button" id="btnResetRFPresets" class="btn-clear-rf btn-reset-rf"><i class="fas fa-undo"></i> Restaurar Presets Iniciais</button>
+                                </div>
                             </div>
                         `,
                         focusConfirm: false,
@@ -204,6 +212,17 @@ window.PlanMilT.radioPlanning = Object.freeze({
                             document.getElementById('rfTxPower').addEventListener('input', updateWatts);
                             updateWatts();
                             updatePenetrationField();
+
+                            document.getElementById('btnResetRFPresets').addEventListener('click', function(event) {
+                                window.PlanMilT.localPreferences?.resetRadioForms();
+                                document.getElementById('rfResolution').value = '180';
+                                document.getElementById('rfPreset').dispatchEvent(new Event('change'));
+                                // Confirmação no próprio botão: um novo Swal fecharia o formulário aberto
+                                const button = event?.currentTarget || this;
+                                const originalLabel = '<i class="fas fa-undo"></i> Restaurar Presets Iniciais';
+                                button.innerHTML = '<i class="fas fa-check"></i> Presets restaurados';
+                                setTimeout(() => { button.innerHTML = originalLabel; }, 2000);
+                            });
 
                             document.getElementById('btnClearRFLayers').addEventListener('click', function() {
                                 if(rfGeneratedLayers.length > 0) {

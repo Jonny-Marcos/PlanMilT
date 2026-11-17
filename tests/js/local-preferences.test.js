@@ -85,3 +85,16 @@ test('manual radio form adjustments are kept per preset and invalid ones are rej
     api.setRadioForm({ ...form, radius: 5, radialCount: 7 });
     assert.equal(api.getRadioForm('custom').radius, 8);
 });
+
+test('resetting radio forms removes preset adjustments and manual usage', () => {
+    const { api } = load();
+    api.setRadioForm({ presetId: 'custom', mode: 'ptp', freq: 150, txPower: 40, txGain: 2, txHeight: 3, rxGain: 0,
+        rxHeight: 1.5, rxSens: -100, radius: 8, radialCount: 72, penetration: 'low' });
+    api.recordUse('manualResolution', 72);
+    api.setUi('transparency', 30);
+    api.resetRadioForms();
+    assert.equal(api.getRadioForm('custom'), null);
+    assert.equal(api.getRadioForm(), null);
+    assert.equal(api.mostUsed('manualResolution', 180), 180);
+    assert.equal(api.getUi('transparency', 100), 30);
+});

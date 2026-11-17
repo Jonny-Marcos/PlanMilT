@@ -486,10 +486,12 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
 test('manual radio form restores saved adjustments and saves new ones while editing', async () => {
     const listeners = new Map();
     const ids = ['rfMode', 'rfPreset', 'rfFreq', 'rfTxPower', 'rfTxGain', 'rfTxHeight', 'rfRxGain', 'rfRxHeight', 'rfRxSens',
-        'rfRadius', 'rfResolution', 'rfPenetration', 'rfPenetrationField', 'colRadius', 'wattsDisplay', 'btnClearRFLayers'];
+        'rfRadius', 'rfResolution', 'rfPenetration', 'rfPenetrationField', 'colRadius', 'wattsDisplay', 'btnClearRFLayers', 'btnResetRFPresets'];
     const fields = Object.fromEntries(ids.map(id => [id, { value: '', style: {} }]));
     fields.rfPreset.options = [{ value: 'custom' }, { value: 'optical' }, { value: 'harris_hh' }];
     fields.rfSpecificOptions = { style: {} };
+    fields.rfPreset.dispatchEvent = () => fields.rfPreset.change({ target: fields.rfPreset });
+    let resetCalls = 0;
     for (const field of Object.values(fields)) {
         field.addEventListener = (name, callback) => { field[name] = callback; };
     }
@@ -500,7 +502,8 @@ test('manual radio form restores saved adjustments and saves new ones while edit
         mostUsed: (field, fallback) => fallback,
         getRadioForm: presetId => presetId === 'optical' ? null : ({ presetId: presetId || 'harris_hh', mode: 'coverage', freq: 70, txPower: 41, txGain: 3, txHeight: 4,
             rxGain: 1, rxHeight: 2, rxSens: -110, radius: 12, radialCount: 360, penetration: 'high' }),
-        setRadioForm: form => saved.push(form)
+        setRadioForm: form => saved.push(form),
+        resetRadioForms() { resetCalls++; this.getRadioForm = () => null; }
     };
     const originalDocument = global.document;
     global.document = {
@@ -513,7 +516,7 @@ test('manual radio form restores saved adjustments and saves new ones while edit
             map: { on() {} },
             leaflet: { layerGroup: () => temporaryLayer },
             turf: {}, drawnItems: {},
-            sweetAlert: { fire(options) { form = options; return Promise.resolve({}); } },
+            sweetAlert: { fire(options) { if (options.didOpen) form = options; return Promise.resolve({}); } },
             chartConstructor: class {}
         });
         await listeners.get('click').call({ style: {} });
@@ -535,6 +538,11 @@ test('manual radio form restores saved adjustments and saves new ones while edit
         fields.rfPreset.value = 'optical';
         fields.rfPreset.change({ target: fields.rfPreset });
         assert.equal(fields.rfRadius.value, 3);
+        fields.rfPreset.value = 'harris_hh';
+        fields.btnResetRFPresets.click();
+        assert.equal(resetCalls, 1);
+        assert.equal(fields.rfRadius.value, 15);
+        assert.equal(fields.rfResolution.value, '180');
     } finally {
         global.document = originalDocument;
         window.PlanMilT.localPreferences = previousPreferences;
