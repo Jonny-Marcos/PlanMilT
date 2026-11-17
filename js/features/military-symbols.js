@@ -1,7 +1,7 @@
 /**
  * @fileoverview Cria símbolos militares brasileiros, conserva modelos locais e edita marcadores.
  * @exports window.PlanMilT.militarySymbols
- * @requires gerador e catálogo brasileiros locais, Leaflet e SweetAlert2
+ * @requires biblioteca estática PlanMilTSymbols, Leaflet e SweetAlert2
  */
 window.PlanMilT = window.PlanMilT || {};
 
@@ -61,40 +61,14 @@ window.PlanMilT.militarySymbols = (() => {
      */
     function render(config) {
         const normalized = normalize(config);
-        const symbol = new window.PlanMilTBrazilian.ms.Symbol(normalized.sidc, { ...normalized.options, size: 35 });
-        const code = normalized.sidc;
-        const category = window.PlanMilT.brazilianSymbolCatalog[code.slice(4, 6)];
-        if (!category) throw new Error('Categoria de ícone não disponível no catálogo brasileiro.');
-        if (code.length === 30 && code.slice(20, 23) !== '076') {
-            throw new Error('Informe uma extensão brasileira de SIDC.');
-        }
-        if (code.length === 30) {
-            const bits = Number(code.slice(23));
-            if (bits >= 2 ** 19) throw new Error('Extensão brasileira de SIDC inválida.');
-            const extensions = window.PlanMilTBrazilian.extensions[code.slice(4, 6)];
-            for (const [name, value] of [
-                ['ModificadorTransversal', (bits >> 10) & 7],
-                ['Modificador1', (bits >> 5) & 31],
-                ['Modificador2', bits & 31]
-            ]) {
-                if (value && (!extensions || !extensions[name] || !extensions[name][value])) {
-                    throw new Error('Modificador brasileiro não reconhecido para esta categoria.');
-                }
-            }
-        }
-        const entityExtension = value => value.length === 30 && value.slice(20, 23) === '076'
-            ? (Number(value.slice(23)) >> 14) & 31 : 0;
-        const knownBrazilianEntity = code.length === 30 && code.slice(20, 23) === '076' && category &&
-            [...category.icons, ...category.examples].some(item => item.sidc.slice(10, 16) === code.slice(10, 16) &&
-                entityExtension(item.sidc) === entityExtension(code));
-        if (!symbol.isValid() && !knownBrazilianEntity) {
-            throw new Error('SIDC ou combinação de modificadores não reconhecida pela biblioteca.');
-        }
-        const size = symbol.getSize();
-        const anchor = symbol.getAnchor();
+        const rendered = window.PlanMilTSymbols.renderSymbol({
+            ...normalized,
+            options: { ...normalized.options, size: 35 }
+        });
         return {
-            config: normalized, iconUrl: symbol.toDataURL(),
-            iconSize: [size.width, size.height], iconAnchor: [anchor.x, anchor.y]
+            config: normalized, iconUrl: rendered.dataUrl,
+            iconSize: [rendered.size.width, rendered.size.height],
+            iconAnchor: [rendered.anchor.x, rendered.anchor.y]
         };
     }
 
@@ -219,7 +193,7 @@ window.PlanMilT.militarySymbols = (() => {
      * @returns {Promise<Object|null>} Símbolo criado ou null ao cancelar.
      */
     async function open(initial = defaultConfig, editing = false) {
-        const sets = window.PlanMilT.brazilianSymbolCatalog;
+        const sets = window.PlanMilTSymbols.catalog;
         let current = normalize(initial);
         const result = await Swal.fire({
             title: editing ? 'Editar ícone' : 'Criar ícone',
@@ -324,7 +298,7 @@ window.PlanMilT.militarySymbols = (() => {
                     const transversal = get('symbolTransversal');
                     transversal.replaceChildren();
                     addOption(transversal, '0', 'Nenhum');
-                    const categoryExtensions = window.PlanMilTBrazilian.extensions[set.value];
+                    const categoryExtensions = window.PlanMilTSymbols.getExtensions(set.value);
                     if (categoryExtensions && categoryExtensions.ModificadorTransversal) {
                         const transversalLabels = { BLD: 'Blindado', MTZ: 'Motorizado', MEC: 'Mecanizado', DEFESA_AEREA: 'Defesa aérea' };
                         for (const [name, value] of Object.entries(categoryExtensions.ModificadorTransversal)) {
@@ -340,7 +314,7 @@ window.PlanMilT.militarySymbols = (() => {
                         for (const item of catalog[key]) {
                             if (/^\d{2}$/.test(item.code) && item.code !== '00') addOption(select, item.code, item.name);
                         }
-                        const extensions = window.PlanMilTBrazilian.extensions[set.value];
+                        const extensions = window.PlanMilTSymbols.getExtensions(set.value);
                         const values = extensions && extensions[extKey];
                         const names = extensions && extensions[`${extKey}Labels`];
                         if (values) for (const [name, value] of Object.entries(values)) {

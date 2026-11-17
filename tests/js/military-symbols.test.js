@@ -48,25 +48,24 @@ function setup() {
     };
     const context = vm.createContext({ window, document, Swal, localStorage, URL, setTimeout, clearTimeout,
         TextEncoder, TextDecoder, console: { error() {}, info() {}, warn() {} } });
-    for (const file of ['js/library/simbologia/chunk-vendors.4e5d8119.js', 'js/library/simbologia/planmilt-generator.js',
-        'js/features/brazilian-symbol-catalog.js', 'js/features/military-symbols.js']) {
+    for (const file of ['js/library/planmilt-symbols/planmilt-symbols.js', 'js/features/military-symbols.js']) {
         vm.runInContext(read(file), context);
     }
-    return { symbols: window.PlanMilT.militarySymbols, generator: window.PlanMilTBrazilian,
-        catalog: window.PlanMilT.brazilianSymbolCatalog, elements, values, active: () => active,
+    return { symbols: window.PlanMilT.militarySymbols, library: window.PlanMilTSymbols,
+        catalog: window.PlanMilTSymbols.catalog, elements, values, active: () => active,
         failStorage() { failStorage = true; } };
 }
 
 test('generator adapter is derived from the exact supplied portal bundle', () => {
-    const source = read('js/library/simbologia/app.820fcaaf.js');
+    const source = read('tools/planmilt-symbols-source/app.820fcaaf.js');
     const marker = 'ha={COUNTRY_CODES:Oe,SYMBOL_SET_CODES:fe},ga=';
     assert.equal(source.split(marker).length, 2);
     const expected = '/* Adaptado de app.820fcaaf.js; consulte LICENCE.txt. */\n' +
         source.replace(marker, 'ha={COUNTRY_CODES:Oe,SYMBOL_SET_CODES:fe};window.PlanMilTBrazilian={ms:Ba,extensions:xa};return;var ga=');
-    assert.equal(read('js/library/simbologia/planmilt-generator.js'), expected);
+    assert.equal(read('tools/planmilt-symbols-source/planmilt-generator.js'), expected);
 });
 
-test('all Brazilian catalogue entries render offline with the supplied generator', () => {
+test('all Brazilian catalogue entries render offline through the static library', () => {
     const { symbols, catalog } = setup();
     let count = 0;
     for (const category of Object.values(catalog)) {
@@ -80,7 +79,7 @@ test('all Brazilian catalogue entries render offline with the supplied generator
     }
     assert.equal(count, 1332);
     assert.throws(() => symbols.render({ sidc: '123', options: {} }), /SIDC/);
-    assert.throws(() => symbols.render({ sidc: '10031000999999999999', options: {} }), /não reconhecida/);
+    assert.throws(() => symbols.render({ sidc: '10031000999999999999', options: {} }), /não reconhecido/);
     assert.throws(() => symbols.render({ sidc: '100310000012110000000001111111', options: {} }), /extensão brasileira/);
     assert.throws(() => symbols.render({ sidc: '100310000012110000990760000031', options: {} }), /Modificador brasileiro/);
     assert.throws(() => symbols.render({ sidc: '100310000012110000000760524288', options: {} }), /Extensão brasileira/);
@@ -107,14 +106,14 @@ test('category and doctrine example selection load their complete SIDC and text'
     await pending;
 });
 
-test('Brazilian entity extensions preserve distinct SIDCs and generated graphics', () => {
-    const { symbols, generator } = setup();
+test('Brazilian entity extensions preserve distinct SIDCs through the static library', () => {
+    const { symbols, library } = setup();
     const special = '100310000012189900000760000000';
     const pathfinder = '100310000012189900000760016384';
     const a = symbols.render({ sidc: special, options: {} });
     const b = symbols.render({ sidc: pathfinder, options: {} });
     assert.notEqual(a.iconUrl, b.iconUrl);
-    assert.equal(a.iconUrl, new generator.ms.Symbol(special, { size: 35 }).toDataURL());
+    assert.equal(a.iconUrl, library.renderSymbol(special, { size: 35 }).dataUrl);
     assert.equal(b.config.sidc, pathfinder);
 });
 

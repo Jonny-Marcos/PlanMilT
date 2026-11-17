@@ -165,8 +165,11 @@ window.PlanMilTSymbols = Object.freeze({
     version: '1.0.0',
     catalog: brazilianCatalog,
     milsymbol,
+    tacticalGraphics,
+    tacticalGraphicsCatalog: tacticalCatalog,
     listSymbols,
     findSymbol,
+    getExtensions: category => brazilianGenerator.extensions[String(category)] || null,
     renderSymbol,
     listTacticalGraphics: frequentNames => tacticalCatalog.buildSections(tacticalGraphics, frequentNames),
     renderTacticalGraphic

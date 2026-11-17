@@ -130,12 +130,14 @@ test('exports multiple embedded military symbols as distinct PNG files reference
     isolatedWindow.window = isolatedWindow;
     const context = vm.createContext({ window: isolatedWindow, console: { error() {}, info() {}, warn() {} },
         setTimeout, clearTimeout, URL, TextEncoder, TextDecoder });
-    for (const file of ['chunk-vendors.4e5d8119.js', 'planmilt-generator.js']) {
-        vm.runInContext(fs.readFileSync(path.join(__dirname, '../../js/library/simbologia', file), 'utf8'), context);
-    }
-    const generator = isolatedWindow.PlanMilTBrazilian.ms;
+    vm.runInContext(
+        fs.readFileSync(path.join(__dirname, '../../js/library/planmilt-symbols/planmilt-symbols.js'), 'utf8'),
+        context
+    );
     const icons = ['100310000012189900000760000000', '100310000012189900000760016384']
-        .map(sidc => new generator.Symbol(sidc, { size: 35, uniqueDesignation: '1 Btl', hostile: 'A1' }).toDataURL());
+        .map(sidc => isolatedWindow.PlanMilTSymbols.renderSymbol(sidc, {
+            size: 35, uniqueDesignation: '1 Btl', hostile: 'A1'
+        }).dataUrl);
     assert.notEqual(icons[0], icons[1]);
     const features = icons.map(iconUrl => ({ type: 'Feature',
         properties: { iconUrl, militarySymbol: { iconSize: [100, 50], iconAnchor: [75, 20] } },

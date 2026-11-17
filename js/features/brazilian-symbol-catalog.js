@@ -1,4 +1,4 @@
-/* Catálogo derivado do Portal de Simbologia Militar. Licença: js/library/simbologia/LICENCE.txt. */
+/* Catálogo derivado do Portal de Simbologia Militar. Licença: js/library/planmilt-symbols/LICENSE-SIMBOLOGIA.txt. */
 window.PlanMilT = window.PlanMilT || {};
 window.PlanMilT.brazilianSymbolCatalog = {
   "10": {

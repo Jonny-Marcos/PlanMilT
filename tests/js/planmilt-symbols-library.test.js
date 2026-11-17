@@ -7,7 +7,13 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '../..');
 
 function loadLibrary() {
-    const window = { PlanMilT: {}, PlanMilTBrazilian: undefined };
+    const window = {
+        PlanMilT: {},
+        PlanMilTBrazilian: undefined,
+        addEventListener() {},
+        removeEventListener() {}
+    };
+    window.window = window;
     window.navigator = { userAgent: 'node' };
     const context = vm.createContext({
         window,
@@ -20,7 +26,7 @@ function loadLibrary() {
         TextEncoder,
         TextDecoder
     });
-    const source = fs.readFileSync(path.join(root, 'js/library/planmilt-symbols.js'), 'utf8');
+    const source = fs.readFileSync(path.join(root, 'js/library/planmilt-symbols/planmilt-symbols.js'), 'utf8');
     vm.runInContext(source, context);
     return { library: window.PlanMilTSymbols, source };
 }
@@ -31,9 +37,18 @@ test('static bundle exposes Brazilian symbols and credits included dependencies'
     assert.equal(library.version, '1.0.0');
     assert.equal(library.listSymbols().length, 1332);
     assert.equal(library.findSymbol('10031000001211000000').name, 'Infantaria');
+    assert.equal(typeof library.getExtensions('10'), 'object');
+    assert.equal(library.getExtensions('unknown'), null);
+    assert.equal(typeof library.tacticalGraphics.renderTacticalGraphic, 'function');
+    assert.equal(typeof library.tacticalGraphicsCatalog.buildSections, 'function');
     assert.match(source, /simbologia\.eb\.mil\.br/);
     assert.match(source, /Måns Beckman/);
     assert.match(source, /ZAES/);
+    const readme = fs.readFileSync(path.join(root, 'js/library/planmilt-symbols/README.md'), 'utf8');
+    assert.match(readme, /Instalação/);
+    assert.match(readme, /Installation/);
+    assert.match(readme, /simbologia\.eb\.mil\.br/);
+    assert.match(readme, /MilSymbols/);
 });
 
 test('standard SIDCs render with MilSymbols and Brazilian extensions with the portal adaptation', () => {

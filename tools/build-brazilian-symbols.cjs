@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const directory = path.join(root, 'js/library/simbologia');
+const directory = path.join(root, 'tools/planmilt-symbols-source');
 const source = fs.readFileSync(path.join(directory, 'app.820fcaaf.js'), 'utf8');
 const marker = 'ha={COUNTRY_CODES:Oe,SYMBOL_SET_CODES:fe},ga=';
 if (source.split(marker).length !== 2) throw new Error('Bundle do portal não reconhecido.');
@@ -57,6 +57,6 @@ for (const [code, name, suffix] of categories) {
     };
 }
 fs.writeFileSync(path.join(root, 'js/features/brazilian-symbol-catalog.js'),
-    '/* Catálogo derivado do Portal de Simbologia Militar. Licença: js/library/simbologia/LICENCE.txt. */\n' +
+    '/* Catálogo derivado do Portal de Simbologia Militar. Licença: js/library/planmilt-symbols/LICENSE-SIMBOLOGIA.txt. */\n' +
     'window.PlanMilT = window.PlanMilT || {};\nwindow.PlanMilT.brazilianSymbolCatalog = ' +
     JSON.stringify(catalog, null, 2) + ';\n');

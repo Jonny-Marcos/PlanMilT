@@ -190,12 +190,13 @@
             var tacticalGraphicsControl = window.PlanMilT.tacticalGraphics.createControl({ leaflet: L });
             map.addControl(tacticalGraphicsControl);
             var tacticalGraphicsButton = tacticalGraphicsControl.getContainer();
-            var tacticalGraphics = window.PlanMilTTacticalGraphics
+            var symbolsLibrary = window.PlanMilTSymbols;
+            var tacticalGraphics = symbolsLibrary?.tacticalGraphics
                 ? window.PlanMilT.tacticalGraphics.attach({
                     map,
                     leaflet: L,
-                    library: window.PlanMilTTacticalGraphics,
-                    catalog: window.PlanMilT.tacticalGraphicsCatalog,
+                    library: symbolsLibrary.tacticalGraphics,
+                    catalog: symbolsLibrary.tacticalGraphicsCatalog,
                     drawnItems,
                     button: tacticalGraphicsButton,
                     sweetAlert: Swal,
@@ -211,10 +212,10 @@
                     }
                 };
 
-            if (!window.PlanMilTTacticalGraphics) {
+            if (!symbolsLibrary?.tacticalGraphics) {
                 tacticalGraphicsButton.classList.add('is-disabled');
                 tacticalGraphicsButton.title = 'Biblioteca de gráfico tático indisponível';
-                console.error('[PlanMilT][Gráficos táticos] Bundle não carregado: js/library/tactical-graphics.min.js');
+                console.error('[PlanMilT][Gráficos táticos] Bundle não carregado: js/library/planmilt-symbols/planmilt-symbols.js');
             }
 
             // Função para atualizar o controle de desenho sem especificar um ícone por padrão
