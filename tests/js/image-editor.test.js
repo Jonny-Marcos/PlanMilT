@@ -13,7 +13,7 @@ test('theme editor is embedded in index and the former page redirects to it', ()
     assert.match(indexSource, /id="imageEditor"[^>]*hidden/);
     assert.match(indexSource, /image-editor\.js/);
     assert.match(indexSource, /id="imageEditorLoadTheme"/);
-    assert.match(indexSource, /image_editor_google_translate_element/);
+    assert.match(editorSource, /image_editor_google_translate_element/);
     assert.match(fs.readFileSync(path.join(root, 'css/app.css'), 'utf8'),
         /body\.image-editor-alert-open \.swal2-container\s*\{\s*z-index: 11000 !important;/);
     assert.match(fs.readFileSync(path.join(root, 'js/features/main.js'), 'utf8'),
@@ -35,41 +35,6 @@ test('theme editor is embedded in index and the former page redirects to it', ()
     assert.match(redirectSource, /url=index\.html\?abrir-criador-tema/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/image-overlays.js'), 'utf8'),
         /href="criador-tema\.html"/);
-});
-
-test('Google Translate initializes whichever map controls exist when its callback runs', () => {
-    const callbackSource = indexSource.match(
-        /<script type="text\/javascript">\s*(function googleTranslateElementInit[\s\S]*?)\s*<\/script>/
-    )[1];
-    const targets = new Map();
-    const initializedTargets = [];
-    const google = {
-        translate: {
-            TranslateElement: function (options, targetId) {
-                initializedTargets.push({ options, targetId });
-            }
-        }
-    };
-    const window = { google };
-    const document = {
-        getElementById(id) {
-            return targets.get(id) || null;
-        }
-    };
-    const context = vm.createContext({ window, document, google });
-    vm.runInContext(callbackSource, context);
-
-    context.googleTranslateElementInit();
-    targets.set('google_translate_element', { dataset: {} });
-    targets.set('image_editor_google_translate_element', { dataset: {} });
-    context.googleTranslateElementInit();
-    context.googleTranslateElementInit();
-
-    assert.deepEqual(initializedTargets.map(item => item.targetId), [
-        'google_translate_element',
-        'image_editor_google_translate_element'
-    ]);
-    assert.ok(initializedTargets.every(item => item.options.pageLanguage === 'pt-br'));
 });
 
 test('theme editor initializes its map once and supports opening and closing in place', async () => {

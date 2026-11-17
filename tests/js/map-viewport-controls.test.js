@@ -10,7 +10,7 @@ const main = fs.readFileSync(path.join(root, 'js/features/main.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/app.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
-function createControls(width) {
+function createControls(width, translationReady = true) {
     const element = () => ({ style: {} });
     const toolbar = {
         classList: {
@@ -45,7 +45,8 @@ function createControls(width) {
     const context = {
         window: {
             innerWidth: width,
-            PlanMilT: { geolocation: { attach() {} }, kmzExport: { attach() {} }, mapPointInfo: { attach() {} } }
+            PlanMilT: { geolocation: { attach() {} }, kmzExport: { attach() {} }, mapPointInfo: { attach() {} },
+                translation: { isReady: () => translationReady } }
         },
         document: {
             getElementById(id) { return byId[id]; },
@@ -95,6 +96,14 @@ test('new draw toolbars are included when controls are toggled', () => {
     assert.equal(replacement.style.display, 'none');
     fixture.button.click();
     assert.equal(replacement.style.display, 'block');
+});
+
+test('toggling controls does not reveal the translator before it is available', () => {
+    const fixture = createControls(601, false);
+    assert.equal(fixture.controls[5].style.display, 'none');
+    fixture.button.click();
+    fixture.button.click();
+    assert.equal(fixture.controls[5].style.display, 'none');
 });
 
 test('map fills the viewport and the toggle remains inside the compact toolbar', () => {

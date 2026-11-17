@@ -463,7 +463,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             ['Centro inicial', mapDefaults.center
                 ? `${mapDefaults.center[0]}, ${mapDefaults.center[1]}`
                 : 'Manter enquadramento atual'],
-            ['Zoom inicial', mapDefaults.zoom ?? 'Manter zoom atual']
+            ['Zoom inicial', mapDefaults.zoom ?? 'Manter zoom atual'],
+            ['Google Tradutor', mapDefaults.translation.enabled ? 'Ativado' : 'Desativado'],
+            ['Idiomas de tradução', mapDefaults.translation.languages.join(', ') || 'Todos os idiomas disponíveis']
         ];
         rows.forEach(([label, value]) => {
             const row = document.createElement('tr');
@@ -588,6 +590,36 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         recordForm.replaceChildren();
         document.getElementById('editorTitle').textContent = 'Configurações do mapa';
         addDefaultLayersField(recordForm, settings.mapDefaults);
+        const translation = document.createElement('fieldset');
+        const translationLegend = document.createElement('legend');
+        translationLegend.textContent = 'Google Tradutor';
+        translation.appendChild(translationLegend);
+        const translationLabel = document.createElement('label');
+        const translationEnabled = document.createElement('input');
+        translationEnabled.type = 'checkbox';
+        translationEnabled.name = 'translationEnabled';
+        translationEnabled.checked = settings.mapDefaults.translation.enabled;
+        translationLabel.append(translationEnabled, document.createTextNode('Ativar tradução no mapa e no editor de temas'));
+        translation.appendChild(translationLabel);
+        const translationHelp = document.createElement('p');
+        translationHelp.className = 'muted';
+        translationHelp.textContent = 'Sem idiomas marcados, o Google oferece todos os idiomas disponíveis. A tradução é escolhida pelo usuário; ao ativar, o navegador se conecta ao Google.';
+        translation.appendChild(translationHelp);
+        [
+            ['en', 'Inglês'], ['es', 'Espanhol'], ['fr', 'Francês'], ['de', 'Alemão'],
+            ['it', 'Italiano'], ['ar', 'Árabe'], ['zh-CN', 'Chinês simplificado'],
+            ['ja', 'Japonês'], ['ru', 'Russo']
+        ].forEach(([code, label]) => {
+            const row = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = 'translationLanguages';
+            input.value = code;
+            input.checked = settings.mapDefaults.translation.languages.includes(code);
+            row.append(input, document.createTextNode(label));
+            translation.appendChild(row);
+        });
+        recordForm.appendChild(translation);
         [
             ['centerLat', 'Latitude do centro inicial', settings.mapDefaults.center?.[0] ?? ''],
             ['centerLng', 'Longitude do centro inicial', settings.mapDefaults.center?.[1] ?? ''],
@@ -820,7 +852,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                     mapDefaults: {
                         defaultLayers,
                         center: centerLat === '' && centerLng === '' ? null : [Number(centerLat), Number(centerLng)],
-                        zoom: zoom === '' ? null : Number(zoom)
+                        zoom: zoom === '' ? null : Number(zoom),
+                        translation: {
+                            enabled: formData.has('translationEnabled'),
+                            languages: formData.getAll('translationLanguages')
+                        }
                     }
                 });
                 adminConfig.csrf = result.csrf || adminConfig.csrf;

@@ -110,7 +110,10 @@ $assertThrows(
 );
 
 $assert(
-    $service->getMapDefaults() === ['defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null],
+    $service->getMapDefaults() === [
+        'defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null,
+        'translation' => ['enabled' => true, 'languages' => []],
+    ],
     'Default map preferences were not read.'
 );
 $updatedDefaults = $service->saveMapDefaults([
@@ -123,10 +126,43 @@ $assert(
         'defaultLayers' => ['Google Satellite', 'BDGEx - CTM50'],
         'center' => [-22.5, -48.25],
         'zoom' => 9.0,
+        'translation' => ['enabled' => true, 'languages' => []],
     ],
     'Map default settings were not normalized or saved.'
 );
 $assert($service->getMapDefaults() === $updatedDefaults, 'Saved map defaults were not persisted.');
+$translationDefaults = $service->saveMapDefaults([
+    'defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null,
+    'translation' => ['enabled' => false, 'languages' => ['en', 'es', 'en']],
+]);
+$assert(
+    $translationDefaults['translation'] === ['enabled' => false, 'languages' => ['en', 'es']],
+    'Translation settings were not normalized.'
+);
+$assert($service->getMapDefaults() === $translationDefaults, 'Translation settings were not persisted.');
+$legacyUpdate = $service->saveMapDefaults(['defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null]);
+$assert($legacyUpdate['translation'] === $translationDefaults['translation'], 'A legacy update discarded translation settings.');
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null,
+        'translation' => ['enabled' => true, 'languages' => ['invalid']],
+    ]),
+    'An unsupported translation language was accepted.'
+);
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null,
+        'translation' => ['enabled' => 'false', 'languages' => []],
+    ]),
+    'A non-boolean translation setting was accepted.'
+);
+$assertThrows(
+    static fn () => $service->saveMapDefaults([
+        'defaultLayers' => ['OpenTopo'], 'center' => null, 'zoom' => null,
+        'translation' => null,
+    ]),
+    'A null translation setting was accepted.'
+);
 $assertThrows(
     static fn () => $service->saveMapDefaults([
         'defaultLayers' => ['No Such Layer'],

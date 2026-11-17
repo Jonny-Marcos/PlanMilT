@@ -11,6 +11,7 @@
             window.PlanMilT.coverageImage.attach(map, L, layerControl);
             window.PlanMilT.apiClient.getJson('php/endpoints/map-settings.php')
                 .then(settings => {
+                    window.PlanMilT.translation.configure(settings.translation);
                     if (!window.PlanMilT.localSessionRestored) mapSetup.applyMapDefaults(settings);
                 })
                 .catch(error => console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error));

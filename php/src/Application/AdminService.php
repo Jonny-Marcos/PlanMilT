@@ -463,7 +463,7 @@ final class AdminService
     /**
      * Lê preferências globais não confidenciais do mapa.
      *
-     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null, translation: array{enabled: bool, languages: array<int, string>}}
      */
     public function getMapDefaults(): array
     {
@@ -488,13 +488,16 @@ final class AdminService
     }
 
     /**
-     * Valida e persiste camadas, centro e zoom padrão do mapa.
+     * Valida e persiste camadas, centro, zoom e opções de tradução.
      *
      * @param array<string, mixed> $settings Preferências enviadas pelo painel.
-     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null, translation: array{enabled: bool, languages: array<int, string>}}
      */
     public function saveMapDefaults(array $settings): array
     {
+        if (!array_key_exists('translation', $settings)) {
+            $settings['translation'] = $this->getMapDefaults()['translation'];
+        }
         $normalized = $this->normalizeMapDefaults($settings);
         $statement = $this->database->prepare(
             'UPDATE app_settings SET setting_value = ?, updated_at = datetime(\'now\') WHERE setting_key = ?'
@@ -599,7 +602,7 @@ final class AdminService
      * Normaliza e valida os valores aceitos para a configuração do mapa.
      *
      * @param array<string, mixed> $settings Valores recebidos do banco ou do painel.
-     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null}
+     * @return array{defaultLayers: array<int, string>, center: array{0: float, 1: float}|null, zoom: float|null, translation: array{enabled: bool, languages: array<int, string>}}
      */
     private function normalizeMapDefaults(array $settings): array
     {
@@ -640,7 +643,27 @@ final class AdminService
             throw new RuntimeException('Defina o centro inicial para configurar o zoom.');
         }
 
-        return ['defaultLayers' => $layers, 'center' => $center, 'zoom' => $zoom];
+        $translation = array_key_exists('translation', $settings)
+            ? $settings['translation'] : ['enabled' => true, 'languages' => []];
+        if (!is_array($translation) || !isset($translation['enabled'], $translation['languages'])
+            || !is_bool($translation['enabled']) || !is_array($translation['languages'])) {
+            throw new RuntimeException('Configuração de tradução inválida.');
+        }
+        $allowedLanguages = ['en', 'es', 'fr', 'de', 'it', 'ar', 'zh-CN', 'ja', 'ru'];
+        foreach ($translation['languages'] as $language) {
+            if (!is_string($language) || !in_array($language, $allowedLanguages, true)) {
+                throw new RuntimeException('Idioma de tradução não permitido.');
+            }
+        }
+        return [
+            'defaultLayers' => $layers,
+            'center' => $center,
+            'zoom' => $zoom,
+            'translation' => [
+                'enabled' => $translation['enabled'],
+                'languages' => array_values(array_unique($translation['languages'])),
+            ],
+        ];
     }
 
     /**

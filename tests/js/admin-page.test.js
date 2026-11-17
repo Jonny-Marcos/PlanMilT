@@ -47,6 +47,13 @@ test('admin search supports field/match filters and elevation upload uses authen
     assert.match(endpoint, /validateElevationUpload\(/);
 });
 
+test('admin map settings expose and submit the translator options', () => {
+    assert.match(endpoint, /translationEnabled\.checked = settings\.mapDefaults\.translation\.enabled/);
+    assert.match(endpoint, /settings\.mapDefaults\.translation\.languages\.includes\(code\)/);
+    assert.match(endpoint, /enabled: formData\.has\('translationEnabled'\)/);
+    assert.match(endpoint, /languages: formData\.getAll\('translationLanguages'\)/);
+});
+
 test('admin upload handler is in scope and login/password panels are restored on startup', () => {
     assert.ok(
         endpoint.indexOf('async function uploadElevationFiles()') < endpoint.indexOf('async function deleteFile(name)'),

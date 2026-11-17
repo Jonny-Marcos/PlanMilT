@@ -81,6 +81,9 @@
                         .forEach(function(control) {
                             if (control) control.style.display = hidden ? 'none' : 'block';
                         });
+                    if (translateButton && !window.PlanMilT.translation.isReady()) {
+                        translateButton.style.display = 'none';
+                    }
                     var label = hidden ? 'Mostrar controles' : 'Ocultar controles';
                     toggleControlsLabel.textContent = label;
                     toggleControlsIcon.className = hidden ? 'fas fa-eye' : 'fas fa-eye-slash';
