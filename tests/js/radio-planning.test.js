@@ -483,3 +483,50 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         { radialCount: 8, resolutionKm: 0.1, penetration: 'invalid' }
     ), /condição válida/);
 });
+test('manual radio form restores saved adjustments and saves new ones while editing', async () => {
+    const listeners = new Map();
+    const ids = ['rfMode', 'rfPreset', 'rfFreq', 'rfTxPower', 'rfTxGain', 'rfTxHeight', 'rfRxGain', 'rfRxHeight', 'rfRxSens',
+        'rfRadius', 'rfResolution', 'rfPenetration', 'rfPenetrationField', 'colRadius', 'wattsDisplay', 'btnClearRFLayers'];
+    const fields = Object.fromEntries(ids.map(id => [id, { value: '', style: {} }]));
+    fields.rfPreset.options = [{ value: 'custom' }, { value: 'optical' }, { value: 'harris_hh' }];
+    for (const field of Object.values(fields)) {
+        field.addEventListener = (name, callback) => { field[name] = callback; };
+    }
+    const rfForm = { addEventListener: (name, callback) => { rfForm[name] = callback; } };
+    const saved = [];
+    const previousPreferences = window.PlanMilT.localPreferences;
+    window.PlanMilT.localPreferences = {
+        mostUsed: (field, fallback) => fallback,
+        getRadioForm: () => ({ presetId: 'harris_hh', mode: 'coverage', freq: 70, txPower: 41, txGain: 3, txHeight: 4,
+            rxGain: 1, rxHeight: 2, rxSens: -110, radius: 12, radialCount: 360, penetration: 'high' }),
+        setRadioForm: form => saved.push(form)
+    };
+    const originalDocument = global.document;
+    global.document = {
+        getElementById: id => fields[id] || { addEventListener(name, callback) { listeners.set(name, callback); } },
+        querySelector: () => rfForm
+    };
+    try {
+        let form;
+        window.PlanMilT.radioPlanning.attach({
+            map: { on() {} },
+            leaflet: { layerGroup: () => temporaryLayer },
+            turf: {}, drawnItems: {},
+            sweetAlert: { fire(options) { form = options; return Promise.resolve({}); } },
+            chartConstructor: class {}
+        });
+        await listeners.get('click').call({ style: {} });
+        form.didOpen();
+        assert.equal(fields.rfPreset.value, 'harris_hh');
+        assert.equal(fields.rfFreq.value, 70);
+        assert.equal(fields.rfRadius.value, 12);
+        assert.equal(fields.rfResolution.value, '360');
+        fields.rfRadius.value = '20';
+        rfForm.input();
+        assert.equal(saved.at(-1).radius, 20);
+        assert.equal(saved.at(-1).radialCount, 360);
+    } finally {
+        global.document = originalDocument;
+        window.PlanMilT.localPreferences = previousPreferences;
+    }
+});

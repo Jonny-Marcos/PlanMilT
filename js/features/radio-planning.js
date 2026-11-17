@@ -199,6 +199,51 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                     Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Nada para limpar.', showConfirmButton: false, timer: 2000 });
                                 }
                             });
+
+                            // Aplica os valores mais usados e, por fim, os últimos ajustes do usuário
+                            const preferences = window.PlanMilT.localPreferences;
+                            if (preferences) {
+                                const presetSelect = document.getElementById('rfPreset');
+                                const hasPreset = id => Array.from(presetSelect.options).some(option => option.value === id);
+                                const preferredPreset = preferences.mostUsed('manualRadioPreset', null);
+                                if (preferredPreset && hasPreset(preferredPreset)) {
+                                    presetSelect.value = preferredPreset;
+                                    presetSelect.dispatchEvent(new Event('change'));
+                                }
+                                if (presetSelect.value === 'custom') {
+                                    document.getElementById('rfTxHeight').value = preferences.mostUsed('manualAntennaHeight', 1.5);
+                                }
+                                document.getElementById('rfResolution').value = String(preferences.mostUsed('manualResolution', 180));
+                                const lastForm = preferences.getRadioForm();
+                                if (lastForm && hasPreset(lastForm.presetId)) {
+                                    presetSelect.value = lastForm.presetId;
+                                    const fieldIds = { freq: 'rfFreq', txPower: 'rfTxPower', txGain: 'rfTxGain', txHeight: 'rfTxHeight',
+                                        rxGain: 'rfRxGain', rxHeight: 'rfRxHeight', rxSens: 'rfRxSens', radius: 'rfRadius',
+                                        mode: 'rfMode', penetration: 'rfPenetration' };
+                                    Object.entries(fieldIds).forEach(([name, id]) => { document.getElementById(id).value = lastForm[name]; });
+                                    document.getElementById('rfResolution').value = String(lastForm.radialCount);
+                                }
+                                document.getElementById('colRadius').style.display =
+                                    document.getElementById('rfMode').value === 'coverage' ? 'block' : 'none';
+                                updateWatts();
+                                updatePenetrationField();
+
+                                // Guarda os ajustes a cada alteração válida, mesmo que o formulário seja cancelado
+                                const rfForm = document.querySelector('.rf-form');
+                                const saveForm = () => {
+                                    const num = id => parseFloat(document.getElementById(id).value);
+                                    preferences.setRadioForm({
+                                        presetId: presetSelect.value,
+                                        mode: document.getElementById('rfMode').value,
+                                        freq: num('rfFreq'), txPower: num('rfTxPower'), txGain: num('rfTxGain'), txHeight: num('rfTxHeight'),
+                                        rxGain: num('rfRxGain'), rxHeight: num('rfRxHeight'), rxSens: num('rfRxSens'), radius: num('rfRadius'),
+                                        radialCount: Number(document.getElementById('rfResolution').value),
+                                        penetration: document.getElementById('rfPenetration').value
+                                    });
+                                };
+                                rfForm.addEventListener('input', saveForm);
+                                rfForm.addEventListener('change', saveForm);
+                            }
                         },
                         preConfirm: () => {
                             const values = {
