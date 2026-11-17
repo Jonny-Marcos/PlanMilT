@@ -613,6 +613,7 @@
                                 };
 
                                 categorySelect.addEventListener('change', () => {
+                                    window.PlanMilT.localPreferences?.setUi('catalogCategory', categorySelect.value);
                                     clearTimeout(searchTimer);
                                     if (Array.isArray(liveLayers)) renderLiveLayers();
                                     else renderLocalLayers();
@@ -643,7 +644,9 @@
                                     });
                                 });
 
-                                categorySelect.value = 'all';
+                                const savedCategory = window.PlanMilT.localPreferences?.getUi('catalogCategory', 'all') ?? 'all';
+                                categorySelect.value = Array.from(categorySelect.options || []).some(option => option.value === savedCategory)
+                                    ? savedCategory : 'all';
                                 if (categories.length > 0 || recentLayers.length > 0) {
                                     renderLocalLayers();
                                 } else {

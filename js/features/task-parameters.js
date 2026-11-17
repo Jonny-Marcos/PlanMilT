@@ -96,13 +96,30 @@ window.PlanMilT.taskParameters = Object.freeze({
                 }
 
                 /**
+                 * Retorna o preset de rádio mais usado nas tarefas, ou o ótico se não houver histórico.
+                 * @returns {string} Identificador do preset padrão.
+                 */
+                function getDefaultRadioPreset() {
+                    const preferred = window.PlanMilT.localPreferences?.mostUsed('taskRadioPreset', 'optical');
+                    return radioPresets.some(preset => preset.id === preferred) ? preferred : 'optical';
+                }
+
+                /**
+                 * Retorna a altura de antena mais usada nas tarefas, ou 1,5 m se não houver histórico.
+                 * @returns {number} Altura em metros.
+                 */
+                function getDefaultAntennaHeight() {
+                    return window.PlanMilT.localPreferences?.mostUsed('taskAntennaHeight', 1.5) ?? 1.5;
+                }
+
+                /**
                  * Gera opções HTML para os presets RF e óticos.
                  * @param {string} selectedPreset - Identificador previamente selecionado.
                  * @returns {string} Opções do seletor.
                  */
                 function getRadioTaskPresetOptions(selectedPreset) {
                     return radioPresets.map(preset => `
-<option value="${preset.id}" ${selectedPreset === preset.id || (!selectedPreset && preset.id === 'optical') ? 'selected' : ''}>
+<option value="${preset.id}" ${selectedPreset === preset.id || (!selectedPreset && preset.id === getDefaultRadioPreset()) ? 'selected' : ''}>
 ${preset.label}
 </option>`).join('');
                 }
@@ -117,7 +134,7 @@ ${preset.label}
                     return `
 <div class="task-parameter-field">
 <label for="${inputId}"><i class="fas fa-arrows-alt-v" aria-hidden="true"></i> Altura comum das antenas (m):</label>
-<input id="${inputId}" class="swal2-input" type="number" min="0" step="0.1" value="${parameters.antennaHeight ?? 1.5}">
+<input id="${inputId}" class="swal2-input" type="number" min="0" step="0.1" value="${parameters.antennaHeight ?? getDefaultAntennaHeight()}">
 <small>A mesma altura será usada nas duas pontas do enlace e substituirá a altura definida pelo preset.</small>
 </div>`;
                 }
@@ -706,7 +723,7 @@ ${iconTypesToCoverOptions}
                             }).join('');
                             const presets = radioPresets.filter(preset => preset && preset.id && preset.label);
                             const presetOptions = presets.map(preset => `
-<option value="${preset.id}" ${existingParameters.radioPreset === preset.id || (!existingParameters.radioPreset && preset.id === 'optical') ? 'selected' : ''}>
+<option value="${preset.id}" ${existingParameters.radioPreset === preset.id || (!existingParameters.radioPreset && preset.id === getDefaultRadioPreset()) ? 'selected' : ''}>
 ${preset.label}
 </option>`).join('');
 
@@ -872,6 +889,21 @@ ${getAntennaHeightField('compareRadioAntennaHeight', existingParameters)}
                  * @param {*} existingParameters - Parâmetros já salvos para preencher ou editar.
                  */
                 async function getTaskParametersValues(selectedTask, existingParameters) {
+                    const values = await readTaskParameters(selectedTask, existingParameters);
+                    if (values) {
+                        window.PlanMilT.localPreferences?.recordUse('taskRadioPreset', values.radioPreset);
+                        window.PlanMilT.localPreferences?.recordUse('taskAntennaHeight', values.antennaHeight);
+                    }
+                    return values;
+                }
+
+                /**
+                 * Lê e valida os campos do formulário da tarefa selecionada.
+                 * @param {string} selectedTask - Identificador da tarefa.
+                 * @param {Object} existingParameters - Parâmetros já salvos.
+                 * @returns {Promise<Object|null>} Parâmetros válidos ou nulo.
+                 */
+                async function readTaskParameters(selectedTask, existingParameters) {
                     const popup = Swal.getPopup();
                     switch (selectedTask) {
                         case 'findHighestPoint': {

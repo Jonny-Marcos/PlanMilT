@@ -212,6 +212,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                                 rxSens: parseFloat(document.getElementById('rfRxSens').value),
                                 radius: parseFloat(document.getElementById('rfRadius').value),
                                 radialCount: Number(document.getElementById('rfResolution').value),
+                                presetId: document.getElementById('rfPreset').value,
                                 isOptical: (document.getElementById('rfPreset').value === 'optical'),
                                 penetration: document.getElementById('rfPenetration').value
                             };
@@ -245,6 +246,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                     });
 
                     if (formValues) {
+                        const preferences = window.PlanMilT.localPreferences;
+                        preferences?.recordUse('manualRadioPreset', formValues.presetId);
+                        preferences?.recordUse('manualResolution', formValues.radialCount);
+                        preferences?.recordUse('manualAntennaHeight', formValues.txHeight);
                         rfParams = formValues;
                         rfModeActive = true;
                         this.style.color = '#007bff';

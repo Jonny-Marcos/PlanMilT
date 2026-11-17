@@ -409,6 +409,21 @@ window.PlanMilT.mapSetup = Object.freeze({
             document.getElementById('layerSelector').addEventListener('change', adjustLayerTransparency);
             document.getElementById('transparencySlider').addEventListener('input', adjustLayerTransparency);
 
+            // Restaura somente os controles; a opacidade das camadas é recuperada pela sessão local
+            var preferences = window.PlanMilT.localPreferences;
+            if (preferences) {
+                var savedLayer = preferences.getUi('selectedLayer', '');
+                if (savedLayer && layerRegistry[savedLayer]) document.getElementById('layerSelector').value = savedLayer;
+                var savedTransparency = preferences.getUi('transparency', null);
+                if (savedTransparency !== null) document.getElementById('transparencySlider').value = savedTransparency;
+                document.getElementById('layerSelector').addEventListener('change', function(event) {
+                    preferences.setUi('selectedLayer', event.target.value);
+                });
+                document.getElementById('transparencySlider').addEventListener('change', function(event) {
+                    preferences.setUi('transparency', Number(event.target.value));
+                });
+            }
+
         return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer, removeOverlayLayer, applyMapDefaults };
     }
 });

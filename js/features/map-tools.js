@@ -64,7 +64,8 @@
                 var translateButton = document.querySelector('.google-translate-control'); // Seleciona o botão de tradução
                 var toggleControlsLabel = document.getElementById('toggleControlsLabel');
                 var toggleControlsIcon = document.getElementById('toggleControlsIcon');
-                var controlsHidden = window.innerWidth <= 600;
+                var controlsHidden = window.PlanMilT.localPreferences?.getUi('controlsHidden', window.innerWidth <= 600)
+                    ?? window.innerWidth <= 600;
 
                 /**
                  * Atualiza a visibilidade dos controles e o estado acessível do botão.
@@ -90,6 +91,7 @@
                 setControlsHidden(controlsHidden);
                 toggleControlsBtn.addEventListener('click', function() {
                     setControlsHidden(!controlsHidden);
+                    window.PlanMilT.localPreferences?.setUi('controlsHidden', controlsHidden);
                 });
 
 

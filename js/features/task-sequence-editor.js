@@ -263,6 +263,26 @@ ${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:<
                                 if (typeof taskParameters.bind === 'function') {
                                     taskParameters.bind(taskName, taskParametersDiv);
                                 }
+                                const preferences = window.PlanMilT.localPreferences;
+                                const draft = preferences?.getDraft();
+                                if (draft && draft.task === taskName && !isEditing && Object.keys(parameters || {}).length === 0) {
+                                    preferences.applyFields(taskParametersDiv, draft.fields);
+                                }
+                            }
+
+                            // Guarda o rascunho dos parâmetros para recuperá-lo se o modal for fechado
+                            const saveDraft = () => {
+                                const preferences = window.PlanMilT.localPreferences;
+                                if (!preferences || isEditing || !selectedTask) return;
+                                preferences.setDraft(selectedTask, preferences.captureFields(taskParametersDiv));
+                            };
+                            taskParametersDiv.addEventListener('input', saveDraft);
+                            taskParametersDiv.addEventListener('change', saveDraft);
+
+                            const savedDraft = window.PlanMilT.localPreferences?.getDraft();
+                            if (!selectedTask && !isEditing && savedDraft && taskSelect.querySelector(`option[value="${savedDraft.task}"]`)) {
+                                selectedTask = savedDraft.task;
+                                taskSelect.value = selectedTask;
                             }
 
                             // Atualiza os parâmetros da tarefa se uma tarefa já estiver selecionada
@@ -352,6 +372,7 @@ ${tasksUsingSourceLayer.has(taskName) ? '<br><strong>Sugestão de Planejamento:<
                                             parameters: parameterValues
                                         });
                                     }
+                                    window.PlanMilT.localPreferences?.clearDraft();
                                     // Limpar seleção
                                     taskSelect.value = '';
                                     taskParametersDiv.innerHTML = '';
