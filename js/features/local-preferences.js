@@ -23,12 +23,36 @@ window.PlanMilT.localPreferences = (() => {
         catalogCategory: value => typeof value === 'string' && value.length <= 64
     };
 
+    const radioFormNumbers = ['freq', 'txPower', 'txGain', 'txHeight', 'rxGain', 'rxHeight', 'rxSens', 'radius'];
+    const radioFormMap = { mode: ['coverage', 'ptp'], penetration: ['high', 'medium', 'low'] };
+
+    /**
+     * Valida e normaliza os ajustes do formulário manual de rádio.
+     * @param {Object} form - Valores candidatos.
+     * @returns {Object|null} Ajustes válidos ou nulo.
+     */
+    function sanitizeRadioForm(form) {
+        if (!form || typeof form !== 'object' || typeof form.presetId !== 'string' || form.presetId.length > 64) return null;
+        const clean = { presetId: form.presetId };
+        for (const name of radioFormNumbers) {
+            if (!Number.isFinite(form[name]) || Math.abs(form[name]) > 1e6) return null;
+            clean[name] = form[name];
+        }
+        for (const [name, allowed] of Object.entries(radioFormMap)) {
+            if (!allowed.includes(form[name])) return null;
+            clean[name] = form[name];
+        }
+        if (![72, 180, 360].includes(form.radialCount)) return null;
+        clean.radialCount = form.radialCount;
+        return clean;
+    }
+
     /**
      * Cria a estrutura vazia das preferências.
      * @returns {Object} Preferências sem uso registrado.
      */
     function emptyData() {
-        return { usage: {}, ui: {}, draft: null };
+        return { usage: {}, ui: {}, draft: null, radioForm: null };
     }
 
     /**
@@ -43,7 +67,7 @@ window.PlanMilT.localPreferences = (() => {
             if (!data || typeof data.usage !== 'object' || typeof data.ui !== 'object' || !data.usage || !data.ui) {
                 throw new Error('Preferências locais inválidas.');
             }
-            return { usage: data.usage, ui: data.ui, draft: data.draft || null };
+            return { usage: data.usage, ui: data.ui, draft: data.draft || null, radioForm: data.radioForm || null };
         } catch (error) {
             console.error('[PlanMilT][Preferências] Não foi possível ler as preferências locais.', { name: error?.name });
             return emptyData();
@@ -194,6 +218,24 @@ window.PlanMilT.localPreferences = (() => {
             const draft = read().draft;
             return draft && typeof draft.task === 'string' && draft.fields && typeof draft.fields === 'object'
                 ? draft : null;
+        },
+        /**
+         * Guarda os últimos ajustes confirmados no formulário manual de rádio.
+         * @param {Object} form - Valores confirmados (`preConfirm`).
+         */
+        setRadioForm(form) {
+            const clean = sanitizeRadioForm(form);
+            if (!clean) return;
+            const data = read();
+            data.radioForm = clean;
+            write(data);
+        },
+        /**
+         * Retorna os últimos ajustes do formulário manual de rádio.
+         * @returns {Object|null} Ajustes válidos ou nulo.
+         */
+        getRadioForm() {
+            return sanitizeRadioForm(read().radioForm);
         },
         /** Descarta o rascunho do formulário. */
         clearDraft() {

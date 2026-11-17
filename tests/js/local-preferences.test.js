@@ -70,3 +70,15 @@ test('task draft is stored, restored into fields and cleared', () => {
     api.clearDraft();
     assert.equal(api.getDraft(), null);
 });
+
+test('manual radio form adjustments persist and invalid ones are rejected', () => {
+    const { api } = load();
+    const form = { presetId: 'custom', mode: 'coverage', freq: 150, txPower: 40, txGain: 2, txHeight: 3, rxGain: 0,
+        rxHeight: 1.5, rxSens: -100, radius: 8, radialCount: 360, penetration: 'low', isOptical: false };
+    api.setRadioForm(form);
+    assert.equal(api.getRadioForm().radius, 8);
+    assert.equal(api.getRadioForm().radialCount, 360);
+    assert.equal(api.getRadioForm().isOptical, undefined);
+    api.setRadioForm({ ...form, radius: 5, radialCount: 7 });
+    assert.equal(api.getRadioForm().radius, 8);
+}); 

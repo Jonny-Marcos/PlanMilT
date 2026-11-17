@@ -250,6 +250,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         preferences?.recordUse('manualRadioPreset', formValues.presetId);
                         preferences?.recordUse('manualResolution', formValues.radialCount);
                         preferences?.recordUse('manualAntennaHeight', formValues.txHeight);
+                        preferences?.setRadioForm(formValues);
                         rfParams = formValues;
                         rfModeActive = true;
                         this.style.color = '#007bff';
