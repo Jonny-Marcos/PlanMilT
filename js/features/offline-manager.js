@@ -22,6 +22,7 @@
         }
     };
     let selectingArea = false;
+    let workerRegistrationPromise;
 
     /**
      * Normaliza limites geográficos e impede áreas que cruzam o antimeridiano.
@@ -272,25 +273,33 @@
         if (!('serviceWorker' in navigator) || !('caches' in window)) {
             throw new Error('Este navegador ou contexto não oferece suporte a pacotes offline.');
         }
-        const registration = await navigator.serviceWorker.register('offline-worker.js', { scope: './' });
-        const worker = registration.active || registration.waiting || registration.installing;
-        if (worker && worker.state !== 'activated') {
-            await new Promise((resolve, reject) => {
-                const onStateChange = () => {
-                    if (worker.state === 'activated') {
-                        worker.removeEventListener('statechange', onStateChange);
-                        resolve();
-                    } else if (worker.state === 'redundant') {
-                        worker.removeEventListener('statechange', onStateChange);
-                        reject(new Error('O serviço offline não pôde ser instalado.'));
-                    }
-                };
-                worker.addEventListener('statechange', onStateChange);
-                onStateChange();
+        if (!workerRegistrationPromise) {
+            workerRegistrationPromise = (async () => {
+                const registration = await navigator.serviceWorker.register('offline-worker.js', { scope: './' });
+                const worker = registration.active || registration.waiting || registration.installing;
+                if (worker && worker.state !== 'activated') {
+                    await new Promise((resolve, reject) => {
+                        const onStateChange = () => {
+                            if (worker.state === 'activated') {
+                                worker.removeEventListener('statechange', onStateChange);
+                                resolve();
+                            } else if (worker.state === 'redundant') {
+                                worker.removeEventListener('statechange', onStateChange);
+                                reject(new Error('O serviço offline não pôde ser instalado.'));
+                            }
+                        };
+                        worker.addEventListener('statechange', onStateChange);
+                        onStateChange();
+                    });
+                }
+                if (!registration.active) throw new Error('O serviço offline não está ativo.');
+                return registration;
+            })();
+            workerRegistrationPromise.catch(() => {
+                workerRegistrationPromise = undefined;
             });
         }
-        if (!registration.active) throw new Error('O serviço offline não está ativo.');
-        return registration;
+        return workerRegistrationPromise;
     }
 
     /**
@@ -655,6 +664,7 @@
     }
 
     window.PlanMilT.offlineManager = Object.freeze({
+        start: registerWorker,
         attach,
         normalizeBounds,
         getTileRange,
@@ -663,5 +673,9 @@
         buildWmsUrls,
         getSrtmTileNames,
         isSelectingArea: () => selectingArea
+    });
+
+    window.PlanMilT.offlineManager.start().catch(error => {
+        console.warn('[PlanMilT][Offline] Preparação automática indisponível.', error);
     });
 })();

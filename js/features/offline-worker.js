@@ -1,8 +1,16 @@
 /**
  * @fileoverview Mantém o shell da aplicação e os pacotes de tiles disponíveis sem rede.
  */
-const APP_CACHE = 'planmilt-app-shell-v1';
+const APP_CACHE = 'planmilt-app-shell-v2';
+const APP_CACHE_PREFIX = 'planmilt-app-shell-';
 const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
+const SHELL_DOCUMENTS = [
+    './index.html',
+    './visualizador-3d.html',
+    './criador-tema.html',
+    './manifest.webmanifest',
+    './favicon.ico'
+];
 
 /**
  * Armazena uma resposta HTTP válida no cache indicado.
@@ -13,7 +21,7 @@ const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
 async function cacheRequest(cache, requestUrl) {
     const url = new URL(requestUrl, self.location.href);
     const response = await fetch(new Request(url, {
-        credentials: 'omit',
+        credentials: url.origin === self.location.origin ? 'same-origin' : 'omit',
         mode: url.origin === self.location.origin ? 'same-origin' : 'no-cors',
         redirect: 'follow'
     }));
@@ -25,26 +33,68 @@ async function cacheRequest(cache, requestUrl) {
 }
 
 /**
- * Prepara os arquivos declarados diretamente pelo documento principal.
+ * Extrai recursos locais declarados em HTML ou CSS.
+ * @param {string} content - Conteúdo do documento.
+ * @param {string} baseUrl - URL usada para resolver caminhos relativos.
+ * @param {boolean} styles - Se o conteúdo deve ser interpretado como CSS.
+ * @returns {Array<string>} URLs locais encontradas.
+ */
+function getLocalAssetUrls(content, baseUrl, styles = false) {
+    const expression = styles
+        ? /url\(\s*["']?([^"')#]+)["']?\s*\)/gi
+        : /(?:src|href)=["']([^"'#]+)["']/gi;
+    return [...content.matchAll(expression)]
+        .map(match => new URL(match[1], baseUrl))
+        .filter(url => url.origin === self.location.origin
+            && !/^data:|^blob:/i.test(url.protocol)
+            && !/\/php\/endpoints\//.test(url.pathname))
+        .map(url => url.href);
+}
+
+/**
+ * Prepara os documentos e os recursos estáticos necessários para abrir o PlanMilT offline.
  * @returns {Promise<void>} Conclusão da preparação.
  */
 async function cacheApplicationShell() {
     const cache = await caches.open(APP_CACHE);
-    const indexResponse = await fetch('./index.html', { cache: 'no-cache' });
-    if (!indexResponse.ok) {
-        throw new Error(`Não foi possível carregar o shell (HTTP ${indexResponse.status}).`);
+    const documentAssets = new Set();
+
+    for (const documentUrl of SHELL_DOCUMENTS) {
+        const url = new URL(documentUrl, self.location.href);
+        const response = await fetch(new Request(url, { cache: 'no-cache', credentials: 'same-origin' }));
+        if (!response.ok) {
+            if (documentUrl === './index.html') {
+                throw new Error(`Não foi possível carregar o shell (HTTP ${response.status}).`);
+            }
+            continue;
+        }
+        const body = await response.clone().text();
+        if (/\.html$/i.test(url.pathname)) {
+            getLocalAssetUrls(body, url.href).forEach(asset => documentAssets.add(asset));
+        }
+        if (documentUrl === './index.html') {
+            const rootResponse = response.clone();
+            await cache.put(url.href, response);
+            await cache.put(new URL('./', self.location.href).href, rootResponse);
+        } else {
+            await cache.put(url.href, response);
+        }
     }
-    const indexText = await indexResponse.clone().text();
-    const rootResponse = indexResponse.clone();
-    await cache.put('./index.html', indexResponse);
-    await cache.put('./', rootResponse);
 
-    const assetUrls = [...indexText.matchAll(/(?:src|href)=["']([^"'#]+)["']/g)]
-        .map(match => new URL(match[1], self.location.href))
-        .filter(url => url.origin === self.location.origin && url.pathname !== self.location.pathname)
-        .map(url => url.href);
+    const stylesheetAssets = new Set();
+    await Promise.allSettled([...documentAssets].map(async assetUrl => {
+        if (!assetUrl.endsWith('.css')) {
+            await cacheRequest(cache, assetUrl);
+            return;
+        }
+        const response = await fetch(new Request(assetUrl, { credentials: 'same-origin' }));
+        if (!response.ok) return;
+        const css = await response.clone().text();
+        getLocalAssetUrls(css, assetUrl, true).forEach(asset => stylesheetAssets.add(asset));
+        await cache.put(assetUrl, response);
+    }));
 
-    await Promise.allSettled(assetUrls.map(url => cacheRequest(cache, url)));
+    await Promise.allSettled([...stylesheetAssets].map(url => cacheRequest(cache, url)));
 }
 
 /**
@@ -107,7 +157,13 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil((async () => {
+        const names = await caches.keys();
+        await Promise.all(names
+            .filter(name => name.startsWith(APP_CACHE_PREFIX) && name !== APP_CACHE)
+            .map(name => caches.delete(name)));
+        await self.clients.claim();
+    })());
 });
 
 self.addEventListener('message', event => {

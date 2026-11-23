@@ -12,17 +12,38 @@ const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const htaccess = fs.readFileSync(path.join(root, '.htaccess'), 'utf8');
 const mapTools = fs.readFileSync(path.join(root, 'js/features/map-tools.js'), 'utf8');
 
-function loadManager() {
+function loadManager(options = {}) {
     const context = {
-        window: { PlanMilT: {} },
+        window: { PlanMilT: {}, caches: options.caches },
         location: { pathname: '/planmilt/' },
         localStorage: { getItem() { return null; }, setItem() {} },
-        navigator: {},
-        console
+        navigator: options.navigator || {},
+        console: { error() {}, info() {}, warn() {}, log() {} }
     };
     vm.runInNewContext(source, context);
     return context.window.PlanMilT.offlineManager;
 }
+
+test('offline worker registration starts automatically and is reused', async () => {
+    let registrations = 0;
+    const worker = { state: 'activated', addEventListener() {}, removeEventListener() {} };
+    const registration = { active: worker, waiting: null, installing: null };
+    const manager = loadManager({
+        caches: {},
+        navigator: {
+            serviceWorker: {
+                async register() {
+                    registrations++;
+                    return registration;
+                }
+            }
+        }
+    });
+
+    assert.equal(await manager.start(), registration);
+    assert.equal(await manager.start(), registration);
+    assert.equal(registrations, 1);
+});
 
 test('offline packages calculate XYZ URLs without duplicate tiles', () => {
     const manager = loadManager();
@@ -101,4 +122,15 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(worker, /tile\\\.opentopomap\\\.org/);
     assert.match(worker, /bdgex\\\.eb\\\.mil\\\.br/);
     assert.match(worker, /CACHE_PACKAGE/);
+    assert.match(source, /offlineManager\.start\(\)\.catch/);
+    assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
+});
+
+test('application shell includes the integrated viewer for offline navigation', () => {
+    assert.match(worker, /visualizador-3d\.html/);
+    assert.match(worker, /criador-tema\.html/);
+    assert.match(worker, /manifest\.webmanifest/);
+    assert.match(worker, /APP_CACHE_PREFIX/);
+    assert.match(worker, /self\.clients\.claim\(\)/);
+    assert.match(worker, /getLocalAssetUrls\(css/);
 });

@@ -1,0 +1,12 @@
+{
+    "name": "PlanMilT",
+    "short_name": "PlanMilT",
+    "description": "Planejamento tático em mapa interativo.",
+    "lang": "pt-BR",
+    "id": "./",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#435f88"
+}
