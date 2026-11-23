@@ -76,7 +76,10 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
             return `https://bdgex.eb.mil.br/tile/${coords.z}/${coords.x}/${coords.y}`;
         }
     };
-    const leaflet = { latLng: (lat, lng) => ({ lat, lng }) };
+    const leaflet = {
+        latLng: (lat, lng) => ({ lat, lng }),
+        point: (x, y) => ({ x, y, scaleBy(factor) { return this; } })
+    };
     const urls = manager.buildWmsUrls(
         layer,
         { south: -1, west: 0, north: 1, east: 1 },

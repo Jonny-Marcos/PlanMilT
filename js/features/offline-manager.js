@@ -159,7 +159,9 @@
             const maxY = Math.floor(southeast.y / tileSize);
             for (let x = minX; x <= maxX; x++) {
                 for (let y = minY; y <= maxY; y++) {
-                    urls.push(layer.getTileUrl({ x, y, z: zoom }));
+                    const tilePoint = leaflet.point(x, y);
+                    tilePoint.z = zoom;
+                    urls.push(layer.getTileUrl(tilePoint));
                 }
             }
         }
