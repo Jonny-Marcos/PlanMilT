@@ -65,9 +65,12 @@ test('mobile layer, translation, color and transparency controls stay compact', 
     assert.match(main, /class="toolbar-item layer-transparency-control">[\s\S]*?id="transparencySlider"/);
 });
 
-test('toolbar keeps a single desktop row and two fixed compact rows without stretching transparency', () => {
-    assert.match(styles, /#map \.map-toolbar\s*\{[^}]*width:\s*calc\(100vw - 20px\);[^}]*flex-wrap:\s*nowrap/s);
-    assert.match(styles, /#map \.map-toolbar \.layer-transparency-control\s*\{[^}]*flex:\s*0 1 200px;[^}]*min-width:\s*0/s);
+test('toolbar keeps a single compact desktop row and two fixed compact rows without stretching transparency', () => {
+    assert.match(styles, /#map \.map-toolbar\s*\{[^}]*width:\s*fit-content;[^}]*max-width:\s*calc\(100vw - 20px\);[^}]*flex-wrap:\s*nowrap/s);
+    assert.match(styles, /#map \.map-toolbar \.toolbar-item\s*\{[^}]*padding:\s*5px/s);
+    assert.match(styles, /#map \.map-toolbar \.layer-transparency-selection\s*\{[^}]*flex:\s*0 1 280px;[^}]*width:\s*280px/s);
+    assert.match(styles, /#map \.map-toolbar #layerSelector\s*\{[^}]*font-size:\s*14px/s);
+    assert.match(styles, /#map \.map-toolbar \.layer-transparency-control\s*\{[^}]*flex:\s*0 1 180px;[^}]*min-width:\s*0/s);
     const compact = styles.match(/@media \(max-width: 1200px\) \{[\s\S]*?\n            \}/);
     assert.ok(compact);
     assert.match(compact[0], /grid-template-columns:\s*max-content minmax\(0, 1fr\) minmax\(0, 1\.3fr\) max-content/);

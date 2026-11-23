@@ -204,10 +204,16 @@
             }
 
             #map .map-toolbar {
-                width: calc(100vw - 20px);
+                width: fit-content;
                 max-width: calc(100vw - 20px);
+                padding: 6px 8px;
                 box-sizing: border-box;
                 flex-wrap: nowrap;
+            }
+
+            #map .map-toolbar .toolbar-item {
+                margin: 0 2px;
+                padding: 5px;
             }
 
             #map .map-toolbar .color-picker-label {
@@ -223,13 +229,18 @@
             }
 
             #map .map-toolbar .layer-transparency-selection {
-                flex: 1 1 160px;
+                flex: 0 1 280px;
                 min-width: 0;
+                width: 280px;
             }
 
             #map .map-toolbar .layer-transparency-control {
-                flex: 0 1 200px;
+                flex: 0 1 180px;
                 min-width: 0;
+            }
+
+            #map .map-toolbar #layerSelector {
+                font-size: 14px;
             }
 
             #map .layer-transparency-control label {
