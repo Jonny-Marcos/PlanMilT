@@ -204,11 +204,15 @@
             }
 
             #map .map-toolbar {
+                position: relative;
+                left: 50vw;
                 width: fit-content;
                 max-width: calc(100vw - 20px);
+                margin-left: 0;
                 padding: 6px 8px;
                 box-sizing: border-box;
                 flex-wrap: nowrap;
+                transform: translateX(-50%);
             }
 
             #map .map-toolbar .toolbar-item {

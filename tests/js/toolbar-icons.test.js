@@ -66,7 +66,7 @@ test('mobile layer, translation, color and transparency controls stay compact', 
 });
 
 test('toolbar keeps a single compact desktop row and two fixed compact rows without stretching transparency', () => {
-    assert.match(styles, /#map \.map-toolbar\s*\{[^}]*width:\s*fit-content;[^}]*max-width:\s*calc\(100vw - 20px\);[^}]*flex-wrap:\s*nowrap/s);
+    assert.match(styles, /#map \.map-toolbar\s*\{[^}]*left:\s*50vw;[^}]*width:\s*fit-content;[^}]*max-width:\s*calc\(100vw - 20px\);[^}]*margin-left:\s*0;[^}]*flex-wrap:\s*nowrap;[^}]*transform:\s*translateX\(-50%\)/s);
     assert.match(styles, /#map \.map-toolbar \.toolbar-item\s*\{[^}]*padding:\s*5px/s);
     assert.match(styles, /#map \.map-toolbar \.layer-transparency-selection\s*\{[^}]*flex:\s*0 1 280px;[^}]*width:\s*280px/s);
     assert.match(styles, /#map \.map-toolbar #layerSelector\s*\{[^}]*font-size:\s*14px/s);
