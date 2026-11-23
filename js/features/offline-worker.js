@@ -123,12 +123,15 @@ async function cachePackage(port, data) {
         throw new Error('Manifesto de pacote offline inválido.');
     }
     const urls = [...new Set(data.urls)];
+    if (urls.length > 10000) {
+        throw new Error('O pacote excede o limite de 10.000 tiles.');
+    }
     if (urls.some(requestUrl => {
         const url = new URL(requestUrl);
         return url.protocol !== 'https:'
-            || !['tile.opentopomap.org', 'bdgex.eb.mil.br'].includes(url.hostname);
+            || Boolean(url.username || url.password);
     })) {
-        throw new Error('O pacote contém uma origem de tiles não autorizada.');
+        throw new Error('O pacote contém uma URL de tiles insegura ou com credenciais.');
     }
     const cache = await caches.open(data.cacheName);
     let completed = 0;
@@ -179,7 +182,7 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     if (request.method !== 'GET') return;
     const url = new URL(request.url);
-    if (url.origin !== self.location.origin && !/^https:\/\/(?:tile\.opentopomap\.org|bdgex\.eb\.mil\.br)\//i.test(url.href)) {
+    if (url.origin !== self.location.origin && url.protocol !== 'https:') {
         return;
     }
     if (url.origin === self.location.origin && /php\/endpoints\//.test(url.pathname)) {

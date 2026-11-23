@@ -21,6 +21,7 @@
             layerName: 'BDGEx - CTM50'
         }
     };
+    const MAX_TILE_URLS = 10000;
     let selectingArea = false;
     let workerRegistrationPromise;
 
@@ -148,7 +149,7 @@
      */
     function buildWmsUrls(layer, boundsInput, minZoom, maxZoom, leaflet) {
         const bounds = normalizeBounds(boundsInput);
-        const crs = layer._map?.options?.crs || leaflet.CRS.EPSG3857;
+        const crs = layer.options?.crs || layer._crs || layer._map?.options?.crs || leaflet.CRS.EPSG3857;
         const tileSize = Number(layer.options?.tileSize) || 256;
         const urls = [];
         for (let zoom = minZoom; zoom <= maxZoom; zoom++) {
@@ -163,10 +164,85 @@
                     const tilePoint = leaflet.point(x, y);
                     tilePoint.z = zoom;
                     urls.push(layer.getTileUrl(tilePoint));
+                    if (urls.length > MAX_TILE_URLS) return [...new Set(urls)];
                 }
             }
         }
         return [...new Set(urls)];
+    }
+
+    /**
+     * Lista as camadas de tiles oferecidas no controle do mapa e informa as que podem ser baixadas.
+     * @param {Object} layerRegistry - Registro de camadas por nome.
+     * @returns {Array<{name:string,layer:Object,supported:boolean,reason:string}>} Camadas identificadas.
+     */
+    function listTileLayers(layerRegistry) {
+        return Object.entries(layerRegistry)
+            .map(([name, layer]) => {
+                const sampleUrl = layer?._url || '';
+                let supported = Boolean(layer && typeof layer.getTileUrl === 'function');
+                let reason = supported ? '' : 'camada local; restaurada com a sessão do mapa';
+                if (supported && sampleUrl.startsWith('http://')) {
+                    supported = false;
+                    reason = 'serviço HTTP indisponível para pacote em HTTPS';
+                } else if (supported && (!sampleUrl || !/^(?:https?:\/\/|\{s\})/i.test(sampleUrl))) {
+                    try {
+                        const parsed = new URL(sampleUrl, location.href);
+                        supported = parsed.protocol === 'https:';
+                    } catch (error) {
+                        supported = false;
+                    }
+                    if (!supported) reason = 'formato de URL não compatível';
+                }
+                return { name, layer, supported, reason };
+            });
+    }
+
+    /**
+     * Gera as URLs necessárias para qualquer camada Leaflet de tiles registrada.
+     * @param {Object} layer - Camada de tiles Leaflet.
+     * @param {Object} bounds - Limites geográficos.
+     * @param {number} minZoom - Zoom mínimo.
+     * @param {number} maxZoom - Zoom máximo.
+     * @param {Object} leaflet - Namespace Leaflet.
+     * @returns {Array<string>} URLs únicas da camada.
+     */
+    function buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet) {
+        return buildWmsUrls(layer, bounds, minZoom, maxZoom, leaflet);
+    }
+
+    /**
+     * Calcula quantas URLs as camadas selecionadas ocuparão no pacote.
+     * @param {Object} bounds - Limites geográficos.
+     * @param {number} minZoom - Zoom mínimo.
+     * @param {number} maxZoom - Zoom máximo.
+     * @param {Array<string>} layerNames - Nomes das camadas selecionadas.
+     * @param {Object} layerRegistry - Registro de camadas por nome.
+     * @param {Object} leaflet - Namespace Leaflet.
+     * @returns {number} Quantidade total de tiles únicos por camada.
+     */
+    function estimateRegisteredLayerTileCount(bounds, minZoom, maxZoom, layerNames, layerRegistry, leaflet) {
+        return layerNames.reduce((total, name) => {
+            const layer = layerRegistry[name];
+            if (!layer || typeof layer.getTileUrl !== 'function') {
+                throw new Error(`A camada “${name}” não está disponível para download offline.`);
+            }
+            return total + buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet).length;
+        }, 0);
+    }
+
+    /**
+     * Escapa texto antes de inseri-lo no modal HTML.
+     * @param {*} value - Valor a tornar seguro.
+     * @returns {string} Texto escapado.
+     */
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     /**
@@ -206,7 +282,7 @@
             if (!item || !/^\d+-[a-z0-9]+$/i.test(item.id)
                 || item.cacheName !== `${PACKAGE_PREFIX}${item.id}`
                 || !Array.isArray(item.sources)
-                || item.sources.some(source => !PROVIDERS[source])
+                || item.sources.some(source => typeof source !== 'string' || !source)
                 || !Number.isInteger(item.minZoom) || !Number.isInteger(item.maxZoom)
                 || item.minZoom < 0 || item.maxZoom > 18 || item.minZoom > item.maxZoom
                 || !Number.isFinite(item.tileCount) || item.tileCount < 0) {
@@ -346,12 +422,14 @@
                     throw new Error('Escolha níveis de zoom entre 0 e 18, em ordem crescente.');
                 }
                 const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
-                    .map(input => input.value);
+                    .map(input => decodeURIComponent(input.value));
                 const includeElevation = document.getElementById('offlineElevation')?.checked;
                 if (sources.length === 0 && !includeElevation) {
                     throw new Error('Selecione uma camada-base ou a elevação SRTM.');
                 }
-                const count = estimateTileCount(selectedBounds, minZoom, maxZoom, sources);
+                const count = estimateRegisteredLayerTileCount(
+                    selectedBounds, minZoom, maxZoom, sources, layerRegistry, leaflet
+                );
                 const srtm = includeElevation ? getSrtmTileNames(selectedBounds).length : 0;
                 const estimateMiB = count > 0 ? Math.max(1, Math.ceil(count * 22 / 1024)) : 0;
                 estimate.textContent = `${count.toLocaleString('pt-BR')} tiles (~${estimateMiB} MiB) e ${srtm} tile(s) SRTM.`;
@@ -400,12 +478,14 @@
             const minZoom = Number(document.getElementById('offlineMinZoom').value);
             const maxZoom = Number(document.getElementById('offlineMaxZoom').value);
             const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
-                .map(input => input.value);
+                .map(input => decodeURIComponent(input.value));
             const includeElevation = document.getElementById('offlineElevation').checked;
             if (sources.length === 0 && !includeElevation) {
                 throw new Error('Selecione uma camada-base ou a elevação SRTM.');
             }
-            const tileCount = estimateTileCount(selectedBounds, minZoom, maxZoom, sources);
+            const tileCount = estimateRegisteredLayerTileCount(
+                selectedBounds, minZoom, maxZoom, sources, layerRegistry, leaflet
+            );
             const srtmTiles = includeElevation ? getSrtmTileNames(selectedBounds) : [];
             if (tileCount > MAX_MAP_TILES || srtmTiles.length > 32) {
                 throw new Error('A seleção excede os limites de segurança do pacote offline.');
@@ -425,16 +505,9 @@
             const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             const cacheName = `${PACKAGE_PREFIX}${id}`;
             const urls = [];
-            if (sources.includes('opentopo')) {
-                urls.push(...buildOpenTopoUrls(selectedBounds, minZoom, maxZoom));
-            }
-            if (sources.includes('bdgex')) {
-                urls.push(...buildWmsUrls(
-                    layerRegistry[PROVIDERS.bdgex.layerName],
-                    selectedBounds,
-                    minZoom,
-                    maxZoom,
-                    leaflet
+            for (const source of sources) {
+                urls.push(...buildTileLayerUrls(
+                    layerRegistry[source], selectedBounds, minZoom, maxZoom, leaflet
                 ));
             }
 
@@ -563,13 +636,23 @@
         async function openManager() {
             const packages = loadPackages();
             const currentZoom = Math.max(0, Math.min(18, Math.round(map.getZoom())));
+            const tileLayers = listTileLayers(layerRegistry);
+            const tileSources = tileLayers.map(item => `
+                <label title="${escapeHtml(item.reason)}">
+                    <input type="checkbox" name="offlineSource" value="${encodeURIComponent(item.name)}"
+                        ${item.supported && map.hasLayer(item.layer) ? 'checked' : ''}
+                        ${item.supported ? '' : 'disabled'}>
+                    ${escapeHtml(item.name)}
+                    ${item.supported ? '' : ` <small>(${escapeHtml(item.reason)})</small>`}
+                </label>
+            `).join('');
             const list = packages.length
                 ? packages.map(item => {
                     const labels = [
-                        ...item.sources.map(source => PROVIDERS[source].label),
+                        ...item.sources.map(source => PROVIDERS[source]?.label || source),
                         ...(Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM'] : [])
-                    ].join(', ') || 'Pacote';
-                    return `<li><div><strong>${labels}</strong><span>${formatBounds(item.bounds)}</span>`
+                    ].map(escapeHtml).join(', ') || 'Pacote';
+                    return `<li><div><strong>${labels}</strong><span>${escapeHtml(formatBounds(item.bounds))}</span>`
                         + `<span>Zoom ${item.minZoom}–${item.maxZoom} · ${item.tileCount} tiles`
                         + (item.failedTileCount ? ` · ${item.failedTileCount} pendentes` : '')
                         + `</span></div>`
@@ -610,8 +693,7 @@
                         <section class="offline-box">
                             <h3>Conteúdo do pacote</h3>
                             <div class="offline-sources">
-                                <label><input type="checkbox" name="offlineSource" value="opentopo" checked> OpenTopoMap</label>
-                                <label><input type="checkbox" name="offlineSource" value="bdgex"> BDGEx - CTM50</label>
+                                ${tileSources || '<span>Nenhuma camada de tiles está disponível.</span>'}
                                 <label><input type="checkbox" id="offlineElevation"> Elevação SRTM local</label>
                             </div>
                             <div class="offline-zoom">
@@ -671,6 +753,9 @@
         estimateTileCount,
         buildOpenTopoUrls,
         buildWmsUrls,
+        buildTileLayerUrls,
+        listTileLayers,
+        estimateRegisteredLayerTileCount,
         getSrtmTileNames,
         isSelectingArea: () => selectingArea
     });

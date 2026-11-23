@@ -113,14 +113,33 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
     assert.ok(calls.some(coords => coords.x === 3));
 });
 
+test('offline selector includes every registered layer and supports Google Satellite', () => {
+    const manager = loadManager();
+    const google = { _url: 'https://mt0.google.com/vt/{z}/{x}/{y}', getTileUrl() {} };
+    const local = {};
+    const layers = manager.listTileLayers({
+        'Google Satellite': google,
+        'Quadrículas - UTM': local,
+        'Camada WMS': { _url: 'https://example.test/wms', getTileUrl() {} }
+    });
+
+    assert.deepEqual(Array.from(layers, item => item.name), [
+        'Google Satellite', 'Quadrículas - UTM', 'Camada WMS'
+    ]);
+    assert.equal(layers[0].supported, true);
+    assert.equal(layers[1].supported, false);
+    assert.match(layers[1].reason, /local/);
+    assert.equal(layers[2].supported, true);
+});
+
 test('offline manager is wired through the rewritten root service worker', () => {
     assert.match(main, /id="offlineManagerButton"[^>]*title="Gerenciar pacotes offline"/);
     assert.match(main, /globalThis\.PlanMilT\?\.offlineManager\?\.isSelectingArea\(\)/);
     assert.match(mapTools, /offlineManager\?\.attach/);
     assert.match(index, /js\/features\/offline-manager\.js/);
     assert.match(htaccess, /offline-worker\\\.js\$\s+js\/features\/offline-worker\.js/);
-    assert.match(worker, /tile\\\.opentopomap\\\.org/);
-    assert.match(worker, /bdgex\\\.eb\\\.mil\\\.br/);
+    assert.match(worker, /url\.protocol !== 'https:'/);
+    assert.match(worker, /url\.username \|\| url\.password/);
     assert.match(worker, /CACHE_PACKAGE/);
     assert.match(source, /offlineManager\.start\(\)\.catch/);
     assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
