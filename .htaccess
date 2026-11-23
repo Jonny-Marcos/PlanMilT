@@ -16,6 +16,7 @@ RewriteRule ^proxy\.php$ php/endpoints/proxy.php [END,NC]
 RewriteRule ^symbols/icons\.php$ php/endpoints/icons.php [END,NC]
 RewriteRule ^admin\.php$ php/endpoints/admin.php [END,NC]
 RewriteRule ^map-settings\.php$ php/endpoints/map-settings.php [END,NC]
+RewriteRule ^offline-worker\.js$ js/features/offline-worker.js [END,NC]
 
 <FilesMatch "(?i)^(?:\..*|.*\.(?:db|sqlite|sqlite3|log)|bootstrap\.php)$">
     Require all denied

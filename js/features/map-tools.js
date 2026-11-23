@@ -27,6 +27,15 @@
                 apiClient: window.PlanMilT.apiClient
             });
 
+            window.PlanMilT.offlineManager?.attach({
+                map,
+                leaflet: L,
+                layerRegistry,
+                button: document.getElementById('offlineManagerButton'),
+                sweetAlert: Swal,
+                apiClient: window.PlanMilT.apiClient
+            });
+
 
 
 

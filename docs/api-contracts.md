@@ -31,6 +31,14 @@ O campo `leaflet` dos desenhos continua sendo JSON opaco para o backend. Novas c
 
 O visualizador 3D não usa mais o proxy de imagens; o navegador consulta OpenTopoMap e BDGEx diretamente, sujeito a CORS. O endpoint permanece disponível para compatibilidade.
 
+## Armazenamento dos pacotes offline
+
+O gerenciador usa `navigator.serviceWorker.register('offline-worker.js', { scope: './' })`. A URL lógica `offline-worker.js` é reescrita pelo `.htaccess` da instalação para `js/features/offline-worker.js`, sem alterar sua origem ou escopo.
+
+Os manifestos de pacote são registros locais no `localStorage`, incluindo id, limites geográficos, fontes, zoom, contagens e data; os limites geográficos devem receber a mesma proteção do perfil do navegador. Cada pacote usa um cache `planmilt-offline-package-v1:<id>`; o worker aceita somente URLs HTTPS de `tile.opentopomap.org` e `bdgex.eb.mil.br`, baixa em concorrência limitada e responde aos tiles armazenados antes de consultar a rede. O shell estático diretamente referenciado por `index.html` usa o cache separado `planmilt-app-shell-v1`.
+
+O componente não cria um endpoint novo. A opção SRTM chama sequencialmente o contrato existente `php/endpoints/elevation-download.php` para cada nome HGT, com o limite de 32 tiles por pacote. Os tiles HGT permanecem no servidor em `SRTM3/` e não são copiados para o Cache Storage.
+
 ### Aliases de compatibilidade
 
 Os caminhos antigos continuam sendo encaminhados para os endpoints canônicos:
