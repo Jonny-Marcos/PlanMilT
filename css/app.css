@@ -61,18 +61,23 @@
                 color: #007bff;
             }
             .offline-status {
+                position: fixed;
+                z-index: 10001;
+                top: 10px;
+                left: 50%;
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
-                margin: 0 6px;
-                padding: 5px 8px;
+                padding: 7px 12px;
                 border: 1px solid #a96916;
                 border-radius: 6px;
                 background: #fff4d6;
                 color: #70420a;
+                box-shadow: 0 2px 8px rgba(38, 26, 8, .2);
                 font-size: 13px;
                 font-weight: 600;
                 white-space: nowrap;
+                transform: translateX(-50%);
             }
             .offline-status[hidden] {
                 display: none;

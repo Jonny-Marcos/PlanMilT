@@ -10,6 +10,7 @@
     const STORAGE_KEY = `planmilt.offline-packages.v1:${location.pathname}`;
     const MAX_MAP_TILES = 10000;
     const CONFIRM_TILE_COUNT = 256;
+    const OFFLINE_ZOOM_LEVELS = [8, 10, 12, 14, 15];
     const SENTINEL_LAYER_NAME = 'Sentinel-2 Cloudless 2024 (EOX)';
     const PROVIDERS = {
         opentopo: {
@@ -478,6 +479,19 @@
     }
 
     /**
+     * Remove do mapa uma camada ativada enquanto seus tiles não estão disponíveis offline.
+     * @param {Object} event - Evento overlayadd do Leaflet.
+     * @param {Object} dependencies - Estado atual de conectividade e registro.
+     */
+    function guardOfflineLayerAddition(event, { map, layerRegistry, isOnline, availableSources }) {
+        if (isOnline) return;
+        const entry = Object.entries(layerRegistry).find(([, layer]) => layer === event.layer);
+        if (!entry || !event.layer || typeof event.layer.getTileUrl !== 'function') return;
+        const [name] = entry;
+        if (!availableSources.has(name)) map.removeLayer(event.layer);
+    }
+
+    /**
      * Envia o download ao Service Worker e acompanha seu progresso.
      * @param {ServiceWorkerRegistration} registration - Registro ativo.
      * @param {string} cacheName - Nome do cache do pacote.
@@ -579,6 +593,7 @@
         };
         let selectedBounds = normalizeBounds(map.getBounds());
         let sentinelRegistered = false;
+        let currentAvailableSources = new Set();
 
         /**
          * Sincroniza as opções do mapa com os pacotes ainda presentes no Cache Storage.
@@ -596,6 +611,7 @@
                     console.error('[PlanMilT][Offline] Não foi possível verificar os pacotes locais.', error);
                 }
             }
+            currentAvailableSources = availableSources;
             if (!isOnline && availableSources.has(SENTINEL_LAYER_NAME) && !sentinelRegistered) {
                 registerOverlayLayer(SENTINEL_LAYER_NAME, packageLayerRegistry[SENTINEL_LAYER_NAME], false);
                 sentinelRegistered = true;
@@ -605,6 +621,22 @@
             }
             updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources });
         }
+
+        map.on('overlayadd', event => {
+            guardOfflineLayerAddition(event, {
+                map,
+                layerRegistry,
+                isOnline: navigator.onLine !== false,
+                availableSources: currentAvailableSources
+            });
+            updateLayerAvailability({
+                map,
+                layerRegistry,
+                layerControl,
+                isOnline: navigator.onLine !== false,
+                availableSources: currentAvailableSources
+            });
+        });
 
         /**
          * Apresenta um erro do fluxo sem ocultar detalhes técnicos do console.
@@ -627,9 +659,9 @@
             try {
                 const minZoom = Number(minInput.value);
                 const maxZoom = Number(maxInput.value);
-                if (!Number.isInteger(minZoom) || !Number.isInteger(maxZoom)
-                    || minZoom < 0 || maxZoom > 18 || minZoom > maxZoom) {
-                    throw new Error('Escolha níveis de zoom entre 0 e 18, em ordem crescente.');
+                if (!OFFLINE_ZOOM_LEVELS.includes(minZoom) || !OFFLINE_ZOOM_LEVELS.includes(maxZoom)
+                    || minZoom > maxZoom) {
+                    throw new Error('Escolha níveis de zoom entre 8 e 15 nas opções disponíveis, em ordem crescente.');
                 }
                 const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
                     .map(input => decodeURIComponent(input.value));
@@ -693,6 +725,10 @@
             }
             const minZoom = Number(document.getElementById('offlineMinZoom').value);
             const maxZoom = Number(document.getElementById('offlineMaxZoom').value);
+            if (!OFFLINE_ZOOM_LEVELS.includes(minZoom) || !OFFLINE_ZOOM_LEVELS.includes(maxZoom)
+                || minZoom > maxZoom) {
+                throw new Error('Selecione níveis de zoom válidos entre 8 e 15.');
+            }
             const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
                 .map(input => decodeURIComponent(input.value));
             const includeElevation = document.getElementById('offlineElevation').checked;
@@ -852,7 +888,10 @@
          */
         async function openManager() {
             const packages = loadPackages();
-            const currentZoom = Math.max(0, Math.min(18, Math.round(map.getZoom())));
+            const currentZoom = Math.max(8, Math.min(15, Math.round(map.getZoom())));
+            const closestZoom = OFFLINE_ZOOM_LEVELS.reduce((closest, level) =>
+                Math.abs(level - currentZoom) < Math.abs(closest - currentZoom) ? level : closest,
+            OFFLINE_ZOOM_LEVELS[0]);
             const tileLayers = listTileLayers(packageLayerRegistry);
             const tileSources = tileLayers.map(item => `
                 <label title="${escapeHtml(item.reason)}">
@@ -889,7 +928,7 @@
                         #offlineManager button{border:1px solid #9aa8b8;border-radius:6px;background:#f5f7fa;padding:8px 12px;cursor:pointer}
                         #offlineManager button.primary{background:#435f88;color:#fff;border-color:#435f88}
                         #offlineManager button:disabled{opacity:.55;cursor:not-allowed}
-                        #offlineManager input[type=number]{width:70px;border:1px solid #c5cad2;border-radius:5px;padding:6px}
+                        #offlineManager select{width:76px;border:1px solid #c5cad2;border-radius:5px;padding:6px;background:#fff}
                         #offlineManager ul{list-style:none;margin:8px 0 0;padding:0;max-height:180px;overflow:auto}
                         #offlineManager li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #e1e5eb}
                         #offlineManager li>div{display:grid;gap:2px}
@@ -915,8 +954,16 @@
                             </div>
                             <small>A camada Google Satellite não permite o download ou armazenamento local das imagens.</small>
                             <div class="offline-zoom">
-                                <label>Zoom mínimo <input id="offlineMinZoom" type="number" min="0" max="18" value="${Math.max(0, currentZoom - 1)}"></label>
-                                <label>Zoom máximo <input id="offlineMaxZoom" type="number" min="0" max="18" value="${currentZoom}"></label>
+                                <label>Zoom mínimo
+                                    <select id="offlineMinZoom">
+                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === OFFLINE_ZOOM_LEVELS[0] ? 'selected' : ''}>${level}</option>`).join('')}
+                                    </select>
+                                </label>
+                                <label>Zoom máximo
+                                    <select id="offlineMaxZoom">
+                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === closestZoom ? 'selected' : ''}>${level}</option>`).join('')}
+                                    </select>
+                                </label>
                             </div>
                             <div id="offlineEstimate"></div>
                             <button id="offlineDownload" class="primary" type="button">Baixar pacote</button>
@@ -980,9 +1027,11 @@
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
         getCachedPackageSources,
+        guardOfflineLayerAddition,
         updateLayerAvailability,
         updateConnectionState,
         attachConnectionState,
+        offlineZoomLevels: Object.freeze([...OFFLINE_ZOOM_LEVELS]),
         isSelectingArea: () => selectingArea
     });
 

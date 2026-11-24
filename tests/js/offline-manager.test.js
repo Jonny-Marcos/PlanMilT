@@ -195,9 +195,37 @@ test('offline availability disables network layers without a cached package', ()
     assert.equal(inputs[1].disabled, false);
 });
 
+test('offline manager exposes only five standardized zoom levels', () => {
+    const manager = loadManager();
+    assert.deepEqual(Array.from(manager.offlineZoomLevels), [8, 10, 12, 14, 15]);
+    assert.match(source, /OFFLINE_ZOOM_LEVELS\.map/);
+});
+
+test('offline layer guard removes a layer that has no local package', () => {
+    const manager = loadManager();
+    const unavailable = { getTileUrl() {} };
+    const available = { getTileUrl() {} };
+    let removed;
+    const map = { removeLayer(layer) { removed = layer; } };
+    const registry = { WMS: unavailable, Sentinel: available };
+
+    manager.guardOfflineLayerAddition({ layer: unavailable }, {
+        map, layerRegistry: registry, isOnline: false, availableSources: new Set(['Sentinel'])
+    });
+    assert.equal(removed, unavailable);
+
+    removed = undefined;
+    manager.guardOfflineLayerAddition({ layer: available }, {
+        map, layerRegistry: registry, isOnline: false, availableSources: new Set(['Sentinel'])
+    });
+    assert.equal(removed, undefined);
+});
+
 test('offline manager explains why Google Satellite cannot be downloaded', () => {
     assert.match(source, /Google Satellite não permite o download ou armazenamento local/);
     assert.match(fs.readFileSync(path.join(root, 'js/features/local-session.js'), 'utf8'), /offlinePackageOnly/);
+    assert.match(index, /<div id="offlineStatus" class="offline-status"/);
+    assert.doesNotMatch(main, /id="offlineStatus"/);
 });
 
 test('offline connectivity state marks the interface and disables network actions', () => {

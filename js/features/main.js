@@ -33,10 +33,6 @@
 <i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>
 <i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
 <i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
-<span id="offlineStatus" class="offline-status" role="status" aria-live="polite" aria-hidden="true" hidden>
-    <i class="fas fa-wifi" aria-hidden="true"></i>
-    Modo offline
-</span>
 <button id="offlineManagerButton" class="view-3d-button" type="button" title="Gerenciar pacotes offline" aria-label="Gerenciar pacotes offline"><i class="fas fa-map-marked-alt" aria-hidden="true"></i></button>
 <button id="view3DButton" class="view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização" aria-label="Abrir visualizador 3D"><i class="fas fa-cube" aria-hidden="true"></i></button>
 <button id="suggestionsButton" class="view-3d-button" type="button" title="Sugestões para o desenvolvimento" aria-label="Sugestões para o desenvolvimento"><i class="fas fa-comment-dots" aria-hidden="true"></i></button>
