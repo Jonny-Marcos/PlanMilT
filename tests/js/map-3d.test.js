@@ -377,10 +377,14 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     assert.deepEqual(matrix, initial);
 });
 
-test('mobile layout keeps the compact control toggle and attribution accessible', () => {
-    assert.match(viewerHtml, /@media \(max-width: 600px\), \(hover: none\) and \(pointer: coarse\)[\s\S]*?\.viewer-title\s*\{\s*display:\s*none/);
-    assert.match(viewerHtml, /\.viewer-controls\s*\{\s*width:\s*min\(164px,\s*calc\(100vw - 16px\)\)/);
+test('3D controls use a bottom-centered light toolbar on desktop and mobile', () => {
+    assert.match(viewerHtml, /\.viewer-header\s*\{[^}]*left:\s*50%;\s*bottom:\s*16px;[\s\S]*?transform:\s*translateX\(-50%\)/);
+    assert.match(viewerHtml, /\.viewer-controls\s*\{[^}]*background:\s*#f8f9fa;[^}]*pointer-events:\s*auto/);
+    assert.match(viewerHtml, /\.viewer-messages\s*\{[^}]*top:\s*16px/);
+    assert.match(viewerHtml, /@media \(max-width: 600px\), \(hover: none\) and \(pointer: coarse\)[\s\S]*?\.viewer-header\s*\{\s*bottom:\s*8px/);
+    assert.match(viewerHtml, /#toggleViewerControls\s*\{\s*display:\s*block;\s*flex:\s*1 0 100%/);
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
     assert.match(viewerHtml, /id="viewerControlFields"[\s\S]*id="closeViewer"[\s\S]*<\/div>\s*<p id="viewerAttribution"/);
+    assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
     assert.match(viewerHtml, /map-3d-viewer\.js/);
 });
