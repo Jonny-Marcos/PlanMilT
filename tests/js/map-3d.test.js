@@ -18,10 +18,14 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     const viewer = { postMessage(message, origin) { messages.push({ message, origin }); } };
     const button = { addEventListener(name, callback) { click = callback; }, focus() { this.focused = true; } };
     const overlay = { hidden: true };
+    let frameSource = '';
     const frame = {
         contentWindow: viewer,
-        src: '',
-        getAttribute(name) { return name === 'src' ? this.src : null; },
+        contentDocument: null,
+        navigationCount: 0,
+        get src() { return frameSource; },
+        set src(value) { frameSource = value; this.navigationCount++; },
+        getAttribute(name) { return name === 'src' ? frameSource : null; },
         focus() { this.focused = true; }
     };
     const classes = new Set();
@@ -82,7 +86,19 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     return {
         context, viewer, requests, messages, textures, overlay, frame, button, classes, downloads,
         click: () => click(),
-        message(event) { listeners.get('message')(event); }
+        message(event) {
+            if (event.data?.type === 'planmilt-3d-ready' && !frame.contentDocument) {
+                this.setViewerLayout('bottom-toolbar-v1');
+            }
+            listeners.get('message')(event);
+        },
+        setViewerLayout(layout) {
+            frame.contentDocument = {
+                documentElement: {
+                    getAttribute(name) { return name === 'data-planmilt-viewer-layout' ? layout : null; }
+                }
+            };
+        }
     };
 }
 
@@ -109,6 +125,25 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     h.click();
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 2);
+});
+
+test('reloads a retained iframe when its 3D layout is outdated', async () => {
+    const h = setup();
+    h.frame.src = 'visualizador-3d.html';
+    h.setViewerLayout('legacy');
+    const navigationsBeforeOpen = h.frame.navigationCount;
+
+    h.click();
+    assert.equal(h.frame.navigationCount, navigationsBeforeOpen + 1);
+    assert.equal(h.frame.src, 'visualizador-3d.html');
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(h.requests.length, 0);
+
+    h.setViewerLayout('bottom-toolbar-v1');
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(h.requests.length, 1);
 });
 
 test('passes drawings, radio coverage and suggestions but not base and utility layers to texture capture', async () => {

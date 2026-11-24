@@ -6,6 +6,7 @@
     const button = document.getElementById('view3DButton');
     const overlay = document.getElementById('map3DOverlay');
     const frame = document.getElementById('map3DFrame');
+    const viewerLayout = 'bottom-toolbar-v1';
     let viewerReady = false;
     let selectedSource = 'opentopo';
     let selectedZoom = null;
@@ -123,6 +124,7 @@
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin || event.source !== frame.contentWindow || !event.data) return;
+        if (frame.contentDocument?.documentElement?.getAttribute('data-planmilt-viewer-layout') !== viewerLayout) return;
         if (event.data.type === 'planmilt-3d-close' && !overlay.hidden) {
             sceneVersion++;
             if (activeCapture) activeCapture.abort();
@@ -150,7 +152,10 @@
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
         if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html';
-        else if (viewerReady) sendScene();
+        else if (frame.contentDocument?.documentElement?.getAttribute('data-planmilt-viewer-layout') !== viewerLayout) {
+            viewerReady = false;
+            frame.src = 'visualizador-3d.html';
+        } else if (viewerReady) sendScene();
         frame.focus();
     });
 })();
