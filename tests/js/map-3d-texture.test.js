@@ -11,6 +11,7 @@ function setup(fail = false, cacheOptions = {}) {
     const cachedUrls = [];
     const draws = [];
     const released = [];
+    const debugEvents = [];
     const canvas = {
         getContext: () => ({ fillRect() {}, drawImage(...args) { draws.push(args); } }),
         toDataURL: () => 'data:image/png;base64,terrain'
@@ -40,20 +41,28 @@ function setup(fail = false, cacheOptions = {}) {
                 cachedUrls.push(url);
                 if (cacheOptions.missing) return undefined;
                 return {
-                    ok: true,
+                    ok: cacheOptions.type !== 'opaque',
+                    status: cacheOptions.type === 'opaque' ? 0 : 200,
                     type: cacheOptions.type || 'cors',
                     async blob() { return {}; }
                 };
             } };
         }
     };
-    const window = { caches, location: { href: 'https://plan.test/', origin: 'https://plan.test' }, PlanMilT: { apiClient: { async request(endpoint, options) {
-        assert.equal(options.method, 'GET');
-        assert.equal(options.mode, 'cors');
-        assert.equal(options.credentials, 'omit');
-        urls.push(endpoint);
-        return { ok: !fail, status: 502, async blob() { return {}; } };
-    } } } };
+    const window = {
+        caches,
+        location: { href: 'https://plan.test/', origin: 'https://plan.test' },
+        PlanMilT: {
+            debugLogger: { log(event, details) { debugEvents.push({ event, details }); } },
+            apiClient: { async request(endpoint, options) {
+                assert.equal(options.method, 'GET');
+                assert.equal(options.mode, 'cors');
+                assert.equal(options.credentials, 'omit');
+                urls.push(endpoint);
+                return { ok: !fail, status: 502, async blob() { return {}; } };
+            } }
+        }
+    };
     vm.runInNewContext(source, {
         window, document: { createElement: () => canvas }, Image, URLSearchParams,
         URL: TestURL, DOMMatrixReadOnly: class {
@@ -65,7 +74,7 @@ function setup(fail = false, cacheOptions = {}) {
         },
         console: { error() {} }
     });
-    return { texture: window.PlanMilT.map3dTexture, map, canvas, urls, cachedUrls, draws, released, window };
+    return { texture: window.PlanMilT.map3dTexture, map, canvas, urls, cachedUrls, draws, released, debugEvents, window };
 }
 
 test('builds only OpenTopo tiles within the texture bounds', async () => {
@@ -95,6 +104,8 @@ test('composes readable cached package tiles offline without requesting the netw
     assert.ok(h.cachedUrls.length > 0);
     assert.equal(h.urls.length, 0);
     assert.equal(h.draws.length, h.cachedUrls.length);
+    assert.ok(h.debugEvents.some(event => event.event === 'map3dTexture.tiles-summary'
+        && event.details.tilesCompleted === h.cachedUrls.length));
 });
 
 test('uses the registered layer tile URL so offline cache entries match exactly', async () => {
@@ -146,6 +157,12 @@ test('rejects missing and opaque package tiles offline without network fallback'
         /não podem ser compostos no modo 3D/
     );
     assert.equal(opaque.urls.length, 0);
+    assert.ok(opaque.debugEvents.some(event => event.event === 'map3dTexture.cache-response'
+        && event.details.responseType === 'opaque'
+        && event.details.responseStatus === 0));
+    assert.ok(opaque.debugEvents.some(event => event.event === 'map3dTexture.tiles-summary'
+        && event.details.opaqueTiles > 0));
+    assert.doesNotMatch(JSON.stringify(opaque.debugEvents), /https?:|[-]?\d{1,3}\.\d+/);
 });
 
 test('uses the requested zoom even beyond 64 tiles and preserves the texture size limit', async () => {

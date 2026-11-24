@@ -25,7 +25,7 @@ function isRestrictedMapHost(url) {
  * Armazena uma resposta HTTP válida no cache indicado.
  * @param {Cache} cache - Cache de destino.
  * @param {string} requestUrl - URL da requisição.
- * @returns {Promise<boolean>} Indica se a resposta foi armazenada.
+ * @returns {Promise<string|null>} Tipo da resposta armazenada ou null se não foi armazenada.
  */
 async function cacheRequest(cache, requestUrl) {
     const url = new URL(requestUrl, self.location.href);
@@ -45,9 +45,9 @@ async function cacheRequest(cache, requestUrl) {
     }
     if (response.ok || response.type === 'opaque') {
         await cache.put(url.href, response);
-        return true;
+        return response.type;
     }
-    return false;
+    return null;
 }
 
 /**
@@ -163,14 +163,21 @@ async function cachePackage(port, data) {
     }
     const cache = await caches.open(data.cacheName);
     let completed = 0;
+    let opaqueTileCount = 0;
+    let failedTileCount = 0;
     let nextIndex = 0;
     const workers = Array.from({ length: Math.min(4, urls.length) }, async () => {
         while (nextIndex < urls.length) {
             const index = nextIndex++;
             const url = urls[index];
             try {
-                if (!await cache.match(url)) await cacheRequest(cache, url);
+                if (!await cache.match(url)) {
+                    const responseType = await cacheRequest(cache, url);
+                    if (responseType === 'opaque') opaqueTileCount++;
+                    else if (!responseType) failedTileCount++;
+                }
             } catch (error) {
+                failedTileCount++;
                 console.warn('[PlanMilT][Offline] Falha ao armazenar um tile.', error);
             } finally {
                 completed++;
@@ -180,7 +187,19 @@ async function cachePackage(port, data) {
     });
     await Promise.all(workers);
     const keys = await cache.keys();
-    port.postMessage({ type: 'PACKAGE_COMPLETE', cached: keys.length, total: urls.length });
+    console.info('[PlanMilT][Offline] Diagnóstico do cache de tiles.', {
+        tileCount: urls.length,
+        cachedTileCount: keys.length,
+        opaqueTileCount,
+        failedTileCount
+    });
+    port.postMessage({
+        type: 'PACKAGE_COMPLETE',
+        cached: keys.length,
+        total: urls.length,
+        opaqueTileCount,
+        failedTileCount
+    });
 }
 
 self.addEventListener('install', event => {

@@ -41,6 +41,10 @@
     async function sendScene() {
         if (capturing) {
             recapture = true;
+            window.PlanMilT.debugLogger?.log('map3d.scene-refresh-queued', {
+                sceneVersion,
+                source: selectedSource
+            });
             return;
         }
         capturing = true;
@@ -49,12 +53,19 @@
             const version = sceneVersion;
             const controller = new AbortController();
             activeCapture = controller;
+            const source = selectedSource;
+            const offlineOnly = window.navigator?.onLine === false;
+            const trace = window.PlanMilT.debugLogger?.start('map3d.sendScene');
+            window.PlanMilT.debugLogger?.log('map3d.scene-started', {
+                source,
+                offlineOnly,
+                zoom: selectedZoom ?? undefined,
+                sceneVersion: version
+            });
             try {
                 post({ type: 'planmilt-3d-status', message: 'Carregando camada-base e terreno…' });
                 const mapBounds = map.getBounds();
                 const bounds = [mapBounds.getSouth(), mapBounds.getWest(), mapBounds.getNorth(), mapBounds.getEast()];
-                const source = selectedSource;
-                const offlineOnly = window.navigator?.onLine === false;
                 const requestTerrain = async () => {
                     const response = await window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
                         method: 'POST',
@@ -117,6 +128,13 @@
                     await window.PlanMilT.elevationFiles.ensure(terrain.missingTiles);
                     if (!overlay.hidden && version === sceneVersion) terrain = await requestTerrain();
                 }
+                window.PlanMilT.debugLogger?.log('map3d.scene-terrain-ready', {
+                    source,
+                    offlineOnly,
+                    zoom: texture.zoom,
+                    missingTileCount: terrain.missingTiles.length,
+                    terrainSampleCount: terrain.elevations.reduce((count, row) => count + row.length, 0)
+                });
                 if (!overlay.hidden && version === sceneVersion) {
                     post({
                         type: 'planmilt-3d-data',
@@ -128,8 +146,15 @@
                         }
                     });
                 }
+                trace?.finish();
             } catch (error) {
                 controller.abort();
+                window.PlanMilT.debugLogger?.log('map3d.scene-failed', {
+                    source,
+                    offlineOnly,
+                    errorName: error instanceof Error ? error.name : 'Error'
+                });
+                trace?.fail(error);
                 if (version === sceneVersion) {
                     post({
                         type: 'planmilt-3d-error',

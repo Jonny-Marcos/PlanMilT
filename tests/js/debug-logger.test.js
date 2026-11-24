@@ -18,6 +18,7 @@ test('debug traces are enabled by default and can be disabled', () => {
 
         debugLogger.disable();
         debugLogger.start('test.disabled').finish();
+        debugLogger.log('test.disabled-event', { tileCount: 1 });
         assert.equal(calls, 2);
     } finally {
         console.debug = originalConsoleDebug;
@@ -57,6 +58,7 @@ test('enabled traces report completion and failures without error messages', () 
             durationMs: logs[4][1].durationMs,
             errorName: 'Error'
         });
+
         assert.doesNotMatch(JSON.stringify(logs), /sensitive error details/);
 
         debugLogger.disable();
@@ -68,5 +70,37 @@ test('enabled traces report completion and failures without error messages', () 
         console.info = originalConsoleInfo;
         console.debug = originalConsoleDebug;
         console.error = originalConsoleError;
+    }
+});
+
+test('event logs retain only allowlisted scalar diagnostics', () => {
+    const originalConsoleDebug = console.debug;
+    const originalConsoleInfo = console.info;
+    const logs = [];
+    console.debug = (...args) => logs.push(args);
+    console.info = () => {};
+
+    try {
+        debugLogger.enable();
+        debugLogger.log('offline.cache-summary', {
+            source: 'opentopo',
+            tileCount: 12,
+            responseType: 'opaque',
+            url: 'https://tiles.example.test/private?token=secret',
+            bounds: [-21, -52, -20, -51],
+            error: 'private error message'
+        });
+
+        assert.deepEqual(JSON.parse(JSON.stringify(logs[0][1])), {
+            event: 'offline.cache-summary',
+            source: 'opentopo',
+            tileCount: 12,
+            responseType: 'opaque'
+        });
+        assert.doesNotMatch(JSON.stringify(logs), /secret|private/);
+    } finally {
+        debugLogger.disable();
+        console.debug = originalConsoleDebug;
+        console.info = originalConsoleInfo;
     }
 });

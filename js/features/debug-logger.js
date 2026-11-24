@@ -6,6 +6,17 @@
     window.PlanMilT = window.PlanMilT || {};
 
     let enabled = true;
+    const safeDetailKeys = new Set([
+        'source', 'offlineOnly', 'zoom', 'sceneVersion', 'cacheCount', 'tileCount',
+        'tilesCompleted', 'cacheMisses', 'opaqueTiles', 'responseType', 'responseStatus',
+        'responseOk', 'cacheResult', 'errorName', 'requiredTileCount', 'availableTileCount',
+        'missingTileCount', 'terrainCacheCount', 'cachedTileCount', 'opaqueTileCount',
+        'failedTileCount', 'terrainSampleCount'
+    ]);
+
+    function isSafeIdentifier(value) {
+        return typeof value === 'string' && /^[a-zA-Z0-9._-]{1,64}$/.test(value);
+    }
 
     window.PlanMilT.debugLogger = Object.freeze({
         /**
@@ -21,6 +32,26 @@
          */
         disable() {
             enabled = false;
+        },
+
+        /**
+         * Registra um evento com somente os campos escalares explicitamente permitidos.
+         * @param {string} event - Identificador estático do evento.
+         * @param {Object} [details] - Metadados operacionais sem dados do usuário.
+         */
+        log(event, details = {}) {
+            if (!enabled || !isSafeIdentifier(event)) return;
+
+            const safeDetails = {};
+            for (const [key, value] of Object.entries(details)) {
+                if (!safeDetailKeys.has(key)) continue;
+                if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+                    safeDetails[key] = value;
+                } else if (isSafeIdentifier(value)) {
+                    safeDetails[key] = value;
+                }
+            }
+            console.debug('[PlanMilT][Debug] Evento.', { event, ...safeDetails });
         },
 
         /**

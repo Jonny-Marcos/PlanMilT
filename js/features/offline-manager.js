@@ -582,6 +582,7 @@
         }
         const requiredTiles = getSrtmTileNames(bounds);
         const cacheNames = new Set(await caches.keys());
+        const terrainCacheCount = [...cacheNames].filter(name => name.startsWith(TERRAIN_CACHE_PREFIX)).length;
         const availableTiles = new Map();
         for (const item of loadPackages()) {
             const terrainTiles = Array.isArray(item.terrainTiles) ? item.terrainTiles : [];
@@ -603,11 +604,17 @@
                 }
             }
         }
+        const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
+        window.PlanMilT.debugLogger?.log('offline.terrain-cache-scan', {
+            requiredTileCount: requiredTiles.length,
+            terrainCacheCount,
+            availableTileCount: availableTiles.size,
+            missingTileCount: missingTiles.length
+        });
         if (!availableTiles.size) {
             throw new Error(`Não há grades SRTM para a área exibida. Tiles necessários: ${requiredTiles.join(', ')}. Enquadre uma região do pacote offline ou baixe SRTM para esta área.`);
         }
 
-        const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
         const elevations = Array.from({ length: rows }, (_, row) => {
             const latitude = bounds.north - (bounds.north - bounds.south) * row / (rows - 1);
             const tileLatitude = Math.min(Math.floor(latitude), Math.ceil(bounds.north) - 1);
@@ -854,7 +861,7 @@
      * @param {string} cacheName - Nome do cache do pacote.
      * @param {Array<string>} urls - URLs a armazenar.
      * @param {Function} onProgress - Callback de progresso.
-     * @returns {Promise<{cached:number,total:number}>} Resultado do armazenamento.
+     * @returns {Promise<Object>} Contagens de tiles armazenados, opacos e com falha.
      */
     function cachePackage(registration, cacheName, urls, onProgress) {
         const worker = registration.installing || registration.waiting || registration.active;
@@ -866,7 +873,19 @@
                     onProgress(event.data.completed, event.data.total);
                 } else if (event.data.type === 'PACKAGE_COMPLETE') {
                     channel.port1.close();
-                    resolve({ cached: event.data.cached, total: event.data.total });
+                    const result = {
+                        cached: event.data.cached,
+                        total: event.data.total,
+                        opaqueTileCount: event.data.opaqueTileCount,
+                        failedTileCount: event.data.failedTileCount
+                    };
+                    window.PlanMilT.debugLogger?.log('offline.package.cache-complete', {
+                        tileCount: result.total,
+                        cachedTileCount: result.cached,
+                        opaqueTileCount: result.opaqueTileCount,
+                        failedTileCount: result.failedTileCount
+                    });
+                    resolve(result);
                 } else if (event.data.type === 'PACKAGE_ERROR') {
                     channel.port1.close();
                     reject(new Error(event.data.message));

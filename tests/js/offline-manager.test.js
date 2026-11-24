@@ -14,7 +14,11 @@ const mapTools = fs.readFileSync(path.join(root, 'js/features/map-tools.js'), 'u
 
 function loadManager(options = {}) {
     const context = {
-        window: { PlanMilT: {}, caches: options.caches, addEventListener: options.addEventListener },
+        window: {
+            PlanMilT: { debugLogger: options.debugLogger },
+            caches: options.caches,
+            addEventListener: options.addEventListener
+        },
         caches: options.caches || {},
         document: options.document,
         location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
@@ -31,6 +35,7 @@ async function cachePackageWithWorker(fetchImplementation) {
     const listeners = new Map();
     const entries = [];
     const messages = [];
+    const workerLogs = [];
     const cache = {
         async match(url) { return entries.find(entry => entry.url === url); },
         async put(url, response) { entries.push({ url, response }); },
@@ -48,7 +53,7 @@ async function cachePackageWithWorker(fetchImplementation) {
     }
     vm.runInNewContext(worker, {
         self, caches, URL, Request: TestRequest, fetch: fetchImplementation,
-        console: { warn() {}, error() {} }
+        console: { warn() {}, error() {}, info(...args) { workerLogs.push(args); } }
     });
     let completion;
     listeners.get('message')({
@@ -61,7 +66,7 @@ async function cachePackageWithWorker(fetchImplementation) {
         waitUntil(promise) { completion = promise; }
     });
     await completion;
-    return { entries, messages };
+    return { entries, messages, workerLogs };
 }
 
 test('offline worker registration starts automatically and is reused', async () => {
@@ -93,6 +98,13 @@ test('offline tile downloads prefer CORS-readable responses and retain opaque fa
     });
     assert.deepEqual(corsModes, ['cors']);
     assert.equal(readable.entries[0].response.type, 'cors');
+    assert.deepEqual(JSON.parse(JSON.stringify(readable.messages.at(-1))), {
+        type: 'PACKAGE_COMPLETE',
+        cached: 1,
+        total: 1,
+        opaqueTileCount: 0,
+        failedTileCount: 0
+    });
 
     const fallbackModes = [];
     const opaque = await cachePackageWithWorker(async request => {
@@ -102,6 +114,14 @@ test('offline tile downloads prefer CORS-readable responses and retain opaque fa
     });
     assert.deepEqual(fallbackModes, ['cors', 'no-cors']);
     assert.equal(opaque.entries[0].response.type, 'opaque');
+    assert.equal(opaque.messages.at(-1).opaqueTileCount, 1);
+    assert.equal(opaque.messages.at(-1).failedTileCount, 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(opaque.workerLogs[0][1])), {
+        tileCount: 1,
+        cachedTileCount: 1,
+        opaqueTileCount: 1,
+        failedTileCount: 0
+    });
 });
 
 test('service worker does not intercept same-origin HGT downloads into the app shell', () => {
@@ -299,6 +319,7 @@ test('cached package sources are limited to manifests with non-empty caches', as
 });
 
 test('cached terrain rebuilds an offline elevation grid from package SRTM samples', async () => {
+    const debugEvents = [];
     const packageItem = {
         id: '1-terrain',
         cacheName: 'planmilt-offline-package-v1:1-terrain',
@@ -326,6 +347,7 @@ test('cached terrain rebuilds an offline elevation grid from package SRTM sample
     };
     const manager = loadManager({
         caches: cacheStorage,
+        debugLogger: { log(event, details) { debugEvents.push({ event, details }); } },
         localStorage: { getItem() { return JSON.stringify([packageItem]); }, setItem() {} }
     });
 
@@ -334,14 +356,24 @@ test('cached terrain rebuilds an offline elevation grid from package SRTM sample
     assert.equal(terrain.columns, 3);
     assert.equal(terrain.elevations[1][1], 40);
     assert.deepEqual(Array.from(terrain.missingTiles), []);
+    assert.equal(debugEvents[0].event, 'offline.terrain-cache-scan');
+    assert.equal(debugEvents[0].details.requiredTileCount, 1);
+    assert.equal(debugEvents[0].details.availableTileCount, 1);
+    assert.equal(debugEvents[0].details.missingTileCount, 0);
 });
 
 test('cached terrain rejects packages without SRTM grids', async () => {
-    const manager = loadManager({ caches: { async keys() { return []; } } });
+    const debugEvents = [];
+    const manager = loadManager({
+        caches: { async keys() { return []; } },
+        debugLogger: { log(event, details) { debugEvents.push({ event, details }); } }
+    });
     await assert.rejects(
         manager.getCachedTerrain({ south: 0.1, west: 0.1, north: 0.9, east: 0.9 }),
         /Não há grades SRTM.*N00E000\.HGT.*área/
     );
+    assert.equal(debugEvents[0].details.availableTileCount, 0);
+    assert.equal(debugEvents[0].details.missingTileCount, 1);
 });
 
 test('samples full-resolution HGT files from offline packages without network', async () => {

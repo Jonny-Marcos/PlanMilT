@@ -28,14 +28,26 @@ window.PlanMilT.map3dTexture = Object.freeze({
             throw new Error('Aproxime o mapa e enquadre uma área de até cinco graus para consultar o terreno.');
         }
         const tileSize = source === 'bdgex' ? 96 : 256;
+        const zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
+        const debugLogger = window.PlanMilT.debugLogger;
         const offlineTileCaches = options.offlineOnly
             ? await Promise.all((await window.caches.keys())
                 .filter(name => name.startsWith('planmilt-offline-package-v1:'))
                 .map(name => window.caches.open(name)))
             : [];
+        debugLogger?.log('map3dTexture.cache-scan', {
+            source,
+            offlineOnly: Boolean(options.offlineOnly),
+            zoom,
+            cacheCount: offlineTileCaches.length
+        });
         if (options.offlineOnly && offlineTileCaches.length === 0) {
             throw new Error('Nenhum pacote offline contém tiles para o visualizador 3D. Baixe um pacote para esta área.');
         }
+        let cacheMisses = 0;
+        let opaqueTiles = 0;
+        let cacheResponseLogged = false;
+        let opaqueResponseLogged = false;
         const getTileResponse = async url => {
             if (!options.offlineOnly) {
                 return window.PlanMilT.apiClient.request(url, {
@@ -45,14 +57,35 @@ window.PlanMilT.map3dTexture = Object.freeze({
             for (const cache of offlineTileCaches) {
                 const response = await cache.match(url);
                 if (!response) continue;
+                const isOpaque = response.type === 'opaque';
+                if (isOpaque) opaqueTiles++;
+                if (!cacheResponseLogged || (isOpaque && !opaqueResponseLogged)) {
+                    debugLogger?.log('map3dTexture.cache-response', {
+                        source,
+                        zoom,
+                        responseType: response.type,
+                        responseStatus: response.status,
+                        responseOk: response.ok,
+                        cacheResult: isOpaque ? 'opaque' : response.ok ? 'readable' : 'http-error'
+                    });
+                    cacheResponseLogged = true;
+                    if (isOpaque) opaqueResponseLogged = true;
+                }
                 if (!response.ok || response.type === 'opaque') {
                     throw new Error('Este pacote guarda tiles que não podem ser compostos no modo 3D. Exclua-o e baixe novamente online.');
                 }
                 return response;
             }
+            cacheMisses++;
+            if (cacheMisses === 1) {
+                debugLogger?.log('map3dTexture.cache-response', {
+                    source,
+                    zoom,
+                    cacheResult: 'miss'
+                });
+            }
             throw new Error('A camada, área ou zoom não está no pacote offline. Baixe um pacote que inclua esta seleção.');
         };
-        const zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
         const { x: left, y: top } = map.project([north, west], zoom);
         const { x: right, y: bottom } = map.project([south, east], zoom);
         const minX = Math.floor(left / tileSize);
@@ -61,6 +94,13 @@ window.PlanMilT.map3dTexture = Object.freeze({
         const maxY = Math.ceil(bottom / tileSize) - 1;
         const columns = maxX - minX + 1;
         const total = columns * (maxY - minY + 1);
+        debugLogger?.log('map3dTexture.tiles-requested', {
+            source,
+            offlineOnly: Boolean(options.offlineOnly),
+            zoom,
+            tileCount: total,
+            cacheCount: offlineTileCaches.length
+        });
         if (total > 256 && options.confirmLargeRequest && !await options.confirmLargeRequest(total)) {
             throw new Error('Carregamento dos tiles cancelado.');
         }
@@ -81,6 +121,7 @@ window.PlanMilT.map3dTexture = Object.freeze({
         let lastPercent = -1;
         let lastUpdate = 0;
         let failed = false;
+        let failureLogged = false;
         let failureMessage = '';
         const workers = Array.from({ length: Math.min(4, total) }, async () => {
             while (index < total && !failed && !options.signal?.aborted) {
@@ -147,13 +188,31 @@ window.PlanMilT.map3dTexture = Object.freeze({
                     }
                 } catch (error) {
                     if (options.signal?.aborted) break;
-                    console.error('[PlanMilT][3D] Falha ao carregar tile da camada.', error);
+                    if (!failureLogged) {
+                        failureLogged = true;
+                        debugLogger?.log('map3dTexture.tile-failure', {
+                            source,
+                            offlineOnly: Boolean(options.offlineOnly),
+                            zoom,
+                            errorName: error instanceof Error ? error.name : 'Error'
+                        });
+                        console.error('[PlanMilT][3D] Falha ao carregar tile da camada.', error);
+                    }
                     failureMessage = error instanceof Error ? error.message : '';
                     failed = true;
                 }
             }
         });
         await Promise.all(workers);
+        debugLogger?.log('map3dTexture.tiles-summary', {
+            source,
+            offlineOnly: Boolean(options.offlineOnly),
+            zoom,
+            tileCount: total,
+            tilesCompleted: completed,
+            cacheMisses,
+            opaqueTiles
+        });
         if (options.signal?.aborted) throw new Error('Carregamento dos tiles cancelado.');
         if (failed) {
             throw new Error(options.offlineOnly && failureMessage
