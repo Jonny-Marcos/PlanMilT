@@ -11,6 +11,13 @@
     const MAX_MAP_TILES = 10000;
     const CONFIRM_TILE_COUNT = 256;
     const OFFLINE_ZOOM_LEVELS = [8, 10, 12, 14, 15];
+    const OFFLINE_ZOOM_LABELS = {
+        8: 'Visão ampla',
+        10: 'Visão regional',
+        12: 'Equilíbrio entre área e detalhes',
+        14: 'Mais detalhes',
+        15: 'Detalhes máximos'
+    };
     const SENTINEL_LAYER_NAME = 'Sentinel-2 Cloudless 2024 (EOX)';
     const PROVIDERS = {
         opentopo: {
@@ -404,9 +411,10 @@
      * @param {CacheStorage} cacheStorage - Cache Storage do navegador.
      * @param {Object} [layerRegistry] - Camadas disponíveis para reconstruir URLs.
      * @param {Object} [leaflet] - Namespace Leaflet usado na reconstrução.
+     * @param {number} [targetZoom] - Zoom atual que precisa estar disponível.
      * @returns {Promise<Set<string>>} Nomes das fontes efetivamente armazenadas.
      */
-    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet) {
+    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet, targetZoom) {
         const available = new Set();
         const cacheNames = new Set(await cacheStorage.keys());
         for (const item of packages) {
@@ -422,8 +430,14 @@
             for (const source of item.sources) {
                 const layer = layerRegistry[source];
                 if (!layer) continue;
+                if (Number.isFinite(targetZoom)
+                    && (targetZoom < item.minZoom || targetZoom > item.maxZoom)) {
+                    continue;
+                }
+                const expectedZoom = Number.isFinite(targetZoom) ? targetZoom : item.minZoom;
+                const maximumZoom = Number.isFinite(targetZoom) ? targetZoom : item.maxZoom;
                 const expectedUrls = buildTileLayerUrls(
-                    layer, item.bounds, item.minZoom, item.maxZoom, leaflet
+                    layer, item.bounds, expectedZoom, maximumZoom, leaflet
                 );
                 if (expectedUrls.some(url => cachedUrls.has(url))) available.add(source);
             }
@@ -570,6 +584,18 @@
     }
 
     /**
+     * Formata a faixa de detalhes de um pacote em linguagem comum.
+     * @param {number} minZoom - Primeiro nível armazenado.
+     * @param {number} maxZoom - Último nível armazenado.
+     * @returns {string} Descrição da faixa.
+     */
+    function formatZoomRange(minZoom, maxZoom) {
+        const minimum = OFFLINE_ZOOM_LABELS[minZoom] || `Nível ${minZoom}`;
+        const maximum = OFFLINE_ZOOM_LABELS[maxZoom] || `Nível ${maxZoom}`;
+        return minimum === maximum ? minimum : `${minimum} → ${maximum}`;
+    }
+
+    /**
      * Inicializa o botão e o gerenciador offline no mapa principal.
      * @param {Object} dependencies - Dependências do mapa.
      * @returns {{open: Function}} Controlador público.
@@ -605,7 +631,7 @@
             if (!isOnline) {
                 try {
                     availableSources = await getCachedPackageSources(
-                        loadPackages(), caches, packageLayerRegistry, leaflet
+                        loadPackages(), caches, packageLayerRegistry, leaflet, map.getZoom()
                     );
                 } catch (error) {
                     console.error('[PlanMilT][Offline] Não foi possível verificar os pacotes locais.', error);
@@ -622,6 +648,30 @@
             updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources });
         }
 
+        map.on('zoomend', () => {
+            if (navigator.onLine === false) {
+                try {
+                    const zoom = map.getZoom();
+                    const sourcesAtZoom = new Set(loadPackages()
+                        .filter(item => item.minZoom <= zoom && item.maxZoom >= zoom)
+                        .flatMap(item => item.sources));
+                    currentAvailableSources = new Set(
+                        [...currentAvailableSources].filter(source => sourcesAtZoom.has(source))
+                    );
+                } catch (error) {
+                    console.error('[PlanMilT][Offline] Não foi possível aplicar o intervalo de zoom.', error);
+                    currentAvailableSources = new Set();
+                }
+                updateLayerAvailability({
+                    map,
+                    layerRegistry,
+                    layerControl,
+                    isOnline: false,
+                    availableSources: currentAvailableSources
+                });
+            }
+            syncOfflineLayers();
+        });
         map.on('overlayadd', event => {
             guardOfflineLayerAddition(event, {
                 map,
@@ -909,7 +959,7 @@
                         ...(Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM'] : [])
                     ].map(escapeHtml).join(', ') || 'Pacote';
                     return `<li><div><strong>${labels}</strong><span>${escapeHtml(formatBounds(item.bounds))}</span>`
-                        + `<span>Zoom ${item.minZoom}–${item.maxZoom} · ${item.tileCount} tiles`
+                        + `<span>${escapeHtml(formatZoomRange(item.minZoom, item.maxZoom))} · ${item.tileCount} tiles`
                         + (item.failedTileCount ? ` · ${item.failedTileCount} pendentes` : '')
                         + `</span></div>`
                         + `<button type="button" data-delete-offline="${item.id}">Excluir</button></li>`;
@@ -928,7 +978,7 @@
                         #offlineManager button{border:1px solid #9aa8b8;border-radius:6px;background:#f5f7fa;padding:8px 12px;cursor:pointer}
                         #offlineManager button.primary{background:#435f88;color:#fff;border-color:#435f88}
                         #offlineManager button:disabled{opacity:.55;cursor:not-allowed}
-                        #offlineManager select{width:76px;border:1px solid #c5cad2;border-radius:5px;padding:6px;background:#fff}
+                        #offlineManager select{width:min(240px,70vw);max-width:100%;border:1px solid #c5cad2;border-radius:5px;padding:6px;background:#fff}
                         #offlineManager ul{list-style:none;margin:8px 0 0;padding:0;max-height:180px;overflow:auto}
                         #offlineManager li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #e1e5eb}
                         #offlineManager li>div{display:grid;gap:2px}
@@ -954,14 +1004,14 @@
                             </div>
                             <small>A camada Google Satellite não permite o download ou armazenamento local das imagens.</small>
                             <div class="offline-zoom">
-                                <label>Zoom mínimo
+                                <label>Cobrir desde
                                     <select id="offlineMinZoom">
-                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === OFFLINE_ZOOM_LEVELS[0] ? 'selected' : ''}>${level}</option>`).join('')}
+                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === OFFLINE_ZOOM_LEVELS[0] ? 'selected' : ''}>${OFFLINE_ZOOM_LABELS[level]}</option>`).join('')}
                                     </select>
                                 </label>
-                                <label>Zoom máximo
+                                <label>Cobrir até
                                     <select id="offlineMaxZoom">
-                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === closestZoom ? 'selected' : ''}>${level}</option>`).join('')}
+                                        ${OFFLINE_ZOOM_LEVELS.map(level => `<option value="${level}" ${level === closestZoom ? 'selected' : ''}>${OFFLINE_ZOOM_LABELS[level]}</option>`).join('')}
                                     </select>
                                 </label>
                             </div>
@@ -1032,6 +1082,7 @@
         updateConnectionState,
         attachConnectionState,
         offlineZoomLevels: Object.freeze([...OFFLINE_ZOOM_LEVELS]),
+        offlineZoomLabels: Object.freeze({ ...OFFLINE_ZOOM_LABELS }),
         isSelectingArea: () => selectingArea
     });
 

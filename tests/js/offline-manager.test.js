@@ -195,10 +195,61 @@ test('offline availability disables network layers without a cached package', ()
     assert.equal(inputs[1].disabled, false);
 });
 
-test('offline manager exposes only five standardized zoom levels', () => {
+test('offline manager exposes five descriptive zoom levels', () => {
     const manager = loadManager();
     assert.deepEqual(Array.from(manager.offlineZoomLevels), [8, 10, 12, 14, 15]);
+    assert.deepEqual(JSON.parse(JSON.stringify(manager.offlineZoomLabels)), {
+        8: 'Visão ampla',
+        10: 'Visão regional',
+        12: 'Equilíbrio entre área e detalhes',
+        14: 'Mais detalhes',
+        15: 'Detalhes máximos'
+    });
     assert.match(source, /OFFLINE_ZOOM_LEVELS\.map/);
+    assert.match(source, /OFFLINE_ZOOM_LABELS\[level\]/);
+    assert.match(source, /map\.on\('zoomend'/);
+});
+
+test('cached package source is unavailable outside its stored zoom', async () => {
+    const manager = loadManager();
+    const layer = {
+        _url: 'https://example.test/{z}/{x}/{y}.png',
+        getTileUrl(coords) {
+            return `https://example.test/${coords.z}/127/128.png`;
+        }
+    };
+    const bounds = { south: -1, west: -1, north: 1, east: 1 };
+    const cacheStorage = {
+        async keys() { return ['planmilt-offline-package-v1:1-z']; },
+        async open() {
+            return { async keys() { return [{ url: 'https://example.test/8/127/128.png' }]; } };
+        }
+    };
+    const leaflet = {
+        CRS: {
+            EPSG3857: {
+                latLngToPoint(point, zoom) {
+                    return { x: (point.lng + 2) * zoom * 10, y: (2 - point.lat) * zoom * 10 };
+                }
+            }
+        },
+        latLng: (lat, lng) => ({ lat, lng }),
+        point: (x, y) => ({ x, y })
+    };
+    const packages = [{
+        cacheName: 'planmilt-offline-package-v1:1-z',
+        sources: ['Satellite'], tileCount: 1,
+        bounds, minZoom: 8, maxZoom: 8
+    }];
+
+    assert.deepEqual(
+        [...await manager.getCachedPackageSources(packages, cacheStorage, { Satellite: layer }, leaflet, 8)],
+        ['Satellite']
+    );
+    assert.deepEqual(
+        [...await manager.getCachedPackageSources(packages, cacheStorage, { Satellite: layer }, leaflet, 9)],
+        []
+    );
 });
 
 test('offline layer guard removes a layer that has no local package', () => {
