@@ -1092,6 +1092,21 @@
          * Cria o pacote escolhido no formulário.
          */
         async function createPackage() {
+            const trace = window.PlanMilT.debugLogger?.start('offlineManager.createPackage');
+            try {
+                await createOfflinePackage();
+                trace?.finish();
+            } catch (error) {
+                trace?.fail(error);
+                throw error;
+            }
+        }
+
+        /**
+         * Valida a seleção e baixa os tiles e dados de elevação do pacote.
+         * @returns {Promise<void>} Conclusão da criação e gravação do pacote.
+         */
+        async function createOfflinePackage() {
             if (navigator.onLine === false) {
                 throw new Error('Reconecte-se à internet para baixar um pacote offline.');
             }

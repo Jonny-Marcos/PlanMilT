@@ -81,6 +81,7 @@ window.PlanMilT.kmzExport = Object.freeze({
              * Serializa os desenhos e inicia o download de um arquivo KMZ.
              */
             async function exportDrawingsToKMZ() {
+                const trace = window.PlanMilT.debugLogger?.start('kmzExport.exportDrawingsToKMZ');
                 try {
                     // Obtém os dados dos desenhos existentes
                     var geoJsonData = window.PlanMilT.geoJsonSerialization.toFeatureCollection(drawnItems, false);
@@ -237,11 +238,14 @@ window.PlanMilT.kmzExport = Object.freeze({
                                 featureCount: geoJsonData.features.length,
                                 iconCount: uniqueIcons.length
                             });
+                            trace?.finish();
                         } catch (error) {
+                            trace?.fail(error);
                             console.error("Erro ao gerar o KMZ:", error);
                             Swal.fire('Erro', 'Não foi possível gerar o arquivo KMZ.', 'error');
                         }
                     } catch (error) {
+                        trace?.fail(error);
                         console.error("Erro na função exportDrawingsToKMZ:", error);
                         Swal.fire('Erro', `Não foi possível preparar a exportação KMZ. ${error.message}`, 'error');
                     }

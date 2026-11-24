@@ -184,11 +184,13 @@
                  * Executa em ordem as tarefas da sequência e atualiza o progresso.
                  */
                 async function executeTaskSequence() {
+                    const executionTrace = window.PlanMilT.debugLogger?.start('taskExecution.executeTaskSequence');
 
                     logMessages = '';
                     addToLog('Iniciando execução da sequência de tarefas.');
 
                     for (let i = 0; i < taskSequence.length; i++) {
+                        const taskTrace = window.PlanMilT.debugLogger?.start(`taskExecution.task-${i + 1}`);
                         const task = taskSequence[i];
 
                         addToLog(`Executando tarefa ${i + 1}: ${task.task} com parâmetros: ${JSON.stringify(task.parameters)}`);
@@ -252,7 +254,10 @@
                                              }
 
                             addToLog(`Tarefa ${i + 1} concluída.`);
+                            taskTrace?.finish();
                         } catch (error) {
+                            taskTrace?.fail(error);
+                            executionTrace?.fail(error);
                             console.error(`Erro na tarefa ${i + 1}:`, error);
                             await Swal.fire('Erro', `Ocorreu um erro na tarefa ${i + 1}: ${error.message}`, 'error');
                             return;
@@ -311,6 +316,11 @@
                         taskCount: taskSequence.length,
                         hasErrors: hasErrors(logMessages)
                     });
+                    if (hasErrors(logMessages)) {
+                        executionTrace?.fail(new Error('A sequência terminou com erros.'));
+                    } else {
+                        executionTrace?.finish();
+                    }
 
                     // Modal de Planejamento Concluído aprimorado
                     await Swal.fire({

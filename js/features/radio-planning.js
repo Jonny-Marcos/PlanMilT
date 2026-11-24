@@ -616,8 +616,9 @@ window.PlanMilT.radioPlanning = Object.freeze({
                 }
 
                 async function calcularPTP(pt1, pt2, p) {
-                    Swal.fire({ title: 'Simulando Enlace...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    const trace = window.PlanMilT.debugLogger?.start('radioPlanning.calcularPTP');
                     try {
+                        Swal.fire({ title: 'Simulando Enlace...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                         const result = await analisarEnlace(pt1, pt2, p);
                         const { distTotalKm, hasObstruction, rxPower, isViable, labels, topoData, losData, fresnelDataLower, fresnelDataUpper } = result;
                         Swal.close();
@@ -633,8 +634,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         rfTempLayer.clearLayers();
                         
                         exibirGraficoEnlace(labels, topoData, losData, fresnelDataLower, fresnelDataUpper, p.freq, distTotalKm, p.isOptical);
+                        trace?.finish();
 
                     } catch (error) {
+                        trace?.fail(error);
                         handleRFError(error);
                     }
                 }
@@ -672,6 +675,7 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @param {Object} p - Parâmetros de configuração da simulação.
                  */
                 async function calcularCobertura(center, p) {
+                    const trace = window.PlanMilT.debugLogger?.start('radioPlanning.calcularCobertura');
                     try {
                         const { radialCount: radiais, resolutionKm: resolucaoKm, steps: maxPassos } = window.PlanMilT.coverageImage.resolution(p.radius, p.radialCount);
                         showCoverageProgress('Preparando os pontos de análise…', radiais);
@@ -790,8 +794,10 @@ window.PlanMilT.radioPlanning = Object.freeze({
                         }
                         
                         rfTempLayer.clearLayers();
+                        trace?.finish();
                         
                     } catch (error) {
+                        trace?.fail(error);
                         handleRFError(error);
                     }
                 }
