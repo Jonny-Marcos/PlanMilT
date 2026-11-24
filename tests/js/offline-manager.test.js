@@ -15,9 +15,10 @@ const mapTools = fs.readFileSync(path.join(root, 'js/features/map-tools.js'), 'u
 function loadManager(options = {}) {
     const context = {
         window: { PlanMilT: {}, caches: options.caches },
-        location: { pathname: '/planmilt/' },
+        location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
         localStorage: { getItem() { return null; }, setItem() {} },
         navigator: options.navigator || {},
+        URL,
         console: { error() {}, info() {}, warn() {}, log() {} }
     };
     vm.runInNewContext(source, context);
@@ -113,24 +114,25 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
     assert.ok(calls.some(coords => coords.x === 3));
 });
 
-test('offline selector includes registered layers and blocks Google Satellite caching', () => {
+test('offline selector hides non-downloadable layers and keeps local Sentinel-2', () => {
     const manager = loadManager();
-    const google = { _url: 'https://mt0.google.com/vt/{z}/{x}/{y}', getTileUrl() {} };
-    const local = {};
     const layers = manager.listTileLayers({
-        'Google Satellite': google,
-        'Quadrículas - UTM': local,
+        'Google Satellite': { _url: 'https://mt0.google.com/vt/{z}/{x}/{y}', getTileUrl() {} },
+        'Quadrículas - UTM': {},
+        'Sugestão de Planejamento': {},
+        'Sentinel-2 (local)': { _url: 'imagery/sentinel-2/{z}/{x}/{y}.png', getTileUrl() {} },
         'Camada WMS': { _url: 'https://example.test/wms', getTileUrl() {} }
     });
 
     assert.deepEqual(Array.from(layers, item => item.name), [
-        'Google Satellite', 'Quadrículas - UTM', 'Camada WMS'
+        'Sentinel-2 (local)', 'Camada WMS'
     ]);
-    assert.equal(layers[0].supported, false);
-    assert.match(layers[0].reason, /Google.*cache.*download/i);
-    assert.equal(layers[1].supported, false);
-    assert.match(layers[1].reason, /local/);
-    assert.equal(layers[2].supported, true);
+    assert.equal(layers[0].supported, true);
+    assert.equal(layers[1].supported, true);
+});
+
+test('offline manager explains why Google Satellite cannot be downloaded', () => {
+    assert.match(source, /Google Satellite não permite o download ou armazenamento local/);
 });
 
 test('offline connectivity state marks the interface and disables network actions', () => {
@@ -191,6 +193,7 @@ test('offline connectivity state marks the interface and disables network action
 test('offline manager is wired through the rewritten root service worker', () => {
     assert.match(main, /id="offlineManagerButton"[^>]*title="Gerenciar pacotes offline"/);
     assert.match(main, /globalThis\.PlanMilT\?\.offlineManager\?\.isSelectingArea\(\)/);
+    assert.match(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /imagery\/sentinel-2/);
     assert.match(mapTools, /offlineManager\?\.attach/);
     assert.match(index, /js\/features\/offline-manager\.js/);
     assert.match(htaccess, /offline-worker\\\.js\$\s+js\/features\/offline-worker\.js/);

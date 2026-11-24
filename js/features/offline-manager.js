@@ -35,6 +35,11 @@
         'imageEditorLoadTheme'
     ];
     const NETWORK_ACTION_SELECTOR = '[data-image-editor-action="save"]';
+    const HIDDEN_PACKAGE_LAYERS = new Set([
+        'Quadrículas - UTM',
+        'Sugestão de Planejamento',
+        'Google Satellite'
+    ]);
     let selectingArea = false;
     let workerRegistrationPromise;
 
@@ -256,6 +261,7 @@
      */
     function listTileLayers(layerRegistry) {
         return Object.entries(layerRegistry)
+            .filter(([name]) => !HIDDEN_PACKAGE_LAYERS.has(name))
             .map(([name, layer]) => {
                 const sampleUrl = layer?._url || '';
                 let supported = Boolean(layer && typeof layer.getTileUrl === 'function');
@@ -783,6 +789,7 @@
                                 ${tileSources || '<span>Nenhuma camada de tiles está disponível.</span>'}
                                 <label><input type="checkbox" id="offlineElevation"> Elevação SRTM local</label>
                             </div>
+                            <small>A camada Google Satellite não permite o download ou armazenamento local das imagens.</small>
                             <div class="offline-zoom">
                                 <label>Zoom mínimo <input id="offlineMinZoom" type="number" min="0" max="18" value="${Math.max(0, currentZoom - 1)}"></label>
                                 <label>Zoom máximo <input id="offlineMaxZoom" type="number" min="0" max="18" value="${currentZoom}"></label>
