@@ -34,6 +34,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     const textures = [];
     const textureOptions = [];
     const textureZooms = [];
+    const terrainLookups = [];
     const context = {
         URL, AbortController,
         document: {
@@ -59,6 +60,13 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
             navigator: { onLine: isOnline },
             addEventListener(name, callback) { listeners.set(name, callback); },
             PlanMilT: {
+                offlineManager: {
+                    offlineZoomLevels: [8, 10, 12, 14, 15],
+                    async getCachedTerrain(bounds, columns, rows) {
+                        terrainLookups.push({ bounds, columns, rows });
+                        return terrainResults[Math.min(terrainLookups.length - 1, terrainResults.length - 1)];
+                    }
+                },
                 coverageImage: { getGroup: () => context.coverageGroup },
                 map3dTexture: { async create(map, bounds, source, groups, zoom, options) {
                     textures.push(source);
@@ -91,7 +99,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     vm.runInNewContext(source, context);
     return {
         context, viewer, requests, messages, textures, textureOptions, overlay, frame, button, classes, downloads,
-            context, viewer, requests, messages, textures, textureOptions, textureZooms, overlay, frame, button, classes, downloads,
+            context, viewer, requests, messages, textures, textureOptions, textureZooms, terrainLookups, overlay, frame, button, classes, downloads,
         click: () => click(),
         message(event) {
             if (event.data?.type === 'planmilt-3d-ready' && !frame.contentDocument) {
@@ -150,6 +158,11 @@ test('allows offline 3D rendering from cached textures without trying to downloa
     assert.equal(h.textureOptions[0].offlineOnly, true);
     assert.equal(h.textureOptions[0].zoom, undefined);
     assert.equal(h.textureOptions[0].tileLayer, openTopoLayer);
+    assert.equal(h.requests.length, 0);
+    assert.equal(h.terrainLookups.length, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.terrainLookups[0].bounds)), {
+        south: -21.7, west: -51.4, north: -21.4, east: -51.1
+    });
     assert.deepEqual(h.downloads, []);
     assert.deepEqual(Array.from(dataMessage.message.payload.missingTiles), ['S22W052.HGT']);
     assert.equal(dataMessage.message.payload.zoomRequested, 12);

@@ -7,6 +7,8 @@
     window.PlanMilT = window.PlanMilT || {};
 
     const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
+    const TERRAIN_CACHE_PREFIX = 'planmilt-offline-terrain-v1:';
+    const TERRAIN_GRID_SIZE = 65;
     const STORAGE_KEY = `planmilt.offline-packages.v1:${location.pathname}`;
     const MAX_MAP_TILES = 10000;
     const CONFIRM_TILE_COUNT = 256;
@@ -365,6 +367,91 @@
         return tiles;
     }
 
+    function getSrtmTileName(latitude, longitude) {
+        const latPrefix = latitude >= 0 ? 'N' : 'S';
+        const lonPrefix = longitude >= 0 ? 'E' : 'W';
+        return `${latPrefix}${String(Math.abs(latitude)).padStart(2, '0')}`
+            + `${lonPrefix}${String(Math.abs(longitude)).padStart(3, '0')}.HGT`;
+    }
+
+    function getTerrainCacheUrl(tile) {
+        return new URL(`__planmilt_offline_terrain__/${tile}.json`, location.href).href;
+    }
+
+    /**
+     * Lê amostras SRTM salvas nos pacotes e remonta a grade do enquadramento atual.
+     * @param {Object} boundsInput - Limites WGS84 da área solicitada.
+     * @param {number} columns - Quantidade de colunas da grade.
+     * @param {number} rows - Quantidade de linhas da grade.
+     * @returns {Promise<Object>} Grade de elevação com tiles ausentes identificados.
+     */
+    async function getCachedTerrain(boundsInput, columns = TERRAIN_GRID_SIZE, rows = TERRAIN_GRID_SIZE) {
+        const bounds = normalizeBounds(boundsInput);
+        if (!Number.isInteger(columns) || columns < 2 || columns > TERRAIN_GRID_SIZE
+            || !Number.isInteger(rows) || rows < 2 || rows > TERRAIN_GRID_SIZE
+            || bounds.north - bounds.south > 5 || bounds.east - bounds.west > 5) {
+            throw new Error('A área da elevação offline deve ter até 5° por eixo e uma grade de até 65 × 65.');
+        }
+        const requiredTiles = getSrtmTileNames(bounds);
+        const cacheNames = new Set(await caches.keys());
+        const availableTiles = new Map();
+        for (const item of loadPackages()) {
+            const terrainTiles = Array.isArray(item.terrainTiles) ? item.terrainTiles : [];
+            const cacheName = `${TERRAIN_CACHE_PREFIX}${item.id}`;
+            if (!terrainTiles.length || !cacheNames.has(cacheName)) continue;
+            const cache = await caches.open(cacheName);
+            for (const tile of requiredTiles) {
+                if (!terrainTiles.includes(tile) || availableTiles.has(tile)) continue;
+                try {
+                    const response = await cache.match(getTerrainCacheUrl(tile));
+                    if (!response?.ok) continue;
+                    const grid = await response.json();
+                    if (Array.isArray(grid.elevations) && grid.elevations.length >= 2
+                        && grid.elevations.every(line => Array.isArray(line) && line.length >= 2)) {
+                        availableTiles.set(tile, grid.elevations);
+                    }
+                } catch (error) {
+                    console.warn('[PlanMilT][Offline] Não foi possível ler uma grade SRTM local.', error);
+                }
+            }
+        }
+        if (!availableTiles.size) {
+            throw new Error('Este pacote não contém grades SRTM para o 3D. Crie um pacote incluindo elevação SRTM.');
+        }
+
+        const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
+        const elevations = Array.from({ length: rows }, (_, row) => {
+            const latitude = bounds.north - (bounds.north - bounds.south) * row / (rows - 1);
+            const tileLatitude = Math.min(Math.floor(latitude), Math.ceil(bounds.north) - 1);
+            return Array.from({ length: columns }, (_, column) => {
+                const longitude = bounds.west + (bounds.east - bounds.west) * column / (columns - 1);
+                const tileLongitude = Math.min(Math.floor(longitude), Math.ceil(bounds.east) - 1);
+                const tile = getSrtmTileName(tileLatitude, tileLongitude);
+                const grid = availableTiles.get(tile);
+                if (!grid) return null;
+                const gridColumns = grid[0].length;
+                const gridRows = grid.length;
+                const gridX = Math.max(0, Math.min(gridColumns - 1, (longitude - tileLongitude) * (gridColumns - 1)));
+                const gridY = Math.max(0, Math.min(gridRows - 1, (tileLatitude + 1 - latitude) * (gridRows - 1)));
+                const x0 = Math.floor(gridX);
+                const y0 = Math.floor(gridY);
+                const x1 = Math.min(gridColumns - 1, x0 + 1);
+                const y1 = Math.min(gridRows - 1, y0 + 1);
+                const xFraction = gridX - x0;
+                const yFraction = gridY - y0;
+                const samples = [
+                    [grid[y0][x0], (1 - xFraction) * (1 - yFraction)],
+                    [grid[y0][x1], xFraction * (1 - yFraction)],
+                    [grid[y1][x0], (1 - xFraction) * yFraction],
+                    [grid[y1][x1], xFraction * yFraction]
+                ].filter(([value, weight]) => Number.isFinite(value) && weight > 0);
+                const weight = samples.reduce((sum, sample) => sum + sample[1], 0);
+                return weight ? samples.reduce((sum, sample) => sum + sample[0] * sample[1], 0) / weight : null;
+            });
+        });
+        return { rows, columns, elevations, missingTiles };
+    }
+
     /**
      * Lê os manifestos locais, ignorando formato inválido de forma explícita.
      * @returns {Array<Object>} Manifestos válidos.
@@ -380,7 +467,9 @@
                 || item.sources.some(source => typeof source !== 'string' || !source)
                 || !Number.isInteger(item.minZoom) || !Number.isInteger(item.maxZoom)
                 || item.minZoom < 0 || item.maxZoom > 18 || item.minZoom > item.maxZoom
-                || !Number.isFinite(item.tileCount) || item.tileCount < 0) {
+                || !Number.isFinite(item.tileCount) || item.tileCount < 0
+                || (item.terrainTiles !== undefined && (!Array.isArray(item.terrainTiles)
+                    || item.terrainTiles.some(tile => typeof tile !== 'string' || !/^[NS]\d{2}[EW]\d{3}\.HGT$/.test(tile))))) {
                 return false;
             }
             try {
@@ -688,6 +777,55 @@
         }
 
         /**
+         * Armazena grades SRTM por tile para o visualizador funcionar sem o endpoint PHP.
+         * @param {Array<string>} tiles - Nomes HGT da área.
+         * @param {string} packageId - Identificador do pacote dono dos dados.
+         * @param {Function} progress - Callback de status do download.
+         * @returns {Promise<{cachedTiles: Array<string>, failedTiles: Array<string>}>} Tiles preparados.
+         */
+        async function cacheTerrainGrids(tiles, packageId, progress) {
+            const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+            const cachedTiles = [];
+            const failedTiles = [];
+            for (const [index, tile] of tiles.entries()) {
+                const match = tile.match(/^([NS])(\d{2})([EW])(\d{3})\.HGT$/);
+                if (!match) {
+                    failedTiles.push(tile);
+                    continue;
+                }
+                const latitude = (match[1] === 'S' ? -1 : 1) * Number(match[2]);
+                const longitude = (match[3] === 'W' ? -1 : 1) * Number(match[4]);
+                progress(`Preparando elevação ${index + 1}/${tiles.length}: ${tile}`);
+                try {
+                    const edgeInset = 1e-9;
+                    const response = await apiClient.request('php/endpoints/elevation-terrain.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            bounds: [latitude, longitude, latitude + 1 - edgeInset, longitude + 1 - edgeInset],
+                            columns: TERRAIN_GRID_SIZE,
+                            rows: TERRAIN_GRID_SIZE
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !Array.isArray(data.elevations)
+                        || data.missingTiles?.includes(tile)) {
+                        failedTiles.push(tile);
+                        continue;
+                    }
+                    await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                    cachedTiles.push(tile);
+                } catch (error) {
+                    console.error('[PlanMilT][Offline] Falha ao armazenar a grade SRTM.', error);
+                    failedTiles.push(tile);
+                }
+            }
+            return { cachedTiles, failedTiles };
+        }
+
+        /**
          * Cria o pacote escolhido no formulário.
          */
         async function createPackage() {
@@ -753,14 +891,22 @@
                 throw error;
             }
             let failedSrtm = [];
+            let terrainTiles = [];
             if (srtmTiles.length > 0) {
-                failedSrtm = await downloadSrtm(srtmTiles, message => {
+                await downloadSrtm(srtmTiles, message => {
                     const progress = document.getElementById('offlineProgress');
                     if (progress) progress.textContent = message;
                 });
+                const terrain = await cacheTerrainGrids(srtmTiles, id, message => {
+                    const progress = document.getElementById('offlineProgress');
+                    if (progress) progress.textContent = message;
+                });
+                terrainTiles = terrain.cachedTiles;
+                failedSrtm = terrain.failedTiles;
             }
             if (result.cached === 0 && (srtmTiles.length === 0 || failedSrtm.length === srtmTiles.length)) {
                 await caches.delete(cacheName);
+                await caches.delete(`${TERRAIN_CACHE_PREFIX}${id}`);
                 throw new Error('Nenhum dado do pacote pôde ser obtido.');
             }
             const packages = loadPackages();
@@ -774,6 +920,7 @@
                 tileCount: result.cached,
                 failedTileCount: Math.max(0, result.total - result.cached),
                 srtmTiles,
+                terrainTiles,
                 failedSrtm,
                 createdAt: new Date().toISOString()
             });
@@ -781,6 +928,7 @@
                 savePackages(packages);
             } catch (error) {
                 await caches.delete(cacheName);
+                await caches.delete(`${TERRAIN_CACHE_PREFIX}${id}`);
                 throw error;
             }
             await Swal.fire({
@@ -803,7 +951,7 @@
             if (!item) throw new Error('Pacote offline não encontrado.');
             const confirmation = await Swal.fire({
                 title: 'Excluir pacote offline?',
-                text: 'Os tiles de mapa deste pacote serão removidos. Os arquivos SRTM permanecem no servidor local.',
+                text: 'Os tiles de mapa e as grades SRTM deste pacote serão removidos. Os arquivos HGT permanecem no servidor local.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Excluir',
@@ -811,6 +959,7 @@
             });
             if (!confirmation.isConfirmed) return;
             await caches.delete(item.cacheName);
+            await caches.delete(`${TERRAIN_CACHE_PREFIX}${item.id}`);
             savePackages(packages.filter(candidate => candidate.id !== id));
             await syncOfflineLayers();
             await openManager();
@@ -877,7 +1026,9 @@
                 ? packages.map(item => {
                     const labels = [
                         ...item.sources.map(source => PROVIDERS[source]?.label || source),
-                        ...(Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM'] : [])
+                        ...(Array.isArray(item.terrainTiles) && item.terrainTiles.length
+                            ? ['SRTM 3D']
+                            : (Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM sem grade 3D'] : []))
                     ].map(escapeHtml).join(', ') || 'Pacote';
                     return `<li><div><strong>${labels}</strong><span>${escapeHtml(formatBounds(item.bounds))}</span>`
                         + `<span>${escapeHtml(formatZoomRange(item.minZoom, item.maxZoom))} · ${item.tileCount} tiles`
@@ -997,6 +1148,7 @@
         listTileLayers,
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
+        getCachedTerrain,
         getCachedPackageSources,
         enableLayerControls,
         updateConnectionState,

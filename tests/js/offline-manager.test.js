@@ -15,8 +15,9 @@ const mapTools = fs.readFileSync(path.join(root, 'js/features/map-tools.js'), 'u
 function loadManager(options = {}) {
     const context = {
         window: { PlanMilT: {}, caches: options.caches },
+        caches: options.caches || {},
         location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
-        localStorage: { getItem() { return null; }, setItem() {} },
+        localStorage: options.localStorage || { getItem() { return null; }, setItem() {} },
         navigator: options.navigator || {},
         URL,
         console: { error() {}, info() {}, warn() {}, log() {} }
@@ -257,6 +258,84 @@ test('cached package sources are limited to manifests with non-empty caches', as
     assert.deepEqual([...sources], ['OpenTopo']);
 });
 
+test('cached terrain rebuilds an offline elevation grid from package SRTM samples', async () => {
+    const packageItem = {
+        id: '1-terrain',
+        cacheName: 'planmilt-offline-package-v1:1-terrain',
+        sources: ['OpenTopo'],
+        tileCount: 1,
+        bounds: { south: 0.1, west: 0.1, north: 0.9, east: 0.9 },
+        minZoom: 8,
+        maxZoom: 8,
+        srtmTiles: ['N00E000.HGT'],
+        terrainTiles: ['N00E000.HGT']
+    };
+    const terrainUrl = 'https://example.test/planmilt/__planmilt_offline_terrain__/N00E000.HGT.json';
+    const terrainCache = {
+        async match(url) {
+            assert.equal(url, terrainUrl);
+            return {
+                ok: true,
+                async json() { return { elevations: [[0, 10, 20], [30, 40, 50], [60, 70, 80]] }; }
+            };
+        }
+    };
+    const cacheStorage = {
+        async keys() { return ['planmilt-offline-terrain-v1:1-terrain']; },
+        async open() { return terrainCache; }
+    };
+    const manager = loadManager({
+        caches: cacheStorage,
+        localStorage: { getItem() { return JSON.stringify([packageItem]); }, setItem() {} }
+    });
+
+    const terrain = await manager.getCachedTerrain(packageItem.bounds, 3, 3);
+    assert.equal(terrain.rows, 3);
+    assert.equal(terrain.columns, 3);
+    assert.equal(terrain.elevations[1][1], 40);
+    assert.deepEqual(Array.from(terrain.missingTiles), []);
+});
+
+test('cached terrain rejects packages without SRTM grids', async () => {
+    const manager = loadManager({ caches: { async keys() { return []; } } });
+    await assert.rejects(
+        manager.getCachedTerrain({ south: 0.1, west: 0.1, north: 0.9, east: 0.9 }),
+        /não contém grades SRTM/
+    );
+});
+
+test('cached terrain reports missing HGT tiles while preserving available samples', async () => {
+    const packageItem = {
+        id: '2-partial',
+        cacheName: 'planmilt-offline-package-v1:2-partial',
+        sources: ['OpenTopo'],
+        tileCount: 1,
+        bounds: { south: 0.1, west: 0.1, north: 1.9, east: 0.9 },
+        minZoom: 8,
+        maxZoom: 8,
+        srtmTiles: ['N00E000.HGT', 'N01E000.HGT'],
+        terrainTiles: ['N00E000.HGT']
+    };
+    const terrainUrl = 'https://example.test/planmilt/__planmilt_offline_terrain__/N00E000.HGT.json';
+    const caches = {
+        async keys() { return ['planmilt-offline-terrain-v1:2-partial']; },
+        async open() {
+            return { async match() {
+                return { ok: true, async json() { return { elevations: [[5, 5], [5, 5]] }; } };
+            } };
+        }
+    };
+    const manager = loadManager({
+        caches,
+        localStorage: { getItem() { return JSON.stringify([packageItem]); }, setItem() {} }
+    });
+
+    const terrain = await manager.getCachedTerrain(packageItem.bounds, 3, 3);
+    assert.deepEqual(Array.from(terrain.missingTiles), ['N01E000.HGT']);
+    assert.equal(terrain.elevations[0][1], null);
+    assert.equal(terrain.elevations[2][1], 5);
+});
+
 test('offline synchronization restores layer controls without blocking selection', () => {
     const manager = loadManager();
     const input = {
@@ -432,7 +511,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v5/);
+    assert.match(worker, /planmilt-app-shell-v6/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

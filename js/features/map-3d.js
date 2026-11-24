@@ -72,6 +72,11 @@
                     }
                     return data;
                 };
+                const terrainRequest = offlineOnly
+                    ? window.PlanMilT.offlineManager.getCachedTerrain({
+                        south: bounds[0], west: bounds[1], north: bounds[2], east: bounds[3]
+                    }, 65, 65)
+                    : requestTerrain();
                 const [texture, initialTerrain] = await Promise.all([
                     window.PlanMilT.map3dTexture.create(map, bounds, source, [
                         drawnItems,
@@ -101,7 +106,7 @@
                             }
                         }
                     }),
-                    requestTerrain()
+                    terrainRequest
                 ]);
                 let terrain = initialTerrain;
                 if (!offlineOnly && !overlay.hidden && version === sceneVersion && terrain.missingTiles.length) {
