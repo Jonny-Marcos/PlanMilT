@@ -113,7 +113,7 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
     assert.ok(calls.some(coords => coords.x === 3));
 });
 
-test('offline selector includes every registered layer and supports Google Satellite', () => {
+test('offline selector includes registered layers and blocks Google Satellite caching', () => {
     const manager = loadManager();
     const google = { _url: 'https://mt0.google.com/vt/{z}/{x}/{y}', getTileUrl() {} };
     const local = {};
@@ -126,10 +126,66 @@ test('offline selector includes every registered layer and supports Google Satel
     assert.deepEqual(Array.from(layers, item => item.name), [
         'Google Satellite', 'Quadrículas - UTM', 'Camada WMS'
     ]);
-    assert.equal(layers[0].supported, true);
+    assert.equal(layers[0].supported, false);
+    assert.match(layers[0].reason, /Google.*cache.*download/i);
     assert.equal(layers[1].supported, false);
     assert.match(layers[1].reason, /local/);
     assert.equal(layers[2].supported, true);
+});
+
+test('offline connectivity state marks the interface and disables network actions', () => {
+    const manager = loadManager();
+    const classes = values => new Set(values);
+    const createClassList = () => {
+        const values = classes([]);
+        return {
+            toggle(name, force) {
+                if (force) values.add(name);
+                else values.delete(name);
+            },
+            add: name => values.add(name),
+            remove: name => values.delete(name),
+            contains: name => values.has(name)
+        };
+    };
+    const status = {
+        hidden: true,
+        attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; }
+    };
+    const saveButton = {
+        disabled: false,
+        title: 'Salvar desenhos',
+        tabIndex: 0,
+        dataset: {},
+        attributes: {},
+        classList: createClassList(),
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; }
+    };
+    const body = { classList: createClassList() };
+    const documentRoot = {
+        body,
+        getElementById(id) {
+            if (id === 'offlineStatus') return status;
+            if (id === 'saveDrawings') return saveButton;
+            return null;
+        },
+        querySelectorAll() { return []; }
+    };
+
+    manager.updateConnectionState(documentRoot, false);
+    assert.equal(status.hidden, false);
+    assert.equal(status.attributes['aria-hidden'], 'false');
+    assert.equal(saveButton.disabled, true);
+    assert.equal(saveButton.attributes['aria-disabled'], 'true');
+    assert.equal(saveButton.classList.contains('is-offline-disabled'), true);
+
+    manager.updateConnectionState(documentRoot, true);
+    assert.equal(status.hidden, true);
+    assert.equal(saveButton.disabled, false);
+    assert.equal(saveButton.title, 'Salvar desenhos');
+    assert.equal(saveButton.classList.contains('is-offline-disabled'), false);
 });
 
 test('offline manager is wired through the rewritten root service worker', () => {
@@ -141,6 +197,8 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(worker, /url\.protocol !== 'https:'/);
     assert.match(worker, /url\.username \|\| url\.password/);
     assert.match(worker, /CACHE_PACKAGE/);
+    assert.match(worker, /isRestrictedMapHost\(url\)/);
+    assert.match(worker, /Google Maps, cujo download em cache não é permitido/);
     assert.match(source, /offlineManager\.start\(\)\.catch/);
     assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
 });

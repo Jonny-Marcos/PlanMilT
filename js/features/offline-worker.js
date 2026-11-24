@@ -13,6 +13,15 @@ const SHELL_DOCUMENTS = [
 ];
 
 /**
+ * Indica se uma URL pertence a conteúdo do Google Maps.
+ * @param {URL} url - URL a verificar.
+ * @returns {boolean} Verdadeiro para hosts sujeitos às restrições de cache do Google.
+ */
+function isRestrictedMapHost(url) {
+    return /(?:^|\.)(?:google|googleapis)\.com$/i.test(url.hostname);
+}
+
+/**
  * Armazena uma resposta HTTP válida no cache indicado.
  * @param {Cache} cache - Cache de destino.
  * @param {string} requestUrl - URL da requisição.
@@ -129,9 +138,10 @@ async function cachePackage(port, data) {
     if (urls.some(requestUrl => {
         const url = new URL(requestUrl);
         return url.protocol !== 'https:'
-            || Boolean(url.username || url.password);
+            || Boolean(url.username || url.password)
+            || isRestrictedMapHost(url);
     })) {
-        throw new Error('O pacote contém uma URL de tiles insegura ou com credenciais.');
+        throw new Error('O pacote contém uma URL insegura, com credenciais ou do Google Maps, cujo download em cache não é permitido.');
     }
     const cache = await caches.open(data.cacheName);
     let completed = 0;
@@ -190,8 +200,10 @@ self.addEventListener('fetch', event => {
     }
 
     event.respondWith((async () => {
-        const packaged = await matchPackageCache(request);
-        if (packaged) return packaged;
+        if (!isRestrictedMapHost(url)) {
+            const packaged = await matchPackageCache(request);
+            if (packaged) return packaged;
+        }
         if (url.origin !== self.location.origin) return fetch(request);
         try {
             const response = await fetch(request);

@@ -22,8 +22,86 @@
         }
     };
     const MAX_TILE_URLS = 10000;
+    const NETWORK_CONTROL_IDS = [
+        'saveDrawings',
+        'loadDrawings',
+        'loadImages',
+        'shareLink',
+        'startPlanning',
+        'linkPredictionBtn',
+        'view3DButton',
+        'suggestionsButton',
+        'addLayerButton',
+        'imageEditorLoadTheme'
+    ];
+    const NETWORK_ACTION_SELECTOR = '[data-image-editor-action="save"]';
     let selectingArea = false;
     let workerRegistrationPromise;
+
+    /**
+     * Atualiza o indicador e os controles que precisam de conexão com a rede.
+     * @param {Document} documentRoot - Documento que contém a interface.
+     * @param {boolean} isOnline - Estado atual da conexão.
+     */
+    function updateConnectionState(documentRoot, isOnline) {
+        const status = documentRoot.getElementById('offlineStatus');
+        const controls = NETWORK_CONTROL_IDS
+            .map(id => documentRoot.getElementById(id))
+            .filter(Boolean);
+        controls.push(...documentRoot.querySelectorAll(NETWORK_ACTION_SELECTOR));
+
+        if (status) {
+            status.hidden = isOnline;
+            status.setAttribute('aria-hidden', String(isOnline));
+        }
+        documentRoot.body?.classList.toggle('is-offline', !isOnline);
+
+        controls.forEach(control => {
+            if (!isOnline) {
+                if (!control.dataset.offlineManaged) {
+                    control.dataset.offlineManaged = 'true';
+                    control.dataset.offlineWasDisabled = control.disabled ? 'true' : 'false';
+                    control.dataset.offlineTitle = control.title || '';
+                }
+                if ('disabled' in control) control.disabled = true;
+                control.classList.add('is-offline-disabled');
+                control.setAttribute('aria-disabled', 'true');
+                control.tabIndex = -1;
+                control.title = 'Indisponível no modo offline';
+            } else if (control.dataset.offlineManaged) {
+                if ('disabled' in control) control.disabled = control.dataset.offlineWasDisabled === 'true';
+                control.classList.remove('is-offline-disabled');
+                control.removeAttribute('aria-disabled');
+                control.removeAttribute('tabindex');
+                control.title = control.dataset.offlineTitle;
+                delete control.dataset.offlineManaged;
+                delete control.dataset.offlineWasDisabled;
+                delete control.dataset.offlineTitle;
+            }
+        });
+    }
+
+    /**
+     * Liga a interface aos eventos nativos de conectividade.
+     * @param {Document} documentRoot - Documento da aplicação.
+     * @param {Navigator} browserNavigator - Navegador observado.
+     * @param {EventTarget} eventTarget - Alvo dos eventos online/offline.
+     * @returns {Function} Atualizador de estado sem remover ouvintes.
+     */
+    function attachConnectionState(documentRoot, browserNavigator, eventTarget) {
+        const update = () => updateConnectionState(documentRoot, browserNavigator.onLine !== false);
+        const blockNetworkControl = event => {
+            const target = event.target.closest?.(`#${NETWORK_CONTROL_IDS.join(', #')}${NETWORK_ACTION_SELECTOR ? `, ${NETWORK_ACTION_SELECTOR}` : ''}`);
+            if (browserNavigator.onLine !== false || !target) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        };
+        documentRoot.addEventListener('click', blockNetworkControl, true);
+        eventTarget.addEventListener('online', update);
+        eventTarget.addEventListener('offline', update);
+        update();
+        return update;
+    }
 
     /**
      * Normaliza limites geográficos e impede áreas que cruzam o antimeridiano.
@@ -182,7 +260,10 @@
                 const sampleUrl = layer?._url || '';
                 let supported = Boolean(layer && typeof layer.getTileUrl === 'function');
                 let reason = supported ? '' : 'camada local; restaurada com a sessão do mapa';
-                if (supported && sampleUrl.startsWith('http://')) {
+                if (supported && /(?:^|\.)(?:google|googleapis)\.com(?:\/|$)/i.test(sampleUrl)) {
+                    supported = false;
+                    reason = 'conteúdo Google sem autorização de cache ou download offline';
+                } else if (supported && sampleUrl.startsWith('http://')) {
                     supported = false;
                     reason = 'serviço HTTP indisponível para pacote em HTTPS';
                 } else if (supported && (!sampleUrl || !/^(?:https?:\/\/|\{s\})/i.test(sampleUrl))) {
@@ -424,6 +505,9 @@
                 const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
                     .map(input => decodeURIComponent(input.value));
                 const includeElevation = document.getElementById('offlineElevation')?.checked;
+                if (navigator.onLine === false) {
+                    throw new Error('Reconecte-se à internet para baixar um pacote offline.');
+                }
                 if (sources.length === 0 && !includeElevation) {
                     throw new Error('Selecione uma camada-base ou a elevação SRTM.');
                 }
@@ -475,6 +559,9 @@
          * Cria o pacote escolhido no formulário.
          */
         async function createPackage() {
+            if (navigator.onLine === false) {
+                throw new Error('Reconecte-se à internet para baixar um pacote offline.');
+            }
             const minZoom = Number(document.getElementById('offlineMinZoom').value);
             const maxZoom = Number(document.getElementById('offlineMaxZoom').value);
             const sources = [...document.querySelectorAll('input[name="offlineSource"]:checked')]
@@ -736,6 +823,7 @@
         button.addEventListener('click', () => {
             openManager().catch(showError);
         });
+        attachConnectionState(document, navigator, window);
         registerWorker().catch(error => {
             console.warn('[PlanMilT][Offline] Serviço offline indisponível.', error);
             button.title = 'Pacotes offline indisponíveis neste contexto';
@@ -757,6 +845,8 @@
         listTileLayers,
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
+        updateConnectionState,
+        attachConnectionState,
         isSelectingArea: () => selectingArea
     });
 

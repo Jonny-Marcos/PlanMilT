@@ -60,6 +60,32 @@
             .view-3d-button:hover {
                 color: #007bff;
             }
+            .offline-status {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0 6px;
+                padding: 5px 8px;
+                border: 1px solid #a96916;
+                border-radius: 6px;
+                background: #fff4d6;
+                color: #70420a;
+                font-size: 13px;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+            .offline-status[hidden] {
+                display: none;
+            }
+            .offline-status i {
+                margin: 0 !important;
+            }
+            .is-offline-disabled {
+                opacity: .42 !important;
+                cursor: not-allowed !important;
+                pointer-events: none !important;
+                filter: grayscale(1);
+            }
             .map-3d-overlay {
                 position: fixed;
                 inset: 0;
@@ -195,7 +221,10 @@
             }
 
             .map-toolbar.controls-hidden > :not(.toolbar-icons),
-            .map-toolbar.controls-hidden .toolbar-icons > :not(.toggle-controls) {
+            .map-toolbar.controls-hidden .toolbar-icons > :not(.toggle-controls):not(.offline-status) {
+                display: none;
+            }
+            .map-toolbar.controls-hidden .offline-status[hidden] {
                 display: none;
             }
 
