@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 8;
+    private const VERSION = 9;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -267,6 +267,31 @@ final class SchemaMigrator
                 );
                 $database->exec('CREATE INDEX idx_suggestion_submissions ON suggestion_submissions (address_hash, created_at)');
                 $database->exec('PRAGMA user_version = 8');
+            }
+
+            if ($version < 9) {
+                $statement = $database->query(
+                    "SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'"
+                );
+                $rawDefaults = $statement ? $statement->fetchColumn() : false;
+                $mapDefaults = is_string($rawDefaults) ? json_decode($rawDefaults, true) : null;
+                if (is_array($mapDefaults)
+                    && ($mapDefaults['defaultLayers'] ?? null) === ['OpenTopo']
+                    && ($mapDefaults['center'] ?? null) === [-21.5699, -51.2457]
+                    && ($mapDefaults['zoom'] ?? null) === 12) {
+                    $mapDefaults['defaultLayers'] = ['Google Satellite'];
+                    $database->prepare(
+                        'UPDATE app_settings SET setting_value = ?, updated_at = datetime(\'now\') '
+                        . 'WHERE setting_key = ?'
+                    )->execute([
+                        json_encode(
+                            $mapDefaults,
+                            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+                        ),
+                        'map_defaults',
+                    ]);
+                }
+                $database->exec('PRAGMA user_version = 9');
             }
 
             $database->commit();

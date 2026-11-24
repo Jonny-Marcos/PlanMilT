@@ -10,6 +10,7 @@
     const STORAGE_KEY = `planmilt.offline-packages.v1:${location.pathname}`;
     const MAX_MAP_TILES = 10000;
     const CONFIRM_TILE_COUNT = 256;
+    const SENTINEL_LAYER_NAME = 'Sentinel-2 Cloudless 2024 (EOX)';
     const PROVIDERS = {
         opentopo: {
             label: 'OpenTopoMap',
@@ -481,6 +482,19 @@
      */
     function attach({ map, leaflet, layerRegistry, button, sweetAlert, apiClient }) {
         const Swal = sweetAlert;
+        const packageLayerRegistry = {
+            ...layerRegistry,
+            [SENTINEL_LAYER_NAME]: leaflet.tileLayer(
+                'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
+                {
+                    attribution: 'Sentinel-2 cloudless 2024 © EOX, Copernicus',
+                    minZoom: 1,
+                    maxZoom: 28,
+                    minNativeZoom: 0,
+                    maxNativeZoom: 14
+                }
+            )
+        };
         let selectedBounds = normalizeBounds(map.getBounds());
 
         /**
@@ -518,7 +532,7 @@
                     throw new Error('Selecione uma camada-base ou a elevação SRTM.');
                 }
                 const count = estimateRegisteredLayerTileCount(
-                    selectedBounds, minZoom, maxZoom, sources, layerRegistry, leaflet
+                    selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet
                 );
                 const srtm = includeElevation ? getSrtmTileNames(selectedBounds).length : 0;
                 const estimateMiB = count > 0 ? Math.max(1, Math.ceil(count * 22 / 1024)) : 0;
@@ -577,7 +591,7 @@
                 throw new Error('Selecione uma camada-base ou a elevação SRTM.');
             }
             const tileCount = estimateRegisteredLayerTileCount(
-                selectedBounds, minZoom, maxZoom, sources, layerRegistry, leaflet
+                selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet
             );
             const srtmTiles = includeElevation ? getSrtmTileNames(selectedBounds) : [];
             if (tileCount > MAX_MAP_TILES || srtmTiles.length > 32) {
@@ -600,7 +614,7 @@
             const urls = [];
             for (const source of sources) {
                 urls.push(...buildTileLayerUrls(
-                    layerRegistry[source], selectedBounds, minZoom, maxZoom, leaflet
+                    packageLayerRegistry[source], selectedBounds, minZoom, maxZoom, leaflet
                 ));
             }
 
@@ -729,7 +743,7 @@
         async function openManager() {
             const packages = loadPackages();
             const currentZoom = Math.max(0, Math.min(18, Math.round(map.getZoom())));
-            const tileLayers = listTileLayers(layerRegistry);
+            const tileLayers = listTileLayers(packageLayerRegistry);
             const tileSources = tileLayers.map(item => `
                 <label title="${escapeHtml(item.reason)}">
                     <input type="checkbox" name="offlineSource" value="${encodeURIComponent(item.name)}"

@@ -199,6 +199,10 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(worker, /isRestrictedMapHost\(url\)/);
     assert.match(worker, /Google Maps, cujo download em cache não é permitido/);
     assert.match(source, /offlineManager\.start\(\)\.catch/);
+    assert.match(source, /SENTINEL_LAYER_NAME/);
+    assert.match(source, /packageLayerRegistry/);
+    assert.match(source, /tiles\.maps\.eox\.at/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /tiles\.maps\.eox\.at/);
     assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
 });
 

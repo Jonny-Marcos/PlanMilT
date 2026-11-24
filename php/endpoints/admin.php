@@ -571,7 +571,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         wrapper.appendChild(legend);
         const help = document.createElement('p');
         help.className = 'muted';
-        help.textContent = 'OpenTopo é a única selecionada inicialmente. Marque outras camadas-base para iniciá-las visíveis; desmarque para deixá-las disponíveis apenas no controle do mapa.';
+        help.textContent = 'Google Satellite é a camada selecionada por padrão. Marque outras camadas-base para iniciá-las visíveis; desmarque para deixá-las disponíveis apenas no controle do mapa.';
         wrapper.appendChild(help);
         defaultLayerOptions.forEach(([key, label]) => {
             const row = document.createElement('label');

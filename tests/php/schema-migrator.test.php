@@ -46,7 +46,7 @@ $database->exec("INSERT INTO task_sequences (name, password, sequence, date_crea
 
 SchemaMigrator::migrate($database);
 SchemaMigrator::migrate($database);
-$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 8, 'Schema version was not recorded.');
+$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 9, 'Schema version was not recorded.');
 
 $expectedTables = [
     'admin_login_attempts', 'admin_users', 'app_settings', 'drawings', 'images', 'map_layer_categories',
@@ -67,7 +67,7 @@ $mapDefaults = json_decode(
 );
 $assert(
     $mapDefaults === [
-        'defaultLayers' => ['OpenTopo'],
+        'defaultLayers' => ['Google Satellite'],
         'center' => [-21.5699, -51.2457],
         'zoom' => 12,
     ],
@@ -95,11 +95,11 @@ $assert(
         (string) $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn(),
         true
     ) === [
-        'defaultLayers' => ['OpenTopo'],
+        'defaultLayers' => ['Google Satellite'],
         'center' => [-21.5699, -51.2457],
         'zoom' => 12,
     ],
-    'Version 7 did not set OpenTopo as the only initial layer.'
+    'Version 9 did not set Google Satellite as the initial layer.'
 );
 $customDefaults = json_encode([
     'defaultLayers' => ['BDGEx - CTM50'],
@@ -116,6 +116,20 @@ $assert(
     $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn()
         === $customDefaults,
     'Version 6 migration overwrote customized map defaults.'
+);
+$customOpenTopoDefaults = json_encode([
+    'defaultLayers' => ['OpenTopo'],
+    'center' => [10.0, 20.0],
+    'zoom' => 7.0,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+$database->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?')
+    ->execute([$customOpenTopoDefaults, 'map_defaults']);
+$database->exec('PRAGMA user_version = 8');
+SchemaMigrator::migrate($database);
+$assert(
+    $database->query("SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'")->fetchColumn()
+        === $customOpenTopoDefaults,
+    'Version 9 migration overwrote customized OpenTopo defaults.'
 );
 $assert(
     (int) $database->query('SELECT COUNT(*) FROM map_layers')->fetchColumn() === 0,
@@ -224,7 +238,7 @@ $previousPath = getenv('PLANMILT_DB_PATH');
 putenv('PLANMILT_DB_PATH=' . $factoryPath);
 try {
     $factoryConnection = ConnectionFactory::create();
-    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 8, 'ConnectionFactory did not apply migrations.');
+    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 9, 'ConnectionFactory did not apply migrations.');
     $indexes = $factoryConnection->query(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN "
         . "('idx_drawings_username_link', 'idx_task_sequences_name')"
