@@ -79,11 +79,20 @@ async function cacheApplicationShell() {
 
     for (const documentUrl of SHELL_DOCUMENTS) {
         const url = new URL(documentUrl, self.location.href);
-        const response = await fetch(new Request(url, { cache: 'no-cache', credentials: 'same-origin' }));
-        if (!response.ok) {
-            if (documentUrl === './index.html') {
-                throw new Error(`Não foi possível carregar o shell (HTTP ${response.status}).`);
+        let response;
+        try {
+            response = await fetch(new Request(url, { cache: 'no-cache', credentials: 'same-origin' }));
+        } catch (error) {
+            const previousCaches = (await caches.keys())
+                .filter(name => name.startsWith(APP_CACHE_PREFIX) && name !== APP_CACHE);
+            for (const previousName of previousCaches) {
+                response = await (await caches.open(previousName)).match(url.href);
+                if (response) break;
             }
+            console.warn(`[PlanMilT][Offline] Falha ao atualizar documento do shell: ${url.pathname}`, error);
+        }
+        if (!response?.ok) {
+            console.warn(`[PlanMilT][Offline] Documento do shell indisponível: ${url.pathname} (HTTP ${response.status}).`);
             continue;
         }
         const body = await response.clone().text();

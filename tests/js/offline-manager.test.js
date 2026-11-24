@@ -102,6 +102,57 @@ test('offline tile downloads prefer CORS-readable responses and retain opaque fa
     assert.equal(opaque.entries[0].response.type, 'opaque');
 });
 
+test('worker installation falls back to the previous viewer document when fetch rejects', async () => {
+    const listeners = new Map();
+    const cachedEntries = new Map();
+    const previousViewer = {
+        ok: true,
+        status: 200,
+        clone() { return this; },
+        async text() { return '<html><body>cached viewer</body></html>'; }
+    };
+    const previousCache = {
+        async match(url) { return String(url).endsWith('/visualizador-3d.html') ? previousViewer : undefined; }
+    };
+    const currentCache = {
+        async match(url) { return cachedEntries.get(String(url)); },
+        async put(url, response) { cachedEntries.set(String(url), response); }
+    };
+    const caches = {
+        async keys() { return ['planmilt-app-shell-v4']; },
+        async open(name) { return name === 'planmilt-app-shell-v4' ? previousCache : currentCache; }
+    };
+    class TestRequest {
+        constructor(url, options) { this.url = String(url); Object.assign(this, options); }
+    }
+    const self = {
+        location: { href: 'https://example.test/offline-worker.js', origin: 'https://example.test' },
+        addEventListener(name, callback) { listeners.set(name, callback); },
+        clients: { async claim() {} },
+        async skipWaiting() { this.didSkipWaiting = true; }
+    };
+    const response = content => ({
+        ok: true, status: 200,
+        clone() { return this; },
+        async text() { return content; }
+    });
+    vm.runInNewContext(worker, {
+        self, caches, URL, Request: TestRequest,
+        async fetch(request) {
+            if (request.url.endsWith('/visualizador-3d.html')) throw new Error('Failed to fetch');
+            if (request.url.endsWith('/favicon.ico')) return { ok: false, status: 404 };
+            return response('<html></html>');
+        },
+        console: { warn() {}, error() {} }
+    });
+
+    let installation;
+    listeners.get('install')({ waitUntil(promise) { installation = promise; } });
+    await installation;
+    assert.equal(self.didSkipWaiting, true);
+    assert.equal(cachedEntries.get('https://example.test/visualizador-3d.html'), previousViewer);
+});
+
 test('offline packages calculate XYZ URLs without duplicate tiles', () => {
     const manager = loadManager();
     const bounds = manager.normalizeBounds({ south: -10.2, west: -52.2, north: -10.1, east: -52.1 });
