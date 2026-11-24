@@ -88,6 +88,7 @@ test('setup returns standard layers and planning state in its registry', () => {
 
     assert.deepEqual(Object.keys(setup.layerRegistry), [
         'OpenTopo',
+        'Sentinel-2 Cloudless 2024 (EOX)',
         'Google Satellite',
         'Quadrículas - UTM',
         'BDGEx - CTM50',
@@ -97,6 +98,9 @@ test('setup returns standard layers and planning state in its registry', () => {
     assert.equal([...layersOnMap].some(layer => layer.type === 'vector'), false);
     assert.equal(layersOnMap.has(setup.planejamentoLayer), false);
     assert.equal(typeof setup.layerControl.addOverlay, 'function');
+    const sentinelLayer = setup.layerRegistry['Sentinel-2 Cloudless 2024 (EOX)'];
+    assert.match(sentinelLayer.url, /^https:\/\/tiles\.maps\.eox\.at\//);
+    assert.match(sentinelLayer.options.attribution, /Copernicus/);
 });
 
 test('new overlays are registered, added to the control and map once', () => {
