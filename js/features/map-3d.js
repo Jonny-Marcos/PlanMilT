@@ -6,7 +6,7 @@
     const button = document.getElementById('view3DButton');
     const overlay = document.getElementById('map3DOverlay');
     const frame = document.getElementById('map3DFrame');
-    const viewerLayout = 'bottom-toolbar-v1';
+    const viewerLayout = 'bottom-toolbar-compact-v1';
     let viewerReady = false;
     let selectedSource = 'opentopo';
     let selectedZoom = null;

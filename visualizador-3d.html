@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-br" data-planmilt-viewer-layout="bottom-toolbar-v1">
+<html lang="pt-br" data-planmilt-viewer-layout="bottom-toolbar-compact-v1">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -49,12 +49,24 @@
         #viewerWarnings { color: #ffe4a8; background: #382e19e8; }
         @media (max-width: 600px), (hover: none) and (pointer: coarse) {
             .viewer-header { bottom: 8px; width: calc(100vw - 16px); }
-            .viewer-controls { max-height: min(48dvh, 360px); padding: 7px; }
-            #toggleViewerControls { display: block; flex: 1 0 100%; min-height: 38px; }
-            #viewerControlFields { justify-content: flex-start; }
-            .viewer-actions { flex: 1 0 100%; justify-content: center; }
-            .viewer-actions button { min-height: 40px; font-size: 12px; }
-            .viewer-control { flex: 1 1 100%; justify-content: space-between; }
+            .viewer-controls { max-height: min(42dvh, 300px); gap: 6px; padding: 5px 7px; }
+            #toggleViewerControls { display: block; flex: 0 0 auto; min-height: 34px; padding: 5px 9px; font-size: 11px; }
+            #viewerControlFields {
+                display: grid; flex: 1 0 100%; grid-template-columns: repeat(2, minmax(0, 1fr));
+                align-items: center; gap: 5px 8px;
+            }
+            .viewer-actions { grid-column: 1 / -1; justify-content: center; gap: 4px; }
+            .viewer-actions button { min-height: 34px; padding: 5px 8px; font-size: 11px; }
+            .viewer-control { min-width: 0; justify-content: space-between; gap: 4px; font-size: 11px; white-space: normal; }
+            .viewer-control input { width: clamp(58px, 19vw, 82px); }
+            .viewer-control select { max-width: 110px; padding: 4px; font-size: 11px; }
+            .viewer-control input[type="number"] { width: 58px; padding: 4px; }
+            .viewer-control[for="baseZoom3D"], #applyBaseZoom { grid-column: 1 / -1; }
+            #applyBaseZoom { justify-self: center; min-height: 34px; padding: 5px 8px; font-size: 11px; }
+            #viewerAttribution {
+                flex: 1 1 140px; min-width: 0; overflow: hidden; font-size: 9px;
+                text-align: left; text-overflow: ellipsis; white-space: nowrap;
+            }
             .viewer-messages { top: 8px; left: 8px; width: calc(100vw - 16px); }
         }
     </style>

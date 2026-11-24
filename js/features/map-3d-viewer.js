@@ -308,6 +308,7 @@ void main() {
     mobileControls.addEventListener('change', () => {
         if (!mobileControls.matches && controlFields.hidden) setControlsVisible(true);
     });
+    if (mobileControls.matches) setControlsVisible(false);
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
     document.getElementById('applyBaseZoom').addEventListener('click', () => {
         const zoom = baseZoom.value === '' ? NaN : Number(baseZoom.value);
