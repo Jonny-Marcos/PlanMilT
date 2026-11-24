@@ -48,7 +48,9 @@
     function setControlsVisible(visible) {
         controlFields.hidden = !visible;
         toggleControls.setAttribute('aria-expanded', String(visible));
-        toggleControls.textContent = visible ? 'Ocultar controles' : 'Mostrar controles';
+        const label = visible ? 'Ocultar controles' : 'Mostrar controles';
+        toggleControls.setAttribute('aria-label', label);
+        toggleControls.setAttribute('title', label);
         status.hidden = !status.textContent || (showingHint && !visible);
     }
 

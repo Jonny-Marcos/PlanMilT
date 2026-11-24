@@ -88,7 +88,7 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
         click: () => click(),
         message(event) {
             if (event.data?.type === 'planmilt-3d-ready' && !frame.contentDocument) {
-                this.setViewerLayout('bottom-toolbar-compact-v1');
+                this.setViewerLayout('bottom-toolbar-two-line-v1');
             }
             listeners.get('message')(event);
         },
@@ -140,7 +140,7 @@ test('reloads a retained iframe when its 3D layout is outdated', async () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 0);
 
-    h.setViewerLayout('bottom-toolbar-compact-v1');
+    h.setViewerLayout('bottom-toolbar-two-line-v1');
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 1);
@@ -369,21 +369,21 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     const fields = elements.viewerControlFields;
     assert.equal(fields.hidden, true);
     assert.equal(toggle['aria-expanded'], 'false');
-    assert.equal(toggle.textContent, 'Mostrar controles');
+    assert.equal(toggle['aria-label'], 'Mostrar controles');
     assert.equal(elements.viewerStatus.hidden, true);
     assert.equal(elements.viewerWarnings.hidden, false);
     assert.match(elements.viewerAttribution.textContent, /OpenTopoMap/);
     toggle.events.click();
     assert.equal(fields.hidden, false);
     assert.equal(toggle['aria-expanded'], 'true');
-    assert.equal(toggle.textContent, 'Ocultar controles');
+    assert.equal(toggle['aria-label'], 'Ocultar controles');
     assert.equal(elements.viewerStatus.hidden, false);
     events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-error', message: 'Falha ao atualizar.' } });
     assert.equal(elements.viewerStatus.hidden, false);
     toggle.events.click();
     assert.equal(fields.hidden, true);
     assert.equal(toggle['aria-expanded'], 'false');
-    assert.equal(toggle.textContent, 'Mostrar controles');
+    assert.equal(toggle['aria-label'], 'Mostrar controles');
     assert.equal(elements.baseZoom3D.value, '12');
     media.matches = false;
     media.change();
@@ -418,10 +418,14 @@ test('3D controls use a bottom-centered light toolbar on desktop and mobile', ()
     assert.match(viewerHtml, /\.viewer-controls\s*\{[^}]*background:\s*#f8f9fa;[^}]*pointer-events:\s*auto/);
     assert.match(viewerHtml, /\.viewer-messages\s*\{[^}]*top:\s*16px/);
     assert.match(viewerHtml, /@media \(max-width: 600px\), \(hover: none\) and \(pointer: coarse\)[\s\S]*?\.viewer-header\s*\{\s*bottom:\s*8px/);
-    assert.match(viewerHtml, /#toggleViewerControls\s*\{\s*display:\s*block;\s*flex:\s*0 0 auto/);
-    assert.match(viewerHtml, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+    assert.match(viewerHtml, /\.viewer-actions\s*\{[^}]*flex-wrap:\s*nowrap/);
+    assert.match(viewerHtml, /#viewerControlFields\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
+    assert.match(viewerHtml, /class="fas fa-sync-alt viewer-action-icon"/);
+    assert.match(viewerHtml, /class="fas fa-layer-group viewer-control-icon"/);
+    assert.match(viewerHtml, /class="sr-only"/);
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
-    assert.match(viewerHtml, /id="viewerControlFields"[\s\S]*id="closeViewer"[\s\S]*<\/div>\s*<p id="viewerAttribution"/);
+    assert.match(viewerHtml, /data-planmilt-viewer-layout="bottom-toolbar-two-line-v1"/);
+    assert.match(viewerHtml, /id="viewerAttribution"[\s\S]*id="viewerControlFields"/);
     assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
     assert.match(viewerHtml, /map-3d-viewer\.js/);
 });

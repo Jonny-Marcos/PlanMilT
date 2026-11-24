@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="pt-br" data-planmilt-viewer-layout="bottom-toolbar-compact-v1">
+<html lang="pt-br" data-planmilt-viewer-layout="bottom-toolbar-two-line-v1">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Visualizador 3D — PlanMilT</title>
+    <link rel="stylesheet" href="css/fontawesome-all.min.css">
     <style>
         :root { color-scheme: light; font-family: Arial, sans-serif; background: #101820; color: #333; }
         * { box-sizing: border-box; }
@@ -11,7 +12,8 @@
         #terrainCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
         .viewer-header {
             position: fixed; z-index: 2; left: 50%; bottom: 16px;
-            display: flex; justify-content: center; width: min(980px, calc(100vw - 32px));
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            width: min(980px, calc(100vw - 32px));
             transform: translateX(-50%); pointer-events: none;
         }
         .viewer-controls {
@@ -24,6 +26,7 @@
         #viewerControlFields[hidden] { display: none; }
         #viewerControlFields { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
         .viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+        .viewer-action-icon { margin-right: 5px; }
         button {
             min-height: 36px; border: 1px solid #ccc; border-radius: 5px; padding: 7px 10px;
             background: #e7e7e7; color: #333; font-size: 13px; cursor: pointer;
@@ -34,8 +37,17 @@
         .viewer-control input { width: clamp(90px, 12vw, 150px); margin: 0; accent-color: #31547c; }
         .viewer-control select { width: auto; max-width: 180px; margin: 0; padding: 6px; }
         .viewer-control input[type="number"] { width: 72px; padding: 6px; }
-        #viewerAttribution { flex: 1 0 100%; margin: 0; color: #59636e; font-size: 11px; text-align: center; }
-        #viewerAttribution a { color: #31547c; }
+        #viewerAttribution {
+            max-width: 100%; margin: 0; overflow: hidden; padding: 3px 7px;
+            border-radius: 4px; background: #17212ddd; color: #e0e7ef;
+            font-size: 10px; text-align: center; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #viewerAttribution a { color: #fff; }
+        .viewer-control-icon { display: none; }
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
         .viewer-messages {
             position: fixed; z-index: 2; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 8px;
             width: min(600px, calc(100vw - 32px)); pointer-events: none;
@@ -49,24 +61,27 @@
         #viewerWarnings { color: #ffe4a8; background: #382e19e8; }
         @media (max-width: 600px), (hover: none) and (pointer: coarse) {
             .viewer-header { bottom: 8px; width: calc(100vw - 16px); }
-            .viewer-controls { max-height: min(42dvh, 300px); gap: 6px; padding: 5px 7px; }
-            #toggleViewerControls { display: block; flex: 0 0 auto; min-height: 34px; padding: 5px 9px; font-size: 11px; }
+            .viewer-controls { display: block; max-height: none; overflow: visible; padding: 4px; }
+            .viewer-actions { flex-wrap: nowrap; justify-content: center; gap: 5px; }
+            #toggleViewerControls { display: inline-flex; align-items: center; justify-content: center; }
+            .viewer-action-icon { margin: 0; }
+            .viewer-action-label { display: none; }
+            .viewer-actions button { width: 36px; min-width: 36px; min-height: 34px; padding: 5px; font-size: 13px; }
             #viewerControlFields {
-                display: grid; flex: 1 0 100%; grid-template-columns: repeat(2, minmax(0, 1fr));
-                align-items: center; gap: 5px 8px;
+                display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 8px;
+                width: 100%; margin-top: 5px; overflow-x: auto; overscroll-behavior-x: contain;
+                scrollbar-width: none;
             }
-            .viewer-actions { grid-column: 1 / -1; justify-content: center; gap: 4px; }
-            .viewer-actions button { min-height: 34px; padding: 5px 8px; font-size: 11px; }
-            .viewer-control { min-width: 0; justify-content: space-between; gap: 4px; font-size: 11px; white-space: normal; }
-            .viewer-control input { width: clamp(58px, 19vw, 82px); }
-            .viewer-control select { max-width: 110px; padding: 4px; font-size: 11px; }
-            .viewer-control input[type="number"] { width: 58px; padding: 4px; }
-            .viewer-control[for="baseZoom3D"], #applyBaseZoom { grid-column: 1 / -1; }
-            #applyBaseZoom { justify-self: center; min-height: 34px; padding: 5px 8px; font-size: 11px; }
-            #viewerAttribution {
-                flex: 1 1 140px; min-width: 0; overflow: hidden; font-size: 9px;
-                text-align: left; text-overflow: ellipsis; white-space: nowrap;
-            }
+            #viewerControlFields::-webkit-scrollbar { display: none; }
+            .viewer-control { flex: 0 0 auto; gap: 4px; font-size: 11px; white-space: nowrap; }
+            .viewer-control-label { display: none; }
+            .viewer-control-icon { display: inline-block; }
+            .viewer-control input { width: 62px; }
+            .viewer-control input[type="range"] { width: 68px; }
+            .viewer-control select { width: 104px; max-width: 104px; padding: 4px; font-size: 11px; }
+            .viewer-control input[type="number"] { width: 46px; padding: 4px; }
+            #applyBaseZoom { width: 34px; min-width: 34px; min-height: 32px; padding: 4px; font-size: 12px; }
+            #viewerAttribution { max-width: 100%; font-size: 9px; }
             .viewer-messages { top: 8px; left: 8px; width: calc(100vw - 16px); }
         }
     </style>
@@ -74,32 +89,36 @@
 <body>
     <canvas id="terrainCanvas" aria-label="Mapa 3D somente para visualização"></canvas>
     <header class="viewer-header">
+        <p id="viewerAttribution"></p>
         <aside class="viewer-controls" aria-label="Controles do visualizador">
-            <button id="toggleViewerControls" type="button" aria-controls="viewerControlFields" aria-expanded="true">Ocultar controles</button>
+            <div class="viewer-actions">
+                <button id="toggleViewerControls" type="button" aria-label="Ocultar controles" title="Ocultar controles" aria-controls="viewerControlFields" aria-expanded="true"><i class="fas fa-sliders-h" aria-hidden="true"></i><span class="sr-only">Controles</span></button>
+                <button id="refreshViewer" type="button" aria-label="Atualizar com o mapa 2D" title="Atualizar com o mapa 2D"><i class="fas fa-sync-alt viewer-action-icon" aria-hidden="true"></i><span class="viewer-action-label">Atualizar</span></button>
+                <button id="resetCamera" type="button" aria-label="Restaurar vista" title="Restaurar vista"><i class="fas fa-undo viewer-action-icon" aria-hidden="true"></i><span class="viewer-action-label">Restaurar vista</span></button>
+                <button id="closeViewer" type="button" aria-label="Voltar ao mapa" title="Voltar ao mapa"><i class="fas fa-sign-out-alt viewer-action-icon" aria-hidden="true"></i><span class="viewer-action-label">Voltar ao mapa</span></button>
+            </div>
             <div id="viewerControlFields">
-                <div class="viewer-actions">
-                    <button id="refreshViewer" type="button" title="Atualizar com o mapa 2D">Atualizar</button>
-                    <button id="resetCamera" type="button">Restaurar vista</button>
-                    <button id="closeViewer" type="button">Voltar ao mapa</button>
-                </div>
                 <label class="viewer-control" for="verticalExaggeration">
-                    Exagero vertical: <span id="verticalExaggerationValue">5×</span>
-                    <input id="verticalExaggeration" type="range" min="1" max="10" step="0.5" value="5">
+                    <i class="fas fa-arrows-alt-v viewer-control-icon" aria-hidden="true" title="Exagero vertical"></i>
+                    <span class="viewer-control-label">Exagero vertical</span>
+                    <span id="verticalExaggerationValue">5×</span>
+                    <input id="verticalExaggeration" type="range" min="1" max="10" step="0.5" value="5" aria-label="Exagero vertical" title="Exagero vertical">
                 </label>
                 <label class="viewer-control" for="baseLayer3D">
-                    Camada-base
-                    <select id="baseLayer3D">
+                    <i class="fas fa-layer-group viewer-control-icon" aria-hidden="true" title="Camada-base"></i>
+                    <span class="viewer-control-label">Camada-base</span>
+                    <select id="baseLayer3D" aria-label="Camada-base" title="Camada-base">
                         <option value="opentopo">OpenTopoMap</option>
                         <option value="bdgex">BDGEx - CTM50</option>
                     </select>
                 </label>
                 <label class="viewer-control" for="baseZoom3D">
-                    Ajustar zoom da camada-base (0–18)
-                    <input id="baseZoom3D" type="number" min="0" max="18" step="1">
+                    <i class="fas fa-search-plus viewer-control-icon" aria-hidden="true" title="Zoom da camada-base"></i>
+                    <span class="viewer-control-label">Zoom da camada-base (0–18)</span>
+                    <input id="baseZoom3D" type="number" min="0" max="18" step="1" aria-label="Zoom da camada-base, entre 0 e 18" title="Zoom da camada-base, entre 0 e 18">
                 </label>
-                <button id="applyBaseZoom" type="button">Aplicar zoom</button>
+                <button id="applyBaseZoom" type="button" aria-label="Aplicar zoom da camada-base" title="Aplicar zoom da camada-base"><i class="fas fa-check" aria-hidden="true"></i><span class="sr-only">Aplicar zoom da camada-base</span></button>
             </div>
-            <p id="viewerAttribution"></p>
         </aside>
     </header>
     <div class="viewer-messages">
