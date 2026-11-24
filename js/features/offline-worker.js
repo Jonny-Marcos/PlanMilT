@@ -92,7 +92,8 @@ async function cacheApplicationShell() {
             console.warn(`[PlanMilT][Offline] Falha ao atualizar documento do shell: ${url.pathname}`, error);
         }
         if (!response?.ok) {
-            console.warn(`[PlanMilT][Offline] Documento do shell indisponível: ${url.pathname} (HTTP ${response.status}).`);
+            const status = response ? `HTTP ${response.status}` : 'sem resposta (offline)';
+            console.warn(`[PlanMilT][Offline] Documento do shell indisponível: ${url.pathname} (${status}).`);
             continue;
         }
         const body = await response.clone().text();

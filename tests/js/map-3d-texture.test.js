@@ -147,9 +147,11 @@ test('rejects missing and opaque package tiles offline without network fallback'
     const missing = setup(false, { missing: true });
     await assert.rejects(
         missing.texture.create(missing.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 10, { offlineOnly: true }),
-        /não está no pacote offline/
+        /Tile da camada-base ausente.*Dados SRTM não incluem imagens/
     );
     assert.equal(missing.urls.length, 0);
+    assert.ok(missing.debugEvents.some(event => event.event === 'map3dTexture.cache-response'
+        && event.details.cacheResult === 'miss'));
 
     const opaque = setup(false, { type: 'opaque' });
     await assert.rejects(

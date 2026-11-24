@@ -84,7 +84,7 @@ window.PlanMilT.map3dTexture = Object.freeze({
                     cacheResult: 'miss'
                 });
             }
-            throw new Error('A camada, área ou zoom não está no pacote offline. Baixe um pacote que inclua esta seleção.');
+            throw new Error('Tile da camada-base ausente no pacote offline para esta área ou zoom. Dados SRTM não incluem imagens; baixe um pacote com a mesma camada, área e zoom.');
         };
         const { x: left, y: top } = map.project([north, west], zoom);
         const { x: right, y: bottom } = map.project([south, east], zoom);

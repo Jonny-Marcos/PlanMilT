@@ -190,6 +190,32 @@ test('worker installation falls back to the previous viewer document when fetch 
     assert.equal(cachedEntries.get('https://example.test/visualizador-3d.html'), previousViewer);
 });
 
+test('worker installation tolerates offline documents with no prior cached response', async () => {
+    const listeners = new Map();
+    const warnings = [];
+    const cache = { async match() { return undefined; }, async put() {} };
+    const caches = { async keys() { return []; }, async open() { return cache; } };
+    const self = {
+        location: { href: 'https://example.test/offline-worker.js', origin: 'https://example.test' },
+        addEventListener(name, callback) { listeners.set(name, callback); },
+        clients: { async claim() {} },
+        async skipWaiting() { this.didSkipWaiting = true; }
+    };
+    vm.runInNewContext(worker, {
+        self, caches, URL, Request: class { constructor(url) { this.url = String(url); } },
+        async fetch() { throw new TypeError('Failed to fetch'); },
+        console: { warn(...args) { warnings.push(args); }, error() {}, info() {} }
+    });
+
+    let installation;
+    listeners.get('install')({ waitUntil(promise) { installation = promise; } });
+    await installation;
+
+    assert.equal(self.didSkipWaiting, true);
+    assert.ok(warnings.some(([message]) => message.includes('sem resposta (offline)')));
+    assert.ok(warnings.every(([message]) => !message.includes('(HTTP undefined)')));
+});
+
 test('offline packages calculate XYZ URLs without duplicate tiles', () => {
     const manager = loadManager();
     const bounds = manager.normalizeBounds({ south: -10.2, west: -52.2, north: -10.1, east: -52.1 });
