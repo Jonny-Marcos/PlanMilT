@@ -43,18 +43,6 @@ window.PlanMilT.mapSetup = Object.freeze({
             layer_GoogleSatellite_1;
             map.addLayer(layer_GoogleSatellite_1);
 
-            map.createPane('pane_Sentinel2Local');
-            map.getPane('pane_Sentinel2Local').style.zIndex = 102;
-            var layer_Sentinel2Local = L.tileLayer('imagery/sentinel-2/{z}/{x}/{y}.png', {
-                pane: 'pane_Sentinel2Local',
-                opacity: 1.0,
-                attribution: 'Copernicus Sentinel-2 / INPE',
-                minZoom: 1,
-                maxZoom: 28,
-                minNativeZoom: 0,
-                maxNativeZoom: 18
-            });
-
 
             map.createPane('pane_BDGEx_2');
             map.getPane('pane_BDGEx_2').style.zIndex = 104;
@@ -242,7 +230,6 @@ window.PlanMilT.mapSetup = Object.freeze({
             var layerControl; // Referência global ao controle de camadas
             var layerRegistry = {
                 "OpenTopo": layer_OpenTopo_0,
-                "Sentinel-2 (local)": layer_Sentinel2Local,
                 "Google Satellite": layer_GoogleSatellite_1,
                 "Quadrículas - UTM": utmGrids,
                 "BDGEx - CTM50": layer_BDGEx_2,

@@ -114,21 +114,17 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
     assert.ok(calls.some(coords => coords.x === 3));
 });
 
-test('offline selector hides non-downloadable layers and keeps local Sentinel-2', () => {
+test('offline selector hides non-downloadable layers', () => {
     const manager = loadManager();
     const layers = manager.listTileLayers({
         'Google Satellite': { _url: 'https://mt0.google.com/vt/{z}/{x}/{y}', getTileUrl() {} },
         'Quadrículas - UTM': {},
         'Sugestão de Planejamento': {},
-        'Sentinel-2 (local)': { _url: 'imagery/sentinel-2/{z}/{x}/{y}.png', getTileUrl() {} },
         'Camada WMS': { _url: 'https://example.test/wms', getTileUrl() {} }
     });
 
-    assert.deepEqual(Array.from(layers, item => item.name), [
-        'Sentinel-2 (local)', 'Camada WMS'
-    ]);
+    assert.deepEqual(Array.from(layers, item => item.name), ['Camada WMS']);
     assert.equal(layers[0].supported, true);
-    assert.equal(layers[1].supported, true);
 });
 
 test('offline manager explains why Google Satellite cannot be downloaded', () => {
@@ -193,7 +189,7 @@ test('offline connectivity state marks the interface and disables network action
 test('offline manager is wired through the rewritten root service worker', () => {
     assert.match(main, /id="offlineManagerButton"[^>]*title="Gerenciar pacotes offline"/);
     assert.match(main, /globalThis\.PlanMilT\?\.offlineManager\?\.isSelectingArea\(\)/);
-    assert.match(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /imagery\/sentinel-2/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /imagery\/sentinel-2/);
     assert.match(mapTools, /offlineManager\?\.attach/);
     assert.match(index, /js\/features\/offline-manager\.js/);
     assert.match(htaccess, /offline-worker\\\.js\$\s+js\/features\/offline-worker\.js/);
