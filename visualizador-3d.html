@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-br" data-planmilt-viewer-layout="bottom-toolbar-two-line-v1">
+<html lang="pt-br" data-planmilt-viewer-layout="offline-3d-presets-v1">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -114,8 +114,14 @@
                 </label>
                 <label class="viewer-control" for="baseZoom3D">
                     <i class="fas fa-search-plus viewer-control-icon" aria-hidden="true" title="Zoom da camada-base"></i>
-                    <span class="viewer-control-label">Zoom da camada-base (0–18)</span>
-                    <input id="baseZoom3D" type="number" min="0" max="18" step="1" aria-label="Zoom da camada-base, entre 0 e 18" title="Zoom da camada-base, entre 0 e 18">
+                    <span class="viewer-control-label">Zoom da camada-base</span>
+                    <select id="baseZoom3D" aria-label="Nível de detalhes da camada-base" title="Nível de detalhes da camada-base">
+                        <option value="8">Visão ampla</option>
+                        <option value="10">Visão regional</option>
+                        <option value="12" selected>Equilíbrio entre área e detalhes</option>
+                        <option value="14">Mais detalhes</option>
+                        <option value="15">Detalhes máximos</option>
+                    </select>
                 </label>
                 <button id="applyBaseZoom" type="button" aria-label="Aplicar zoom da camada-base" title="Aplicar zoom da camada-base"><i class="fas fa-check" aria-hidden="true"></i><span class="sr-only">Aplicar zoom da camada-base</span></button>
             </div>

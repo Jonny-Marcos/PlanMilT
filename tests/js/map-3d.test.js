@@ -9,8 +9,9 @@ const mainSource = fs.readFileSync(path.join(__dirname, '../../js/features/main.
 const indexSource = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
 const viewerSource = fs.readFileSync(path.join(__dirname, '../../js/features/map-3d-viewer.js'), 'utf8');
 const viewerHtml = fs.readFileSync(path.join(__dirname, '../../visualizador-3d.html'), 'utf8');
+const offlineManagerSource = fs.readFileSync(path.join(__dirname, '../../js/features/offline-manager.js'), 'utf8');
 
-function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missingTiles: [] }], ensure } = {}) {
+function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missingTiles: [] }], ensure, isOnline = true } = {}) {
     const listeners = new Map();
     const requests = [];
     const messages = [];
@@ -31,6 +32,8 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     const classes = new Set();
     const downloads = [];
     const textures = [];
+    const textureOptions = [];
+    const textureZooms = [];
     const context = {
         URL, AbortController,
         document: {
@@ -53,11 +56,14 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
         Swal: { fire: async () => ({}) },
         window: {
             location: { origin: 'https://plan.test', href: 'https://plan.test/index.html' },
+            navigator: { onLine: isOnline },
             addEventListener(name, callback) { listeners.set(name, callback); },
             PlanMilT: {
                 coverageImage: { getGroup: () => context.coverageGroup },
-                map3dTexture: { async create(map, bounds, source, groups, zoom) {
+                map3dTexture: { async create(map, bounds, source, groups, zoom, options) {
                     textures.push(source);
+                    textureOptions.push(options);
+                    textureZooms.push(zoom);
                     context.lastGroups = Array.from(groups);
                     context.lastZoom = zoom;
                     return { image: 'data:image/png;base64,AA==', zoom: zoom ?? 12 };
@@ -84,11 +90,12 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     context.coverageGroup = {};
     vm.runInNewContext(source, context);
     return {
-        context, viewer, requests, messages, textures, overlay, frame, button, classes, downloads,
+        context, viewer, requests, messages, textures, textureOptions, overlay, frame, button, classes, downloads,
+            context, viewer, requests, messages, textures, textureOptions, textureZooms, overlay, frame, button, classes, downloads,
         click: () => click(),
         message(event) {
             if (event.data?.type === 'planmilt-3d-ready' && !frame.contentDocument) {
-                this.setViewerLayout('bottom-toolbar-two-line-v1');
+                this.setViewerLayout('offline-3d-presets-v1');
             }
             listeners.get('message')(event);
         },
@@ -114,7 +121,7 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     assert.equal(dataMessage.origin, 'https://plan.test');
     assert.equal(dataMessage.message.payload.image, 'data:image/png;base64,AA==');
     assert.equal(dataMessage.message.payload.zoom, 12);
-    assert.equal(dataMessage.message.payload.zoomRequested, null);
+    assert.equal(dataMessage.message.payload.zoomRequested, 12);
     assert.deepEqual(Array.from(dataMessage.message.payload.bounds), [-21.7, -51.4, -21.4, -51.1]);
     assert.deepEqual(Array.from(dataMessage.message.payload.missingTiles), []);
     assert.deepEqual(h.requests.map(request => request.url), ['php/endpoints/elevation-terrain.php']);
@@ -125,6 +132,27 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     h.click();
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 2);
+    assert.deepEqual(h.textureZooms, [12, 12]);
+});
+
+test('allows offline 3D rendering from cached textures without trying to download missing SRTM', async () => {
+    const h = setup({
+        isOnline: false,
+        terrainResults: [{ elevations: [[100, null], [100, 110]], missingTiles: ['S22W052.HGT'] }],
+        ensure() { throw new Error('não deve baixar tiles offline'); }
+    });
+    const openTopoLayer = { getTileUrl() {} };
+    h.context.layerRegistry = { OpenTopo: openTopoLayer };
+    h.click();
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const dataMessage = h.messages.find(entry => entry.message.type === 'planmilt-3d-data');
+    assert.equal(h.textureOptions[0].offlineOnly, true);
+    assert.equal(h.textureOptions[0].zoom, undefined);
+    assert.equal(h.textureOptions[0].tileLayer, openTopoLayer);
+    assert.deepEqual(h.downloads, []);
+    assert.deepEqual(Array.from(dataMessage.message.payload.missingTiles), ['S22W052.HGT']);
+    assert.equal(dataMessage.message.payload.zoomRequested, 12);
 });
 
 test('reloads a retained iframe when its 3D layout is outdated', async () => {
@@ -140,7 +168,7 @@ test('reloads a retained iframe when its 3D layout is outdated', async () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 0);
 
-    h.setViewerLayout('bottom-toolbar-two-line-v1');
+    h.setViewerLayout('offline-3d-presets-v1');
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 1);
@@ -203,7 +231,7 @@ test('reports layer loading errors', async () => {
     const h = setup();
     h.context.window.PlanMilT.map3dTexture.create = async () => { throw new Error('Falha ao carregar tiles.'); };
     h.click();
-    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo', zoom: 18 } });
+    h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo', zoom: 15 } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.match(h.messages.find(entry => entry.message.type === 'planmilt-3d-error').message.message, /Falha ao carregar tiles/);
     assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-data').length, 0);
@@ -311,7 +339,7 @@ test('the embedded renderer communicates only with its parent and provides a ret
     elements.baseZoom3D.value = '19';
     elements.applyBaseZoom.events.click();
     assert.equal(messages.length, 4);
-    assert.match(elements.viewerStatus.textContent, /entre 0 e 18/);
+    assert.match(elements.viewerStatus.textContent, /cinco níveis/);
     events.message({ origin: 'https://attacker.test', source: host, data: { type: 'planmilt-3d-error', message: 'malicioso' } });
     assert.notEqual(elements.viewerStatus.textContent, 'malicioso');
     events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-error', message: 'erro' } });
@@ -413,6 +441,14 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     assert.deepEqual(matrix, initial);
 });
 
+test('3D zoom selector matches the five levels offered by offline packages', () => {
+    const offlineLevels = offlineManagerSource.match(/OFFLINE_ZOOM_LEVELS = \[([^\]]+)\]/)[1]
+        .split(',').map(value => Number(value.trim()));
+    const viewerLevels = [...viewerHtml.matchAll(/<option value="(\d+)"/g)].map(match => Number(match[1]));
+    assert.deepEqual(viewerLevels, offlineLevels);
+    assert.match(viewerHtml, /id="baseZoom3D"[^>]*aria-label="Nível de detalhes da camada-base"/);
+});
+
 test('3D controls use a bottom-centered light toolbar on desktop and mobile', () => {
     assert.match(viewerHtml, /\.viewer-header\s*\{[^}]*left:\s*50%;\s*bottom:\s*16px;[\s\S]*?transform:\s*translateX\(-50%\)/);
     assert.match(viewerHtml, /\.viewer-controls\s*\{[^}]*background:\s*#f8f9fa;[^}]*pointer-events:\s*auto/);
@@ -424,7 +460,7 @@ test('3D controls use a bottom-centered light toolbar on desktop and mobile', ()
     assert.match(viewerHtml, /class="fas fa-layer-group viewer-control-icon"/);
     assert.match(viewerHtml, /class="sr-only"/);
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
-    assert.match(viewerHtml, /data-planmilt-viewer-layout="bottom-toolbar-two-line-v1"/);
+    assert.match(viewerHtml, /data-planmilt-viewer-layout="offline-3d-presets-v1"/);
     assert.match(viewerHtml, /id="viewerAttribution"[\s\S]*id="viewerControlFields"/);
     assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
     assert.match(viewerHtml, /map-3d-viewer\.js/);

@@ -6,8 +6,9 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/map-3d-texture.js'), 'utf8');
 
-function setup(fail = false) {
+function setup(fail = false, cacheOptions = {}) {
     const urls = [];
+    const cachedUrls = [];
     const draws = [];
     const released = [];
     const canvas = {
@@ -32,7 +33,21 @@ function setup(fail = false) {
     class TestURL extends URL {}
     TestURL.createObjectURL = () => 'blob:tile';
     TestURL.revokeObjectURL = url => released.push(url);
-    const window = { location: { href: 'https://plan.test/', origin: 'https://plan.test' }, PlanMilT: { apiClient: { async request(endpoint, options) {
+    const caches = {
+        async keys() { return cacheOptions.names || ['planmilt-offline-package-v1:test']; },
+        async open() {
+            return { async match(url) {
+                cachedUrls.push(url);
+                if (cacheOptions.missing) return undefined;
+                return {
+                    ok: true,
+                    type: cacheOptions.type || 'cors',
+                    async blob() { return {}; }
+                };
+            } };
+        }
+    };
+    const window = { caches, location: { href: 'https://plan.test/', origin: 'https://plan.test' }, PlanMilT: { apiClient: { async request(endpoint, options) {
         assert.equal(options.method, 'GET');
         assert.equal(options.mode, 'cors');
         assert.equal(options.credentials, 'omit');
@@ -50,7 +65,7 @@ function setup(fail = false) {
         },
         console: { error() {} }
     });
-    return { texture: window.PlanMilT.map3dTexture, map, canvas, urls, draws, released, window };
+    return { texture: window.PlanMilT.map3dTexture, map, canvas, urls, cachedUrls, draws, released, window };
 }
 
 test('builds only OpenTopo tiles within the texture bounds', async () => {
@@ -68,6 +83,52 @@ test('builds only OpenTopo tiles within the texture bounds', async () => {
     const southeast = h.map.project([-21.7, -51.1], zoom);
     assert.ok(Math.abs(h.draws[0][1] - (x * 256 - northwest.x) / (southeast.x - northwest.x) * 800) < 1e-8);
     assert.ok(Math.abs(h.draws[0][2] - (y * 256 - northwest.y) / (southeast.y - northwest.y) * 600) < 1e-8);
+});
+
+test('composes readable cached package tiles offline without requesting the network', async () => {
+    const h = setup(false, { type: 'cors' });
+    const result = await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 10, {
+        offlineOnly: true
+    });
+
+    assert.equal(result.zoom, 10);
+    assert.ok(h.cachedUrls.length > 0);
+    assert.equal(h.urls.length, 0);
+    assert.equal(h.draws.length, h.cachedUrls.length);
+});
+
+test('uses the registered layer tile URL so offline cache entries match exactly', async () => {
+    const h = setup();
+    const tileUrls = [];
+    const tileLayer = {
+        getTileUrl({ x, y, z }) {
+            const url = `https://tiles.example.test/${z}/${x}/${y}.png`;
+            tileUrls.push(url);
+            return url;
+        }
+    };
+    await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 10, {
+        offlineOnly: true, tileLayer
+    });
+
+    assert.deepEqual(h.cachedUrls, tileUrls);
+    assert.equal(h.urls.length, 0);
+});
+
+test('rejects missing and opaque package tiles offline without network fallback', async () => {
+    const missing = setup(false, { missing: true });
+    await assert.rejects(
+        missing.texture.create(missing.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 10, { offlineOnly: true }),
+        /não está no pacote offline/
+    );
+    assert.equal(missing.urls.length, 0);
+
+    const opaque = setup(false, { type: 'opaque' });
+    await assert.rejects(
+        opaque.texture.create(opaque.map, [-21.7, -51.4, -21.4, -51.1], 'opentopo', [], 10, { offlineOnly: true }),
+        /não podem ser compostos no modo 3D/
+    );
+    assert.equal(opaque.urls.length, 0);
 });
 
 test('uses the requested zoom even beyond 64 tiles and preserves the texture size limit', async () => {

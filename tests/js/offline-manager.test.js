@@ -25,6 +25,43 @@ function loadManager(options = {}) {
     return context.window.PlanMilT.offlineManager;
 }
 
+async function cachePackageWithWorker(fetchImplementation) {
+    const listeners = new Map();
+    const entries = [];
+    const messages = [];
+    const cache = {
+        async match(url) { return entries.find(entry => entry.url === url); },
+        async put(url, response) { entries.push({ url, response }); },
+        async keys() { return entries.map(entry => ({ url: entry.url })); }
+    };
+    const self = {
+        location: { href: 'https://example.test/offline-worker.js', origin: 'https://example.test' },
+        addEventListener(name, callback) { listeners.set(name, callback); },
+        clients: { async claim() {} },
+        async skipWaiting() {}
+    };
+    const caches = { async open() { return cache; }, async keys() { return []; } };
+    class TestRequest {
+        constructor(url, options) { this.url = String(url); Object.assign(this, options); }
+    }
+    vm.runInNewContext(worker, {
+        self, caches, URL, Request: TestRequest, fetch: fetchImplementation,
+        console: { warn() {}, error() {} }
+    });
+    let completion;
+    listeners.get('message')({
+        data: {
+            type: 'CACHE_PACKAGE',
+            cacheName: 'planmilt-offline-package-v1:1-test',
+            urls: ['https://tiles.example.test/10/12/14.png']
+        },
+        ports: [{ postMessage(message) { messages.push(message); } }],
+        waitUntil(promise) { completion = promise; }
+    });
+    await completion;
+    return { entries, messages };
+}
+
 test('offline worker registration starts automatically and is reused', async () => {
     let registrations = 0;
     const worker = { state: 'activated', addEventListener() {}, removeEventListener() {} };
@@ -44,6 +81,25 @@ test('offline worker registration starts automatically and is reused', async () 
     assert.equal(await manager.start(), registration);
     assert.equal(await manager.start(), registration);
     assert.equal(registrations, 1);
+});
+
+test('offline tile downloads prefer CORS-readable responses and retain opaque fallback', async () => {
+    const corsModes = [];
+    const readable = await cachePackageWithWorker(async request => {
+        corsModes.push(request.mode);
+        return { ok: true, type: 'cors' };
+    });
+    assert.deepEqual(corsModes, ['cors']);
+    assert.equal(readable.entries[0].response.type, 'cors');
+
+    const fallbackModes = [];
+    const opaque = await cachePackageWithWorker(async request => {
+        fallbackModes.push(request.mode);
+        if (request.mode === 'cors') throw new Error('CORS indisponível');
+        return { ok: false, type: 'opaque' };
+    });
+    assert.deepEqual(fallbackModes, ['cors', 'no-cors']);
+    assert.equal(opaque.entries[0].response.type, 'opaque');
 });
 
 test('offline packages calculate XYZ URLs without duplicate tiles', () => {
@@ -266,12 +322,22 @@ test('offline connectivity state marks the interface and disables network action
         setAttribute(name, value) { this.attributes[name] = value; },
         removeAttribute(name) { delete this.attributes[name]; }
     };
+    const view3DButton = {
+        disabled: false,
+        title: 'Abrir visualizador 3D',
+        dataset: {},
+        attributes: {},
+        classList: createClassList(),
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; }
+    };
     const body = { classList: createClassList() };
     const documentRoot = {
         body,
         getElementById(id) {
             if (id === 'offlineStatus') return status;
             if (id === 'saveDrawings') return saveButton;
+            if (id === 'view3DButton') return view3DButton;
             return null;
         },
         querySelectorAll() { return []; }
@@ -283,6 +349,8 @@ test('offline connectivity state marks the interface and disables network action
     assert.equal(saveButton.disabled, true);
     assert.equal(saveButton.attributes['aria-disabled'], 'true');
     assert.equal(saveButton.classList.contains('is-offline-disabled'), true);
+    assert.equal(view3DButton.disabled, false);
+    assert.equal(view3DButton.classList.contains('is-offline-disabled'), false);
 
     manager.updateConnectionState(documentRoot, true);
     assert.equal(status.hidden, true);
@@ -313,7 +381,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v4/);
+    assert.match(worker, /planmilt-app-shell-v5/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

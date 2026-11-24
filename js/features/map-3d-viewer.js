@@ -3,6 +3,7 @@
  * @requires WebGL e window.PlanMilT.map3dGeometry
  */
 (() => {
+    const OFFLINE_ZOOM_LEVELS = [8, 10, 12, 14, 15];
     const canvas = document.getElementById('terrainCanvas');
     const status = document.getElementById('viewerStatus');
     const warnings = document.getElementById('viewerWarnings');
@@ -204,7 +205,9 @@ void main() {
                 camera = { ...camera, x: 0, z: 0, distance: span * Math.max(1.9, 1.3 / aspect) };
                 initialCamera = { ...camera };
             }
-            baseZoom.value = String(data.zoom);
+            baseZoom.value = String(data.zoomRequested ?? OFFLINE_ZOOM_LEVELS.reduce((closest, level) =>
+                Math.abs(level - data.zoom) < Math.abs(closest - data.zoom) ? level : closest,
+            OFFLINE_ZOOM_LEVELS[0]));
             zoomOverride = data.zoomRequested;
             draw();
             const missing = data.missingTiles || [];
@@ -314,8 +317,8 @@ void main() {
     document.getElementById('refreshViewer').addEventListener('click', requestRefresh);
     document.getElementById('applyBaseZoom').addEventListener('click', () => {
         const zoom = baseZoom.value === '' ? NaN : Number(baseZoom.value);
-        if (!Number.isInteger(zoom) || zoom < 0 || zoom > 18) {
-            showStatus('Informe um zoom inteiro entre 0 e 18.');
+        if (!Number.isInteger(zoom) || !OFFLINE_ZOOM_LEVELS.includes(zoom)) {
+            showStatus('Escolha um dos cinco níveis de detalhes disponíveis.');
             return;
         }
         zoomOverride = zoom;

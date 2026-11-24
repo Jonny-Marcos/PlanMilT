@@ -38,7 +38,6 @@
         'shareLink',
         'startPlanning',
         'linkPredictionBtn',
-        'view3DButton',
         'suggestionsButton',
         'addLayerButton',
         'imageEditorLoadTheme'

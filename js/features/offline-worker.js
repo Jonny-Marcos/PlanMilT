@@ -1,7 +1,7 @@
 /**
  * @fileoverview Mantém o shell da aplicação e os pacotes de tiles disponíveis sem rede.
  */
-const APP_CACHE = 'planmilt-app-shell-v4';
+const APP_CACHE = 'planmilt-app-shell-v5';
 const APP_CACHE_PREFIX = 'planmilt-app-shell-';
 const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
 const SHELL_DOCUMENTS = [
@@ -29,11 +29,20 @@ function isRestrictedMapHost(url) {
  */
 async function cacheRequest(cache, requestUrl) {
     const url = new URL(requestUrl, self.location.href);
-    const response = await fetch(new Request(url, {
+    const requestOptions = {
         credentials: url.origin === self.location.origin ? 'same-origin' : 'omit',
-        mode: url.origin === self.location.origin ? 'same-origin' : 'no-cors',
         redirect: 'follow'
-    }));
+    };
+    let response;
+    try {
+        response = await fetch(new Request(url, {
+            ...requestOptions,
+            mode: url.origin === self.location.origin ? 'same-origin' : 'cors'
+        }));
+    } catch (error) {
+        if (url.origin === self.location.origin) throw error;
+        response = await fetch(new Request(url, { ...requestOptions, mode: 'no-cors' }));
+    }
     if (response.ok || response.type === 'opaque') {
         await cache.put(url.href, response);
         return true;

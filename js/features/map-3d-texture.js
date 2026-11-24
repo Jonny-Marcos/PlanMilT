@@ -28,6 +28,30 @@ window.PlanMilT.map3dTexture = Object.freeze({
             throw new Error('Aproxime o mapa e enquadre uma área de até cinco graus para consultar o terreno.');
         }
         const tileSize = source === 'bdgex' ? 96 : 256;
+        const offlineTileCaches = options.offlineOnly
+            ? await Promise.all((await window.caches.keys())
+                .filter(name => name.startsWith('planmilt-offline-package-v1:'))
+                .map(name => window.caches.open(name)))
+            : [];
+        if (options.offlineOnly && offlineTileCaches.length === 0) {
+            throw new Error('Nenhum pacote offline contém tiles para o visualizador 3D. Baixe um pacote para esta área.');
+        }
+        const getTileResponse = async url => {
+            if (!options.offlineOnly) {
+                return window.PlanMilT.apiClient.request(url, {
+                    method: 'GET', mode: 'cors', credentials: 'omit', signal: options.signal
+                });
+            }
+            for (const cache of offlineTileCaches) {
+                const response = await cache.match(url);
+                if (!response) continue;
+                if (!response.ok || response.type === 'opaque') {
+                    throw new Error('Este pacote guarda tiles que não podem ser compostos no modo 3D. Exclua-o e baixe novamente online.');
+                }
+                return response;
+            }
+            throw new Error('A camada, área ou zoom não está no pacote offline. Baixe um pacote que inclua esta seleção.');
+        };
         const zoom = requestedZoom ?? Math.max(0, Math.min(18, Math.floor(map.getZoom())));
         const { x: left, y: top } = map.project([north, west], zoom);
         const { x: right, y: bottom } = map.project([south, east], zoom);
@@ -57,13 +81,16 @@ window.PlanMilT.map3dTexture = Object.freeze({
         let lastPercent = -1;
         let lastUpdate = 0;
         let failed = false;
+        let failureMessage = '';
         const workers = Array.from({ length: Math.min(4, total) }, async () => {
             while (index < total && !failed && !options.signal?.aborted) {
                 const current = index++;
                 const x = minX + current % columns;
                 const y = minY + Math.floor(current / columns);
                 let url;
-                if (source === 'opentopo') {
+                if (options.tileLayer?.getTileUrl) {
+                    url = options.tileLayer.getTileUrl({ x, y, z: zoom });
+                } else if (source === 'opentopo') {
                     url = `https://tile.opentopomap.org/${zoom}/${x}/${y}.png`;
                 } else {
                     const nw = map.unproject([x * tileSize, y * tileSize], zoom);
@@ -77,9 +104,7 @@ window.PlanMilT.map3dTexture = Object.freeze({
                     url = `https://bdgex.eb.mil.br/mapcache?${params}`;
                 }
                 try {
-                    const response = await window.PlanMilT.apiClient.request(url, {
-                        method: 'GET', mode: 'cors', credentials: 'omit', signal: options.signal
-                    });
+                    const response = await getTileResponse(url);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const objectUrl = URL.createObjectURL(await response.blob());
                     try {
@@ -121,13 +146,18 @@ window.PlanMilT.map3dTexture = Object.freeze({
                 } catch (error) {
                     if (options.signal?.aborted) break;
                     console.error('[PlanMilT][3D] Falha ao carregar tile da camada.', error);
+                    failureMessage = error instanceof Error ? error.message : '';
                     failed = true;
                 }
             }
         });
         await Promise.all(workers);
         if (options.signal?.aborted) throw new Error('Carregamento dos tiles cancelado.');
-        if (failed) throw new Error('Não foi possível carregar a camada escolhida diretamente. Verifique a conexão e a permissão CORS do serviço.');
+        if (failed) {
+            throw new Error(options.offlineOnly && failureMessage
+                ? failureMessage
+                : 'Não foi possível carregar a camada escolhida diretamente. Verifique a conexão e a permissão CORS do serviço.');
+        }
         const elements = new Set();
         const seen = new Set();
         const stack = groups.slice();

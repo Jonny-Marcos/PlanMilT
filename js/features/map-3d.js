@@ -6,7 +6,7 @@
     const button = document.getElementById('view3DButton');
     const overlay = document.getElementById('map3DOverlay');
     const frame = document.getElementById('map3DFrame');
-    const viewerLayout = 'bottom-toolbar-two-line-v1';
+    const viewerLayout = 'offline-3d-presets-v1';
     let viewerReady = false;
     let selectedSource = 'opentopo';
     let selectedZoom = null;
@@ -14,6 +14,16 @@
     let capturing = false;
     let recapture = false;
     let activeCapture;
+
+    function offlineZoomLevels() {
+        return window.PlanMilT.offlineManager?.offlineZoomLevels || [8, 10, 12, 14, 15];
+    }
+
+    function closestOfflineZoom(zoom) {
+        return offlineZoomLevels().reduce((closest, level) =>
+            Math.abs(level - zoom) < Math.abs(closest - zoom) ? level : closest,
+        offlineZoomLevels()[0]);
+    }
 
     /**
      * Envia uma mensagem segura para o visualizador aberto.
@@ -44,6 +54,7 @@
                 const mapBounds = map.getBounds();
                 const bounds = [mapBounds.getSouth(), mapBounds.getWest(), mapBounds.getNorth(), mapBounds.getEast()];
                 const source = selectedSource;
+                const offlineOnly = window.navigator?.onLine === false;
                 const requestTerrain = async () => {
                     const response = await window.PlanMilT.apiClient.request('php/endpoints/elevation-terrain.php', {
                         method: 'POST',
@@ -70,6 +81,8 @@
                                 'Infraestruturas', 'Quadrículas - UTM'].includes(name))
                             .map(([, layer]) => layer)
                     ], selectedZoom, {
+                        offlineOnly,
+                        tileLayer: layerRegistry[source === 'bdgex' ? 'BDGEx - CTM50' : 'OpenTopo'],
                         signal: controller.signal,
                         async confirmLargeRequest(total) {
                             const result = await Swal.fire({
@@ -91,7 +104,7 @@
                     requestTerrain()
                 ]);
                 let terrain = initialTerrain;
-                if (!overlay.hidden && version === sceneVersion && terrain.missingTiles.length) {
+                if (!offlineOnly && !overlay.hidden && version === sceneVersion && terrain.missingTiles.length) {
                     post({ type: 'planmilt-3d-status', message: 'Obtendo arquivos de elevação ausentes…' });
                     await window.PlanMilT.elevationFiles.ensure(terrain.missingTiles);
                     if (!overlay.hidden && version === sceneVersion) terrain = await requestTerrain();
@@ -137,9 +150,9 @@
         if (!overlay.hidden && (event.data.type === 'planmilt-3d-ready' || event.data.type === 'planmilt-3d-refresh')) {
             if (!['opentopo', 'bdgex'].includes(event.data.source)) return;
             if (event.data.zoom !== undefined && event.data.zoom !== null
-                && (!Number.isInteger(event.data.zoom) || event.data.zoom < 0 || event.data.zoom > 18)) return;
+                && (!Number.isInteger(event.data.zoom) || !offlineZoomLevels().includes(event.data.zoom))) return;
             selectedSource = event.data.source;
-            selectedZoom = event.data.zoom ?? null;
+            selectedZoom = event.data.zoom ?? closestOfflineZoom(map.getZoom());
             sceneVersion++;
             if (activeCapture) activeCapture.abort();
             sendScene();
@@ -148,7 +161,7 @@
 
     button.addEventListener('click', () => {
         sceneVersion++;
-        selectedZoom = null;
+        selectedZoom = closestOfflineZoom(map.getZoom());
         overlay.hidden = false;
         document.body.classList.add('map-3d-open');
         if (!frame.getAttribute('src')) frame.src = 'visualizador-3d.html';
