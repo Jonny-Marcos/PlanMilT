@@ -51,7 +51,7 @@
                     safeDetails[key] = value;
                 }
             }
-            console.debug('[PlanMilT][Debug] Evento.', { event, ...safeDetails });
+            console.info('[PlanMilT][Debug] Evento.', { event, ...safeDetails });
         },
 
         /**
@@ -66,13 +66,13 @@
 
             const startedAt = Date.now();
             let completed = false;
-            console.debug('[PlanMilT][Debug] Operação iniciada.', { operation });
+            console.info('[PlanMilT][Debug] Operação iniciada.', { operation });
 
             return {
                 finish() {
                     if (completed) return;
                     completed = true;
-                    console.debug('[PlanMilT][Debug] Operação concluída.', {
+                    console.info('[PlanMilT][Debug] Operação concluída.', {
                         operation,
                         durationMs: Date.now() - startedAt
                     });

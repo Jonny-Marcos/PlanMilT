@@ -5,6 +5,58 @@ const vm = require('node:vm');
 const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/translation.js'), 'utf8');
+const elevationToolsSource = fs.readFileSync(path.join(__dirname, '../../js/features/elevation-tools.js'), 'utf8');
+
+async function startMapSettings({ online, restored = false, reject = false }) {
+    const calls = [];
+    const errors = [];
+    const settings = { translation: { enabled: false, languages: [] } };
+    const context = {
+        map: {}, L: { DomEvent: { on() {} } }, drawnItems: { on() {} },
+        document: { getElementById() { return { addEventListener() {} }; } },
+        console: { info() {}, error(...args) { errors.push(args); } },
+        window: {
+            navigator: { onLine: online },
+            PlanMilT: {
+                localSessionRestored: restored,
+                mapSetup: { attach: () => ({ applyMapDefaults: value => calls.push(['defaults', value]) }) },
+                coverageImage: { attach() {} },
+                translation: { configure: value => calls.push(['translation', value]) },
+                apiClient: { async getJson(endpoint) {
+                    calls.push(['request', endpoint]);
+                    if (reject) throw new Error('Falha de rede');
+                    return settings;
+                } }
+            }
+        }
+    };
+    vm.runInNewContext(elevationToolsSource, context);
+    await new Promise(resolve => setImmediate(resolve));
+    return { calls, settings, errors };
+}
+
+test('map settings are not requested when starting offline', async () => {
+    const { calls } = await startMapSettings({ online: false });
+    assert.deepEqual(calls, []);
+});
+
+test('map settings are still loaded online and do not replace a restored session', async () => {
+    const online = await startMapSettings({ online: true });
+    assert.deepEqual(online.calls, [
+        ['request', 'php/endpoints/map-settings.php'],
+        ['translation', online.settings.translation],
+        ['defaults', online.settings]
+    ]);
+    const restored = await startMapSettings({ online: true, restored: true });
+    assert.deepEqual(restored.calls.map(call => call[0]), ['request', 'translation']);
+});
+
+test('map settings request failures are reported while online', async () => {
+    const { calls, errors } = await startMapSettings({ online: true, reject: true });
+    assert.deepEqual(calls, [['request', 'php/endpoints/map-settings.php']]);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0][0], /Não foi possível aplicar/);
+});
 
 test('settings gate the Google script in the page', () => {
     const root = path.join(__dirname, '../..');

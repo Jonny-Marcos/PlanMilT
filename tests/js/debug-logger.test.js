@@ -7,9 +7,9 @@ require('../../js/features/debug-logger.js');
 const debugLogger = window.PlanMilT.debugLogger;
 
 test('debug traces are enabled by default and can be disabled', () => {
-    const originalConsoleDebug = console.debug;
+    const originalConsoleInfo = console.info;
     let calls = 0;
-    console.debug = () => { calls++; };
+    console.info = () => { calls++; };
 
     try {
         const trace = debugLogger.start('test.operation');
@@ -21,17 +21,15 @@ test('debug traces are enabled by default and can be disabled', () => {
         debugLogger.log('test.disabled-event', { tileCount: 1 });
         assert.equal(calls, 2);
     } finally {
-        console.debug = originalConsoleDebug;
+        console.info = originalConsoleInfo;
     }
 });
 
 test('enabled traces report completion and failures without error messages', () => {
     const originalConsoleInfo = console.info;
-    const originalConsoleDebug = console.debug;
     const originalConsoleError = console.error;
     const logs = [];
     console.info = (...args) => logs.push(args);
-    console.debug = (...args) => logs.push(args);
     console.error = (...args) => logs.push(args);
     debugLogger.enable();
 
@@ -68,17 +66,16 @@ test('enabled traces report completion and failures without error messages', () 
     } finally {
         debugLogger.disable();
         console.info = originalConsoleInfo;
-        console.debug = originalConsoleDebug;
         console.error = originalConsoleError;
     }
 });
 
 test('event logs retain only allowlisted scalar diagnostics', () => {
-    const originalConsoleDebug = console.debug;
     const originalConsoleInfo = console.info;
     const logs = [];
-    console.debug = (...args) => logs.push(args);
-    console.info = () => {};
+    console.info = (...args) => {
+        if (args[0] === '[PlanMilT][Debug] Evento.') logs.push(args);
+    };
 
     try {
         debugLogger.enable();
@@ -100,7 +97,6 @@ test('event logs retain only allowlisted scalar diagnostics', () => {
         assert.doesNotMatch(JSON.stringify(logs), /secret|private/);
     } finally {
         debugLogger.disable();
-        console.debug = originalConsoleDebug;
         console.info = originalConsoleInfo;
     }
 });

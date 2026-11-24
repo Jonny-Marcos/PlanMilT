@@ -479,3 +479,21 @@ test('3D texture fails clearly when package tiles are absent or no package exist
     assert.deepEqual(networkCalls, []);
     assert.equal(harness.draws.length, 0);
 });
+
+test('3D zoom 8 requires the whole viewport to be covered by the downloaded tiles', async () => {
+    const caches = createCacheStorage();
+    const network = createNetwork({ 'tile.opentopomap.org': tileResponse });
+    const worker = loadWorker(caches, network);
+    const { manager } = createManager({ caches });
+    const urls = Array.from(manager.buildOpenTopoUrls(BOUNDS, 8, 8));
+    await worker.downloadPackage('9-viewport', urls);
+    network.online = false;
+    const networkCalls = [];
+    const { texture, map } = createTextureHarness(caches, networkCalls);
+
+    await texture.create(map, [BOUNDS.south, BOUNDS.west, BOUNDS.north, BOUNDS.east],
+        'opentopo', [], 8, { offlineOnly: true });
+    await assert.rejects(texture.create(map, [-23, -53, -20, -50],
+        'opentopo', [], 8, { offlineOnly: true }), /Tile da camada-base ausente/);
+    assert.deepEqual(networkCalls, []);
+});
