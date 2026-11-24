@@ -367,3 +367,17 @@ test('reports direct CORS or network failures without falling back to a proxy', 
     assert.ok(requests.length <= 4);
     assert.ok(requests.every(url => url.startsWith('https://bdgex.eb.mil.br/mapcache?')));
 });
+
+test('continues the capture when a local icon cannot be decoded offline', async () => {
+    const h = setup();
+    const image = {
+        tagName: 'img', src: 'https://plan.test/symbols/c2/ont.svg', complete: false, naturalWidth: 0,
+        closest: selector => selector === '.leaflet-marker-pane',
+        getAttribute: () => null, setAttribute() {}, removeAttribute() {},
+        decode: () => Promise.reject(new DOMException('Falha', 'EncodingError'))
+    };
+    h.map.hasLayer = () => true;
+    h.map.getContainer = () => ({ id: 'map' });
+    h.window.html2canvas = async () => ({ overlay: true });
+    await h.texture.create(h.map, [-1, -1, 1, 1], 'opentopo', [{ getElement: () => image }]);
+});

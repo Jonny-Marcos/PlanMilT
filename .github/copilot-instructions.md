@@ -107,6 +107,7 @@ Os endpoints carregam `php/bootstrap.php` por caminho explícito e localizam `SR
 
 ### Testes e documentação
 
+- `tests/js/offline-end-to-end.test.js`: simula, com Cache Storage em memória compartilhado, o worker, o gerenciador offline e o visualizador 3D: shell offline, download de pacotes de tiles (CORS, opaco, falhas, manifestos inseguros), preparação de HGT/grades, predição de rádio sobre HGT em cache e textura/terreno 3D sem rede.
 - `tests/js/`: testes de regressão para cliente HTTP, geometria, perfil de elevação, desenho livre, geolocalização, seletor de ícones, exportação KMZ, WMS, configuração do mapa, planejamento de rádio, parâmetros e armazenamento de sequências.
 - `docs/api-contracts.md`: inventário dos contratos HTTP existentes; use-o para orientar a migração PHP sem quebrar clientes.
 - `.github/copilot-instructions.md`: este guia de arquitetura, estrutura, convenções e estado do trabalho.

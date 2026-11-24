@@ -258,7 +258,12 @@ self.addEventListener('fetch', event => {
                 const shell = await (await caches.open(APP_CACHE)).match('./index.html');
                 if (shell) return shell;
             }
-            throw error;
+            if (request.mode === 'navigate') throw error;
+            return new Response('Recurso indisponível offline.', {
+                status: 503,
+                statusText: 'Offline',
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+            });
         }
     })());
 });

@@ -251,7 +251,8 @@ window.PlanMilT.map3dTexture = Object.freeze({
                             throw new Error('Um ícone externo não pode ser incluído no 3D. Use um ícone local.');
                         }
                         if (!image.complete || !image.naturalWidth) {
-                            await image.decode();
+                            // Ícone indisponível (ex.: fora do cache offline) não deve impedir a textura.
+                            await image.decode().catch(() => {});
                         }
                     }
                     marked.push([element, element.getAttribute('data-planmilt-3d')]);

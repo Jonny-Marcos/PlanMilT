@@ -14,7 +14,13 @@
                     window.PlanMilT.translation.configure(settings.translation);
                     if (!window.PlanMilT.localSessionRestored) mapSetup.applyMapDefaults(settings);
                 })
-                .catch(error => console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error));
+                .catch(error => {
+                    if (window.navigator.onLine === false) {
+                        console.info('[PlanMilT][Mapa] Modo offline: configurações iniciais do servidor ignoradas.');
+                        return;
+                    }
+                    console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error);
+                });
 
             // botão de fechar perfil topográfico
             document.getElementById('close-btn').addEventListener('click', function() {
