@@ -88,7 +88,9 @@ window.PlanMilT.map3dTexture = Object.freeze({
                 const x = minX + current % columns;
                 const y = minY + Math.floor(current / columns);
                 let url;
-                if (options.tileLayer?.getTileUrl) {
+                if (options.tileLayer && options.getTileUrl) {
+                    url = options.getTileUrl(options.tileLayer, { x, y, z: zoom });
+                } else if (options.tileLayer?.getTileUrl) {
                     url = options.tileLayer.getTileUrl({ x, y, z: zoom });
                 } else if (source === 'opentopo') {
                     url = `https://tile.opentopomap.org/${zoom}/${x}/${y}.png`;

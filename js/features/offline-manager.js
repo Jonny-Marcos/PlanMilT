@@ -39,7 +39,6 @@
         'loadImages',
         'shareLink',
         'startPlanning',
-        'linkPredictionBtn',
         'suggestionsButton',
         'addLayerButton',
         'imageEditorLoadTheme'
@@ -240,9 +239,55 @@
      * @param {Object} leaflet - Namespace Leaflet.
      * @returns {Array<string>} URLs de imagens WMS.
      */
-    function buildWmsUrls(layer, boundsInput, minZoom, maxZoom, leaflet) {
+    function createTileUrlContext(layer, map) {
+        const activeMap = map || layer._map;
+        const tileLayer = Object.create(layer);
+        if (activeMap) tileLayer._map = activeMap;
+        if (layer.wmsParams) {
+            tileLayer._crs = layer.options?.crs || activeMap?.options?.crs || layer._crs;
+            tileLayer._wmsVersion = parseFloat(layer.wmsParams.version);
+            tileLayer.wmsParams = { ...layer.wmsParams };
+            tileLayer.wmsParams[tileLayer._wmsVersion >= 1.3 ? 'crs' : 'srs'] = tileLayer._crs.code;
+        }
+        return tileLayer;
+    }
+
+    /**
+     * Calcula uma URL de tile sem ativar a camada no mapa.
+     * @param {Object} layer - Camada Leaflet.
+     * @param {Object} coords - Coordenadas XYZ do tile.
+     * @param {Object} leaflet - Namespace Leaflet.
+     * @param {Object} map - Mapa que define a projeção dos tiles.
+     * @returns {string} URL de tile gerada pela camada.
+     */
+    function getTileUrl(layer, coords, leaflet, map) {
+        const tileLayer = createTileUrlContext(layer, map);
+        const crs = map?.options?.crs || layer._map?.options?.crs || layer.options?.crs || leaflet.CRS.EPSG3857;
+        const tileSize = Number(layer.options?.tileSize) || 256;
+        tileLayer._tileZoom = coords.z;
+        const projectedBounds = crs.getProjectedBounds?.(coords.z);
+        if (projectedBounds) {
+            tileLayer._globalTileRange = { max: { y: Math.ceil(projectedBounds.max.y / tileSize) - 1 } };
+        }
+        const point = leaflet.point(coords.x, coords.y);
+        point.z = coords.z;
+        return tileLayer.getTileUrl(point);
+    }
+
+    /**
+     * Monta URLs WMS usando o gerador de tiles da camada e a projeção do mapa.
+     * @param {Object} layer - Camada Leaflet.
+     * @param {Object} boundsInput - Limites geográficos.
+     * @param {number} minZoom - Zoom mínimo.
+     * @param {number} maxZoom - Zoom máximo.
+     * @param {Object} leaflet - Namespace Leaflet.
+     * @param {Object} map - Mapa que define a projeção dos tiles.
+     * @returns {Array<string>} URLs de imagens WMS.
+     */
+    function buildWmsUrls(layer, boundsInput, minZoom, maxZoom, leaflet, map) {
         const bounds = normalizeBounds(boundsInput);
-        const crs = layer.options?.crs || layer._crs || layer._map?.options?.crs || leaflet.CRS.EPSG3857;
+        const activeMap = map || layer._map;
+        const crs = activeMap?.options?.crs || layer.options?.crs || layer._crs || leaflet.CRS.EPSG3857;
         const tileSize = Number(layer.options?.tileSize) || 256;
         const urls = [];
         for (let zoom = minZoom; zoom <= maxZoom; zoom++) {
@@ -254,9 +299,7 @@
             const maxY = Math.floor(southeast.y / tileSize);
             for (let x = minX; x <= maxX; x++) {
                 for (let y = minY; y <= maxY; y++) {
-                    const tilePoint = leaflet.point(x, y);
-                    tilePoint.z = zoom;
-                    urls.push(layer.getTileUrl(tilePoint));
+                    urls.push(getTileUrl(layer, { x, y, z: zoom }, leaflet, activeMap));
                     if (urls.length > MAX_TILE_URLS) return [...new Set(urls)];
                 }
             }
@@ -304,8 +347,8 @@
      * @param {Object} leaflet - Namespace Leaflet.
      * @returns {Array<string>} URLs únicas da camada.
      */
-    function buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet) {
-        return buildWmsUrls(layer, bounds, minZoom, maxZoom, leaflet);
+    function buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet, map) {
+        return buildWmsUrls(layer, bounds, minZoom, maxZoom, leaflet, map);
     }
 
     /**
@@ -318,13 +361,13 @@
      * @param {Object} leaflet - Namespace Leaflet.
      * @returns {number} Quantidade total de tiles únicos por camada.
      */
-    function estimateRegisteredLayerTileCount(bounds, minZoom, maxZoom, layerNames, layerRegistry, leaflet) {
+    function estimateRegisteredLayerTileCount(bounds, minZoom, maxZoom, layerNames, layerRegistry, leaflet, map) {
         return layerNames.reduce((total, name) => {
             const layer = layerRegistry[name];
             if (!layer || typeof layer.getTileUrl !== 'function') {
                 throw new Error(`A camada “${name}” não está disponível para download offline.`);
             }
-            return total + buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet).length;
+            return total + buildTileLayerUrls(layer, bounds, minZoom, maxZoom, leaflet, map).length;
         }, 0);
     }
 
@@ -378,6 +421,63 @@
         return new URL(`__planmilt_offline_terrain__/${tile}.json`, location.href).href;
     }
 
+    function getHgtCacheUrl(tile) {
+        return new URL(`__planmilt_offline_hgt__/${tile}`, location.href).href;
+    }
+
+    /**
+     * Consulta pontos em arquivos HGT integrais guardados nos pacotes do navegador.
+     * @param {Array<Object>} points - Pontos com latitude e longitude.
+     * @returns {Promise<Array<Object>>} Pontos com suas elevações em metros.
+     */
+    async function getCachedElevationProfile(points) {
+        if (!Array.isArray(points) || points.some(point => !point
+            || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)
+            || point.latitude < -90 || point.latitude >= 90
+            || point.longitude < -180 || point.longitude >= 180)) {
+            throw new Error('Os pontos de elevação são inválidos.');
+        }
+        const tiles = [...new Set(points.map(point => getSrtmTileName(
+            Math.floor(point.latitude), Math.floor(point.longitude)
+        )))];
+        const names = new Set(await caches.keys());
+        const files = new Map();
+        for (const item of loadPackages()) {
+            const name = `${TERRAIN_CACHE_PREFIX}${item.id}`;
+            if (!names.has(name) || !Array.isArray(item.hgtTiles)) continue;
+            const cache = await caches.open(name);
+            for (const tile of tiles) {
+                if (!item.hgtTiles.includes(tile) || files.has(tile)) continue;
+                const response = await cache.match(getHgtCacheUrl(tile));
+                if (!response?.ok) continue;
+                const buffer = await response.arrayBuffer();
+                const size = buffer.byteLength === 1201 * 1201 * 2 ? 1201
+                    : buffer.byteLength === 3601 * 3601 * 2 ? 3601 : 0;
+                if (size) files.set(tile, { view: new DataView(buffer), size });
+            }
+        }
+        const missing = tiles.filter(tile => !files.has(tile));
+        if (missing.length) {
+            const error = new Error(`HGT indisponíveis neste navegador: ${missing.join(', ')}. Prepare a elevação do pacote enquanto estiver online.`);
+            error.userMessage = error.message;
+            throw error;
+        }
+        return points.map(point => {
+            const tileLatitude = Math.floor(point.latitude);
+            const tileLongitude = Math.floor(point.longitude);
+            const { view, size } = files.get(getSrtmTileName(tileLatitude, tileLongitude));
+            const row = Math.min(size - 1, Math.max(0, Math.floor((1 - (point.latitude - tileLatitude)) * (size - 1))));
+            const column = Math.min(size - 1, Math.max(0, Math.floor((point.longitude - tileLongitude) * (size - 1))));
+            const elevation = view.getInt16((row * size + column) * 2, false);
+            if (elevation === -32768) {
+                const error = new Error('O SRTM armazenado contém pontos sem elevação para esta análise.');
+                error.userMessage = error.message;
+                throw error;
+            }
+            return { latitude: point.latitude, longitude: point.longitude, elevation };
+        });
+    }
+
     /**
      * Prepara grades por HGT no cache de um pacote usando o servidor enquanto conectado.
      * @param {Array<string>} tiles - Nomes HGT da área.
@@ -390,6 +490,8 @@
         const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
         const cachedTiles = [];
         const failedTiles = [];
+        const cachedHgtTiles = [];
+        const failedHgtTiles = [];
         for (const [index, tile] of tiles.entries()) {
             const match = tile.match(/^([NS])(\d{2})([EW])(\d{3})\.HGT$/);
             if (!match) {
@@ -414,18 +516,33 @@
                 if (!response.ok || !Array.isArray(data.elevations)
                     || data.missingTiles?.includes(tile)) {
                     failedTiles.push(tile);
-                    continue;
+                } else {
+                    await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                    cachedTiles.push(tile);
                 }
-                await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
-                    headers: { 'Content-Type': 'application/json' }
-                }));
-                cachedTiles.push(tile);
             } catch (error) {
                 console.error('[PlanMilT][Offline] Falha ao armazenar a grade SRTM.', error);
                 failedTiles.push(tile);
             }
+            try {
+                const response = await apiClient.request(`SRTM3/${tile}`, { method: 'GET', cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const buffer = await response.arrayBuffer();
+                if (![1201 * 1201 * 2, 3601 * 3601 * 2].includes(buffer.byteLength)) {
+                    throw new Error('Arquivo HGT com tamanho inválido.');
+                }
+                await cache.put(getHgtCacheUrl(tile), new Response(buffer, {
+                    headers: { 'Content-Type': 'application/octet-stream' }
+                }));
+                cachedHgtTiles.push(tile);
+            } catch (error) {
+                console.error('[PlanMilT][Offline] Falha ao armazenar HGT para rádio.', error);
+                failedHgtTiles.push(tile);
+            }
         }
-        return { cachedTiles, failedTiles };
+        return { cachedTiles, failedTiles, cachedHgtTiles, failedHgtTiles };
     }
 
     /**
@@ -519,7 +636,9 @@
                 || item.minZoom < 0 || item.maxZoom > 18 || item.minZoom > item.maxZoom
                 || !Number.isFinite(item.tileCount) || item.tileCount < 0
                 || (item.terrainTiles !== undefined && (!Array.isArray(item.terrainTiles)
-                    || item.terrainTiles.some(tile => typeof tile !== 'string' || !/^[NS]\d{2}[EW]\d{3}\.HGT$/.test(tile))))) {
+                    || item.terrainTiles.some(tile => typeof tile !== 'string' || !/^[NS]\d{2}[EW]\d{3}\.HGT$/.test(tile))))
+                || (item.hgtTiles !== undefined && (!Array.isArray(item.hgtTiles)
+                    || item.hgtTiles.some(tile => typeof tile !== 'string' || !/^[NS]\d{2}[EW]\d{3}\.HGT$/.test(tile))))) {
                 return false;
             }
             try {
@@ -558,21 +677,26 @@
         if (!item) throw new Error('Pacote offline não encontrado.');
         const tiles = getSrtmTileNames(item.bounds);
         if (tiles.length > 32) throw new Error('A área excede o limite de 32 tiles SRTM por pacote.');
-        const result = await cacheTerrainGrids(tiles, packageId, apiClient, progress);
+        await cacheTerrainGrids(tiles, packageId, apiClient, progress);
         const packages = loadPackages();
         const current = packages.find(candidate => candidate.id === packageId);
         if (!current) throw new Error('O pacote foi removido durante a preparação da elevação.');
         const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
         const available = [];
+        const availableHgt = [];
         for (const tile of tiles) {
             const response = await cache.match(getTerrainCacheUrl(tile));
             if (response?.ok) available.push(tile);
+            const hgtResponse = await cache.match(getHgtCacheUrl(tile));
+            if (hgtResponse?.ok) availableHgt.push(tile);
         }
         current.srtmTiles = tiles;
         current.terrainTiles = available;
         current.failedSrtm = tiles.filter(tile => !available.includes(tile));
+        current.hgtTiles = availableHgt;
+        current.failedHgt = tiles.filter(tile => !availableHgt.includes(tile));
         savePackages(packages);
-        return { cachedTiles: available, failedTiles: current.failedSrtm, attempted: result.cachedTiles.length };
+        return { cachedTiles: available, failedTiles: current.failedSrtm, hgtTiles: availableHgt, failedHgt: current.failedHgt };
     }
 
     /**
@@ -583,7 +707,7 @@
      * @param {Object} [leaflet] - Namespace Leaflet usado na reconstrução.
      * @returns {Promise<Set<string>>} Nomes das fontes efetivamente armazenadas.
      */
-    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet) {
+    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet, map) {
         const available = new Set();
         const cacheNames = new Set(await cacheStorage.keys());
         for (const item of packages) {
@@ -600,7 +724,7 @@
                 const layer = layerRegistry[source];
                 if (!layer) continue;
                 const expectedUrls = buildTileLayerUrls(
-                    layer, item.bounds, item.minZoom, item.maxZoom, leaflet
+                    layer, item.bounds, item.minZoom, item.maxZoom, leaflet, map
                 );
                 if (expectedUrls.some(url => cachedUrls.has(url))) available.add(source);
             }
@@ -764,7 +888,7 @@
             if (!isOnline) {
                 try {
                     availableSources = await getCachedPackageSources(
-                        loadPackages(), caches, packageLayerRegistry, leaflet
+                        loadPackages(), caches, packageLayerRegistry, leaflet, map
                     );
                 } catch (error) {
                     console.error('[PlanMilT][Offline] Não foi possível verificar os pacotes locais.', error);
@@ -815,7 +939,7 @@
                     throw new Error('Selecione uma camada-base ou a elevação SRTM.');
                 }
                 const count = estimateRegisteredLayerTileCount(
-                    selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet
+                    selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet, map
                 );
                 const srtm = includeElevation ? getSrtmTileNames(selectedBounds).length : 0;
                 const estimateMiB = count > 0 ? Math.max(1, Math.ceil(count * 22 / 1024)) : 0;
@@ -878,7 +1002,7 @@
                 throw new Error('Selecione uma camada-base ou a elevação SRTM.');
             }
             const tileCount = estimateRegisteredLayerTileCount(
-                selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet
+                selectedBounds, minZoom, maxZoom, sources, packageLayerRegistry, leaflet, map
             );
             const srtmTiles = includeElevation ? getSrtmTileNames(selectedBounds) : [];
             if (tileCount > MAX_MAP_TILES || srtmTiles.length > 32) {
@@ -901,7 +1025,7 @@
             const urls = [];
             for (const source of sources) {
                 urls.push(...buildTileLayerUrls(
-                    packageLayerRegistry[source], selectedBounds, minZoom, maxZoom, leaflet
+                    packageLayerRegistry[source], selectedBounds, minZoom, maxZoom, leaflet, map
                 ));
             }
 
@@ -925,6 +1049,8 @@
             }
             let failedSrtm = [];
             let terrainTiles = [];
+            let hgtTiles = [];
+            let failedHgt = [];
             if (srtmTiles.length > 0) {
                 await downloadSrtm(srtmTiles, message => {
                     const progress = document.getElementById('offlineProgress');
@@ -936,8 +1062,10 @@
                 });
                 terrainTiles = terrain.cachedTiles;
                 failedSrtm = terrain.failedTiles;
+                hgtTiles = terrain.cachedHgtTiles;
+                failedHgt = terrain.failedHgtTiles;
             }
-            if (result.cached === 0 && (srtmTiles.length === 0 || failedSrtm.length === srtmTiles.length)) {
+            if (result.cached === 0 && terrainTiles.length === 0 && hgtTiles.length === 0) {
                 await caches.delete(cacheName);
                 await caches.delete(`${TERRAIN_CACHE_PREFIX}${id}`);
                 throw new Error('Nenhum dado do pacote pôde ser obtido.');
@@ -954,7 +1082,9 @@
                 failedTileCount: Math.max(0, result.total - result.cached),
                 srtmTiles,
                 terrainTiles,
+                hgtTiles,
                 failedSrtm,
+                failedHgt,
                 createdAt: new Date().toISOString()
             });
             try {
@@ -968,8 +1098,9 @@
                 title: 'Pacote disponível offline',
                 html: `${result.cached} tile(s) de mapa armazenado(s).`
                     + (result.cached < result.total ? `<br>${result.total - result.cached} tile(s) não puderam ser obtidos.` : '')
-                    + (failedSrtm.length ? `<br>Elevação pendente: ${failedSrtm.join(', ')}` : ''),
-                icon: failedSrtm.length || result.cached < result.total ? 'warning' : 'success'
+                    + (failedSrtm.length ? `<br>Elevação 3D pendente: ${failedSrtm.join(', ')}` : '')
+                    + (failedHgt.length ? `<br>HGT para rádio pendente: ${failedHgt.join(', ')}` : ''),
+                icon: failedSrtm.length || failedHgt.length || result.cached < result.total ? 'warning' : 'success'
             });
             await openManager();
         }
@@ -1006,7 +1137,7 @@
         async function prepareExistingTerrain(id) {
             if (navigator.onLine === false) throw new Error('Reconecte-se para preparar a elevação deste pacote.');
             Swal.fire({
-                title: 'Preparando elevação para 3D',
+                title: 'Preparando elevação para 3D e rádio',
                 html: '<p id="offlineProgress">Consultando arquivos SRTM do servidor...</p>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
@@ -1017,13 +1148,13 @@
                 if (progress) progress.textContent = message;
             });
             await Swal.fire({
-                title: result.failedTiles.length
-                    ? (result.cachedTiles.length ? 'Elevação parcialmente disponível' : 'Elevação indisponível')
+                title: result.failedTiles.length || result.failedHgt.length
+                    ? (result.cachedTiles.length || result.hgtTiles.length ? 'Elevação parcialmente disponível' : 'Elevação indisponível')
                     : 'Elevação preparada',
-                text: result.failedTiles.length
-                    ? `Grades disponíveis: ${result.cachedTiles.length}. HGT não disponíveis no servidor: ${result.failedTiles.join(', ')}.`
-                    : `${result.cachedTiles.length} grade(s) SRTM disponíveis neste navegador.`,
-                icon: result.failedTiles.length ? 'warning' : 'success'
+                text: `Grades 3D: ${result.cachedTiles.length}; HGT para rádio: ${result.hgtTiles.length}.`
+                    + (result.failedTiles.length ? ` Grades indisponíveis: ${result.failedTiles.join(', ')}.` : '')
+                    + (result.failedHgt.length ? ` HGT indisponíveis: ${result.failedHgt.join(', ')}.` : ''),
+                icon: result.failedTiles.length || result.failedHgt.length ? 'warning' : 'success'
             });
             await openManager();
         }
@@ -1098,7 +1229,7 @@
                         + (item.failedTileCount ? ` · ${item.failedTileCount} pendentes` : '')
                         + `</span></div>`
                         + `<div class="offline-actions"><button type="button" data-prepare-terrain="${item.id}"`
-                        + `${navigator.onLine === false ? ' disabled title="Reconecte-se para preparar a elevação"' : ''}>Preparar SRTM 3D</button>`
+                        + `${navigator.onLine === false ? ' disabled title="Reconecte-se para preparar a elevação"' : ''}>Preparar SRTM 3D e rádio</button>`
                         + `<button type="button" data-delete-offline="${item.id}">Excluir</button></div></li>`;
                 }).join('')
                 : '<li class="offline-empty">Nenhum pacote disponível neste navegador.</li>';
@@ -1137,8 +1268,9 @@
                             <h3>Conteúdo do pacote</h3>
                             <div class="offline-sources">
                                 ${tileSources || '<span>Nenhuma camada de tiles está disponível.</span>'}
-                                <label><input type="checkbox" id="offlineElevation"> Elevação SRTM local</label>
+                                <label><input type="checkbox" id="offlineElevation"> Elevação SRTM para 3D e rádio</label>
                             </div>
+                            <small>Os arquivos HGT integrais para rádio ocupam cerca de 2,8 a 25 MB por tile no navegador.</small>
                             <small>A camada Google Satellite não permite o download ou armazenamento local das imagens.</small>
                             <div class="offline-zoom">
                                 <label>Cobrir desde
@@ -1212,11 +1344,13 @@
         estimateTileCount,
         buildOpenTopoUrls,
         buildWmsUrls,
+        getTileUrl,
         buildTileLayerUrls,
         listTileLayers,
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
         getCachedTerrain,
+        getCachedElevationProfile,
         preparePackageTerrain,
         getCachedPackageSources,
         enableLayerControls,

@@ -115,6 +115,23 @@ test('uses the registered layer tile URL so offline cache entries match exactly'
     assert.equal(h.urls.length, 0);
 });
 
+test('uses the shared tile URL generator for detached WMS layers', async () => {
+    const h = setup();
+    const layer = { getTileUrl() { throw new Error('Camada desativada'); } };
+    const generated = [];
+    await h.texture.create(h.map, [-21.7, -51.4, -21.4, -51.1], 'bdgex', [], 10, {
+        offlineOnly: true, tileLayer: layer,
+        getTileUrl(candidate, coords) {
+            assert.equal(candidate, layer);
+            const url = `https://bdgex.example/${coords.z}/${coords.x}/${coords.y}`;
+            generated.push(url);
+            return url;
+        }
+    });
+    assert.deepEqual(h.cachedUrls, generated);
+    assert.equal(h.urls.length, 0);
+});
+
 test('rejects missing and opaque package tiles offline without network fallback', async () => {
     const missing = setup(false, { missing: true });
     await assert.rejects(

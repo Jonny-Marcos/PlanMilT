@@ -103,6 +103,21 @@ test('offline tile downloads prefer CORS-readable responses and retain opaque fa
     assert.equal(opaque.entries[0].response.type, 'opaque');
 });
 
+test('service worker does not intercept same-origin HGT downloads into the app shell', () => {
+    const listeners = new Map();
+    const self = {
+        location: { href: 'https://example.test/planmilt/offline-worker.js', origin: 'https://example.test' },
+        addEventListener(name, callback) { listeners.set(name, callback); }
+    };
+    vm.runInNewContext(worker, { self, URL, console });
+    let intercepted = false;
+    listeners.get('fetch')({
+        request: { method: 'GET', url: 'https://example.test/planmilt/SRTM3/S22W052.HGT' },
+        respondWith() { intercepted = true; }
+    });
+    assert.equal(intercepted, false);
+});
+
 test('worker installation falls back to the previous viewer document when fetch rejects', async () => {
     const listeners = new Map();
     const cachedEntries = new Map();
@@ -222,6 +237,30 @@ test('BDGEx URLs use the map CRS and Leaflet tile URL generator', () => {
     assert.ok(calls.some(coords => coords.x === 3));
 });
 
+test('BDGEx tile URLs work when the WMS layer is not attached to the map', () => {
+    const manager = loadManager();
+    const tileCrs = { latLngToPoint(latLng, zoom) { return { x: 100 * zoom, y: 100 * zoom }; } };
+    const wmsCrs = { code: 'EPSG:4326' };
+    const map = { options: { crs: tileCrs }, unproject(point, zoom) { return `${point.x},${point.y},${zoom}`; } };
+    const layer = {
+        _map: null, options: { tileSize: 96, crs: wmsCrs },
+        wmsParams: { version: '1.1.1' },
+        getTileUrl(coords) {
+            assert.equal(this._map, map);
+            assert.equal(this._crs, wmsCrs);
+            assert.equal(this.wmsParams.srs, 'EPSG:4326');
+            assert.equal(this._tileZoom, coords.z);
+            return `https://bdgex.example/${this._map.unproject(coords, coords.z)}`;
+        }
+    };
+    const leaflet = { latLng: (lat, lng) => ({ lat, lng }), point: (x, y) => ({ x, y }) };
+    const urls = manager.buildWmsUrls(layer, { south: -1, west: 0, north: 1, east: 1 }, 8, 10, leaflet, map);
+    assert.ok(urls.some(url => url.endsWith(',8')));
+    assert.ok(urls.some(url => url.endsWith(',10')));
+    assert.equal(layer._map, null);
+    assert.equal(layer.wmsParams.srs, undefined);
+});
+
 test('offline selector hides non-downloadable layers', () => {
     const manager = loadManager();
     const layers = manager.listTileLayers({
@@ -304,6 +343,31 @@ test('cached terrain rejects packages without SRTM grids', async () => {
     );
 });
 
+test('samples full-resolution HGT files from offline packages without network', async () => {
+    const item = {
+        id: '1-radio', cacheName: 'planmilt-offline-package-v1:1-radio',
+        sources: [], tileCount: 0, bounds: { south: -22, west: -52, north: -21, east: -51 },
+        minZoom: 8, maxZoom: 8, hgtTiles: ['S22W052.HGT']
+    };
+    const buffer = new ArrayBuffer(1201 * 1201 * 2);
+    const values = new DataView(buffer);
+    values.setInt16((600 * 1201 + 600) * 2, -123, false);
+    values.setInt16((900 * 1201 + 300) * 2, -32768, false);
+    const cache = { async match(url) {
+        assert.match(url, /__planmilt_offline_hgt__\/S22W052\.HGT$/);
+        return new Response(buffer);
+    } };
+    const manager = loadManager({
+        caches: { async keys() { return ['planmilt-offline-terrain-v1:1-radio']; }, async open() { return cache; } },
+        navigator: { onLine: false },
+        localStorage: { getItem() { return JSON.stringify([item]); }, setItem() {} }
+    });
+    const result = await manager.getCachedElevationProfile([{ latitude: -21.5, longitude: -51.5 }]);
+    assert.equal(result[0].elevation, -123);
+    await assert.rejects(manager.getCachedElevationProfile([{ latitude: -21.75, longitude: -51.75 }]), /sem elevação/);
+    await assert.rejects(manager.getCachedElevationProfile([{ latitude: -20.5, longitude: -51.5 }]), /HGT indisponíveis/);
+});
+
 test('prepares an existing package from server HGT and reads the resulting grid offline', async () => {
     let stored = JSON.stringify([{
         id: '1-old', cacheName: 'planmilt-offline-package-v1:1-old',
@@ -329,7 +393,12 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     });
     const calls = [];
     const client = { async request(url, options) {
-        calls.push({ url, body: JSON.parse(options.body) });
+        calls.push({ url, body: options.body ? JSON.parse(options.body) : null });
+        if (url.startsWith('SRTM3/')) {
+            const buffer = new ArrayBuffer(1201 * 1201 * 2);
+            new DataView(buffer).setInt16((600 * 1201 + 600) * 2, 231, false);
+            return { ok: true, async arrayBuffer() { return buffer; } };
+        }
         return { ok: true, async json() {
             return { elevations: [[100, 100], [100, 100]], missingTiles: [] };
         } };
@@ -337,18 +406,23 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     const result = await manager.preparePackageTerrain('1-old', client);
     assert.deepEqual(Array.from(result.cachedTiles), ['S22W052.HGT']);
     assert.deepEqual(Array.from(result.failedTiles), []);
-    assert.equal(calls.length, 1);
+    assert.deepEqual(Array.from(result.hgtTiles), ['S22W052.HGT']);
+    assert.equal(calls.length, 2);
     assert.equal(calls[0].url, 'php/endpoints/elevation-terrain.php');
+    assert.equal(calls[1].url, 'SRTM3/S22W052.HGT');
     assert.deepEqual(calls[0].body.bounds.slice(0, 2), [-22, -52]);
     assert.ok(calls[0].body.bounds[2] < -21);
     assert.deepEqual(JSON.parse(stored)[0].terrainTiles, ['S22W052.HGT']);
+    assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
 
     browserNavigator.onLine = false;
     const grid = await manager.getCachedTerrain({ south: -21.8, west: -51.8, north: -21.2, east: -51.2 }, 3, 3);
     assert.equal(grid.elevations[1][1], 100);
-    assert.equal(calls.length, 1);
+    const profile = await manager.getCachedElevationProfile([{ latitude: -21.5, longitude: -51.5 }]);
+    assert.equal(profile[0].elevation, 231);
+    assert.equal(calls.length, 2);
     await assert.rejects(manager.preparePackageTerrain('1-old', client), /Reconecte-se/);
-    assert.equal(calls.length, 1);
+    assert.equal(calls.length, 2);
 });
 
 test('preparing existing terrain reports missing HGT without overwriting cached map metadata', async () => {
@@ -531,6 +605,11 @@ test('offline connectivity state marks the interface and disables network action
         setAttribute(name, value) { this.attributes[name] = value; },
         removeAttribute(name) { delete this.attributes[name]; }
     };
+    const radioButton = {
+        disabled: false, dataset: {}, attributes: {}, classList: createClassList(),
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; }
+    };
     const body = { classList: createClassList() };
     const documentRoot = {
         body,
@@ -538,6 +617,7 @@ test('offline connectivity state marks the interface and disables network action
             if (id === 'offlineStatus') return status;
             if (id === 'saveDrawings') return saveButton;
             if (id === 'view3DButton') return view3DButton;
+            if (id === 'linkPredictionBtn') return radioButton;
             return null;
         },
         querySelectorAll() { return []; }
@@ -551,6 +631,8 @@ test('offline connectivity state marks the interface and disables network action
     assert.equal(saveButton.classList.contains('is-offline-disabled'), true);
     assert.equal(view3DButton.disabled, false);
     assert.equal(view3DButton.classList.contains('is-offline-disabled'), false);
+    assert.equal(radioButton.disabled, false);
+    assert.equal(radioButton.classList.contains('is-offline-disabled'), false);
 
     manager.updateConnectionState(documentRoot, true);
     assert.equal(status.hidden, true);
@@ -575,7 +657,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(source, /SENTINEL_LAYER_NAME/);
     assert.match(source, /data-prepare-terrain/);
     assert.match(source, /prepareExistingTerrain\(item\.dataset\.prepareTerrain\)/);
-    assert.match(source, /'linkPredictionBtn'/);
+    assert.doesNotMatch(source, /'linkPredictionBtn'/);
     assert.match(source, /packageLayerRegistry/);
     assert.match(source, /tiles\.maps\.eox\.at/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /tiles\.maps\.eox\.at/);
@@ -584,7 +666,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v7/);
+    assert.match(worker, /planmilt-app-shell-v8/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

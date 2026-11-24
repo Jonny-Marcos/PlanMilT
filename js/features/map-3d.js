@@ -88,6 +88,9 @@
                     ], selectedZoom, {
                         offlineOnly,
                         tileLayer: layerRegistry[source === 'bdgex' ? 'BDGEx - CTM50' : 'OpenTopo'],
+                        getTileUrl: window.PlanMilT.offlineManager?.getTileUrl
+                            ? (layer, coords) => window.PlanMilT.offlineManager.getTileUrl(layer, coords, window.L, map)
+                            : undefined,
                         signal: controller.signal,
                         async confirmLargeRequest(total) {
                             const result = await Swal.fire({

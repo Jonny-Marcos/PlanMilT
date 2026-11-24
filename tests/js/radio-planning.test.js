@@ -54,6 +54,44 @@ test('radio planning attaches the UI/map listeners and keeps generated layers pr
     assert.equal(window.rfGeneratedLayers, undefined);
 });
 
+test('radio link analysis uses cached HGT offline without HTTP requests', async () => {
+    const previousNavigator = window.navigator;
+    const previousManager = window.PlanMilT.offlineManager;
+    const previousClient = window.PlanMilT.apiClient;
+    let lookups = 0;
+    let requests = 0;
+    window.navigator = { onLine: false };
+    window.PlanMilT.offlineManager = {
+        async getCachedElevationProfile(points) {
+            lookups++;
+            return points.map(point => ({ ...point, elevation: 100 }));
+        }
+    };
+    window.PlanMilT.apiClient = { async request() { requests++; throw new Error('Rede não deve ser usada'); } };
+    const planning = window.PlanMilT.radioPlanning.attach({
+        map: { on() {} }, leaflet: { layerGroup: () => temporaryLayer }, drawnItems: {},
+        turf: {
+            lineString: coordinates => ({ coordinates }),
+            length: () => 0.06,
+            along: (line, distance) => ({ geometry: { coordinates: [distance, 0] } })
+        },
+        sweetAlert: {}, chartConstructor: class {}
+    });
+    try {
+        const result = await planning.analyzeLink({ lat: 0, lng: 0 }, { lat: 0, lng: 0.06 }, 'optical');
+        assert.equal(result.isViable, true);
+        assert.equal(lookups, 1);
+        assert.equal(requests, 0);
+        window.PlanMilT.offlineManager.getCachedElevationProfile = async () => { throw new Error('HGT indisponível'); };
+        await assert.rejects(planning.analyzeLink({ lat: 0, lng: 0 }, { lat: 0, lng: 0.06 }, 'optical'), /HGT indisponível/);
+        assert.equal(requests, 0);
+    } finally {
+        window.navigator = previousNavigator;
+        window.PlanMilT.offlineManager = previousManager;
+        window.PlanMilT.apiClient = previousClient;
+    }
+});
+
 test('manual coverage form offers the three scenarios and validates supported frequencies', async () => {
     const listeners = new Map();
     const fields = {
@@ -273,14 +311,15 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         chartConstructor: class {}
     });
 
-    for (const { radialCount, optical } of [
+    for (const { radialCount, optical, offline } of [
     { radialCount: 72, optical: false },
+    { radialCount: 72, optical: false, offline: true },
     { radialCount: 72, optical: true },
     { radialCount: 180, optical: true },
     { radialCount: 360, optical: false },
     { radialCount: 360, optical: true }
     ]) {
-    await test(`manual ${optical ? 'optical' : 'RF'} coverage computes and reports progress for ${radialCount} radials`, async () => {
+    await test(`manual ${optical ? 'optical' : 'RF'} coverage computes ${radialCount} radials ${offline ? 'offline' : 'online'}`, async () => {
         const listeners = new Map();
         const elements = new Map();
         const progressValues = [];
@@ -295,6 +334,15 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         const finished = new Promise(resolve => { finish = resolve; });
         const originalDocument = global.document;
         const originalClient = window.PlanMilT.apiClient;
+        const originalNavigator = window.navigator;
+        const originalManager = window.PlanMilT.offlineManager;
+        if (offline) {
+            window.navigator = { onLine: false };
+            window.PlanMilT.offlineManager = { async getCachedElevationProfile(points) {
+                requestedPoints = points;
+                return points.map(point => ({ ...point, elevation: 100 }));
+            } };
+        }
         const originalElevationFiles = window.PlanMilT.elevationFiles;
         window.PlanMilT.elevationFiles = { async ensure() {
             const response = await window.PlanMilT.apiClient.request('elevation-upload.php');
@@ -405,11 +453,11 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
             assert.deepEqual(progressValues, Array.from({ length: radialCount + 1 }, (_, index) => index));
             assert.ok(progressMaxima.length >= 2 && progressMaxima.every(max => max === radialCount));
             assert.ok(messages.some(message => /tempo restante indisponível/.test(message)));
-            assert.ok(messages.some(message => /Consultando novamente/.test(message)));
+            if (!offline) assert.ok(messages.some(message => /Consultando novamente/.test(message)));
             assert.ok(messages.includes(`Analisando radiais: ${radialCount} de ${radialCount} (100%).`));
             assert.ok(messages.some(message => /Tempo estimado para as radiais/.test(message)));
             assert.ok(messages.some(message => /Preparando a exibição/.test(message)));
-            assert.deepEqual(requestUrls, ['elevation-profile.php', 'elevation-upload.php', 'elevation-profile.php']);
+            assert.deepEqual(requestUrls, offline ? [] : ['elevation-profile.php', 'elevation-upload.php', 'elevation-profile.php']);
             assert.equal(requestedPoints.length, radialCount * 201);
             assert.equal(new Set(Array.from({ length: radialCount }, (_, index) => requestedPoints[index * 201].latitude)).size, radialCount);
             assert.ok(requestedPoints.every(point => point.longitude <= 100));
@@ -439,6 +487,8 @@ test('radio planning exposes shared presets and reusable point-to-point analysis
         } finally {
             global.document = originalDocument;
             window.PlanMilT.apiClient = originalClient;
+            window.navigator = originalNavigator;
+            window.PlanMilT.offlineManager = originalManager;
             window.PlanMilT.elevationFiles = originalElevationFiles;
             window.PlanMilT.coverageImage = originalCoverage;
         }

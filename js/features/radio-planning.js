@@ -807,6 +807,16 @@ window.PlanMilT.radioPlanning = Object.freeze({
                  * @returns {Promise<Array<Object>>} Elevações dos pontos consultados.
                  */
                 async function requestElevation(pointsArray, allowUpload = true, onResume) {
+                    if (window.navigator?.onLine === false) {
+                        if (!window.PlanMilT.offlineManager?.getCachedElevationProfile) {
+                            const error = new Error('Elevação offline indisponível neste navegador.');
+                            error.userMessage = error.message;
+                            throw error;
+                        }
+                        return window.PlanMilT.offlineManager.getCachedElevationProfile(
+                            pointsArray.map(({ latitude, longitude }) => ({ latitude, longitude }))
+                        );
+                    }
                     const response = await window.PlanMilT.apiClient.request('elevation-profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

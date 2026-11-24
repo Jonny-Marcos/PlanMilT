@@ -1,7 +1,7 @@
 /**
  * @fileoverview Mantém o shell da aplicação e os pacotes de tiles disponíveis sem rede.
  */
-const APP_CACHE = 'planmilt-app-shell-v7';
+const APP_CACHE = 'planmilt-app-shell-v8';
 const APP_CACHE_PREFIX = 'planmilt-app-shell-';
 const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
 const SHELL_DOCUMENTS = [
@@ -213,7 +213,8 @@ self.addEventListener('fetch', event => {
     if (url.origin !== self.location.origin && url.protocol !== 'https:') {
         return;
     }
-    if (url.origin === self.location.origin && /php\/endpoints\//.test(url.pathname)) {
+    if (url.origin === self.location.origin && (/php\/endpoints\//.test(url.pathname)
+        || /\/SRTM3\/[NS]\d{2}[EW]\d{3}\.HGT$/i.test(url.pathname))) {
         return;
     }
 
