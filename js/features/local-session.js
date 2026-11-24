@@ -140,30 +140,32 @@ window.PlanMilT.localSession = (() => {
             for (const feature of window.PlanMilT.geoJsonSerialization.toFeatureCollection(coverage, false).features) {
                 drawings.features.push(feature);
             }
-            const layers = Object.entries(layerRegistry).map(([name, layer]) => {
-                const active = map.hasLayer(layer);
-                if (initialLayers.get(name) === layer && name !== 'Sugestão de Planejamento') {
-                    return { type: 'builtin', name, active, opacity: layer.options?.opacity };
-                }
-                if (layer.wmsParams && typeof layer._url === 'string') {
-                    const url = new URL(layer._url, window.location.href);
-                    const sensitive = key => /token|pass|secret|auth|credential|api.?key|(?:^|[_-])key(?:$|[_-])|signature|session/i.test(key);
-                    if (url.username || url.password || [...url.searchParams.keys()].some(sensitive)
-                        || Object.keys(layer.wmsParams).some(sensitive)) {
-                        const error = new Error('Uma camada WMS contém credenciais e não pode ser guardada localmente.');
-                        error.code = 'credential-wms';
-                        throw error;
+            const layers = Object.entries(layerRegistry)
+                .filter(([, layer]) => !layer.options?.offlinePackageOnly)
+                .map(([name, layer]) => {
+                    const active = map.hasLayer(layer);
+                    if (initialLayers.get(name) === layer && name !== 'Sugestão de Planejamento') {
+                        return { type: 'builtin', name, active, opacity: layer.options?.opacity };
                     }
-                    return { type: 'wms', name, active, url: layer._url, params: { ...layer.wmsParams },
-                        opacity: layer.options?.opacity };
-                }
-                const entries = serializeLayer(layer);
-                if (typeof layer.eachLayer !== 'function' && entries.length === 1 && entries[0].type === 'image') {
-                    return { ...entries[0], name, active };
-                }
-                return { type: name === 'Sugestão de Planejamento' && initialLayers.get(name) === layer ? 'planning' : 'group',
-                    name, active, entries };
-            });
+                    if (layer.wmsParams && typeof layer._url === 'string') {
+                        const url = new URL(layer._url, window.location.href);
+                        const sensitive = key => /token|pass|secret|auth|credential|api.?key|(?:^|[_-])key(?:$|[_-])|signature|session/i.test(key);
+                        if (url.username || url.password || [...url.searchParams.keys()].some(sensitive)
+                            || Object.keys(layer.wmsParams).some(sensitive)) {
+                            const error = new Error('Uma camada WMS contém credenciais e não pode ser guardada localmente.');
+                            error.code = 'credential-wms';
+                            throw error;
+                        }
+                        return { type: 'wms', name, active, url: layer._url, params: { ...layer.wmsParams },
+                            opacity: layer.options?.opacity };
+                    }
+                    const entries = serializeLayer(layer);
+                    if (typeof layer.eachLayer !== 'function' && entries.length === 1 && entries[0].type === 'image') {
+                        return { ...entries[0], name, active };
+                    }
+                    return { type: name === 'Sugestão de Planejamento' && initialLayers.get(name) === layer ? 'planning' : 'group',
+                        name, active, entries };
+                });
             const center = map.getCenter();
             return { version: 1, drawings, layers, coverageActive: map.hasLayer(coverage),
                 center: [center.lat, center.lng], zoom: map.getZoom() };

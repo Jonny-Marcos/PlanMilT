@@ -127,8 +127,77 @@ test('offline selector hides non-downloadable layers', () => {
     assert.equal(layers[0].supported, true);
 });
 
+test('cached package sources are limited to manifests with non-empty caches', async () => {
+    const manager = loadManager();
+    const packageA = {
+        cacheName: 'planmilt-offline-package-v1:1-a',
+        sources: ['OpenTopo'],
+        tileCount: 3
+    };
+    const packageB = {
+        cacheName: 'planmilt-offline-package-v1:2-b',
+        sources: ['Sentinel-2 Cloudless 2024 (EOX)'],
+        tileCount: 4
+    };
+    const cacheStorage = {
+        async keys() { return [packageA.cacheName, packageB.cacheName]; },
+        async open(name) {
+            return { async keys() { return name === packageA.cacheName ? [{}] : []; } };
+        }
+    };
+
+    const sources = await manager.getCachedPackageSources([packageA, packageB], cacheStorage);
+    assert.deepEqual([...sources], ['OpenTopo']);
+});
+
+test('offline availability disables network layers without a cached package', () => {
+    const manager = loadManager();
+    const availableLayer = { getTileUrl() {} };
+    const missingLayer = { getTileUrl() {} };
+    const localLayer = {};
+    const layersOnMap = new Set([availableLayer, missingLayer, localLayer]);
+    const makeInput = name => ({
+        dataset: {},
+        disabled: false,
+        title: '',
+        attributes: {},
+        closest() { return { textContent: name }; },
+        setAttribute(key, value) { this.attributes[key] = value; },
+        removeAttribute(key) { delete this.attributes[key]; }
+    });
+    const inputs = [makeInput('OpenTopo'), makeInput('BDGEx - CTM50')];
+    const layerControl = {
+        getContainer() { return { querySelectorAll() { return inputs; } }; }
+    };
+    const map = {
+        hasLayer(layer) { return layersOnMap.has(layer); },
+        removeLayer(layer) { layersOnMap.delete(layer); }
+    };
+    const registry = {
+        OpenTopo: availableLayer,
+        'BDGEx - CTM50': missingLayer,
+        'Sugestão de Planejamento': localLayer
+    };
+
+    manager.updateLayerAvailability({
+        map, layerRegistry: registry, layerControl,
+        isOnline: false, availableSources: new Set(['OpenTopo'])
+    });
+    assert.equal(inputs[0].disabled, false);
+    assert.equal(inputs[1].disabled, true);
+    assert.equal(layersOnMap.has(missingLayer), false);
+    assert.equal(layersOnMap.has(localLayer), true);
+
+    manager.updateLayerAvailability({
+        map, layerRegistry: registry, layerControl,
+        isOnline: true, availableSources: new Set()
+    });
+    assert.equal(inputs[1].disabled, false);
+});
+
 test('offline manager explains why Google Satellite cannot be downloaded', () => {
     assert.match(source, /Google Satellite não permite o download ou armazenamento local/);
+    assert.match(fs.readFileSync(path.join(root, 'js/features/local-session.js'), 'utf8'), /offlinePackageOnly/);
 });
 
 test('offline connectivity state marks the interface and disables network actions', () => {

@@ -398,6 +398,86 @@
     }
 
     /**
+     * Lista as fontes de pacotes cujos caches ainda contêm tiles.
+     * @param {Array<Object>} packages - Manifestos locais.
+     * @param {CacheStorage} cacheStorage - Cache Storage do navegador.
+     * @param {Object} [layerRegistry] - Camadas disponíveis para reconstruir URLs.
+     * @param {Object} [leaflet] - Namespace Leaflet usado na reconstrução.
+     * @returns {Promise<Set<string>>} Nomes das fontes efetivamente armazenadas.
+     */
+    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet) {
+        const available = new Set();
+        const cacheNames = new Set(await cacheStorage.keys());
+        for (const item of packages) {
+            if (!item.sources.length || item.tileCount <= 0 || !cacheNames.has(item.cacheName)) continue;
+            const cache = await cacheStorage.open(item.cacheName);
+            const cachedRequests = await cache.keys();
+            if (!cachedRequests.length) continue;
+            if (!layerRegistry || !leaflet) {
+                item.sources.forEach(source => available.add(source));
+                continue;
+            }
+            const cachedUrls = new Set(cachedRequests.map(request => request.url || request));
+            for (const source of item.sources) {
+                const layer = layerRegistry[source];
+                if (!layer) continue;
+                const expectedUrls = buildTileLayerUrls(
+                    layer, item.bounds, item.minZoom, item.maxZoom, leaflet
+                );
+                if (expectedUrls.some(url => cachedUrls.has(url))) available.add(source);
+            }
+        }
+        return available;
+    }
+
+    /**
+     * Localiza o checkbox Leaflet correspondente a uma camada pelo rótulo visível.
+     * @param {Object} layerControl - Controle de camadas Leaflet.
+     * @param {string} layerName - Nome da camada.
+     * @returns {HTMLInputElement|undefined} Checkbox encontrado.
+     */
+    function findLayerControlInput(layerControl, layerName) {
+        const container = layerControl?.getContainer?.();
+        return [...(container?.querySelectorAll?.('input') || [])].find(input => {
+            const label = input.closest?.('label');
+            return label?.textContent?.trim() === layerName;
+        });
+    }
+
+    /**
+     * Remove e bloqueia camadas de rede sem pacote disponível durante o modo offline.
+     * @param {Object} dependencies - Estado do mapa e fontes em cache.
+     */
+    function updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources }) {
+        for (const [name, layer] of Object.entries(layerRegistry)) {
+            if (!layer || typeof layer.getTileUrl !== 'function') continue;
+            const input = findLayerControlInput(layerControl, name);
+            const available = isOnline || availableSources.has(name);
+            if (!input) {
+                if (!available && map.hasLayer(layer)) map.removeLayer(layer);
+                continue;
+            }
+            if (!available) {
+                if (map.hasLayer(layer)) map.removeLayer(layer);
+                input.disabled = true;
+                input.setAttribute('aria-disabled', 'true');
+                input.title = 'Sem dados armazenados neste pacote offline';
+            } else {
+                if (input.dataset.offlineManaged === 'true') {
+                    input.disabled = false;
+                    input.removeAttribute('aria-disabled');
+                    input.title = '';
+                    delete input.dataset.offlineManaged;
+                }
+                delete input.dataset.offlineManaged;
+                if (!isOnline) input.dataset.offlineAvailable = 'true';
+                else delete input.dataset.offlineAvailable;
+            }
+            if (!available) input.dataset.offlineManaged = 'true';
+        }
+    }
+
+    /**
      * Envia o download ao Service Worker e acompanha seu progresso.
      * @param {ServiceWorkerRegistration} registration - Registro ativo.
      * @param {string} cacheName - Nome do cache do pacote.
@@ -480,7 +560,8 @@
      * @param {Object} dependencies - Dependências do mapa.
      * @returns {{open: Function}} Controlador público.
      */
-    function attach({ map, leaflet, layerRegistry, button, sweetAlert, apiClient }) {
+    function attach({ map, leaflet, layerRegistry, layerControl, registerOverlayLayer,
+        removeOverlayLayer, button, sweetAlert, apiClient }) {
         const Swal = sweetAlert;
         const packageLayerRegistry = {
             ...layerRegistry,
@@ -488,6 +569,7 @@
                 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
                 {
                     attribution: 'Sentinel-2 cloudless 2024 © EOX, Copernicus',
+                    offlinePackageOnly: true,
                     minZoom: 1,
                     maxZoom: 28,
                     minNativeZoom: 0,
@@ -496,6 +578,33 @@
             )
         };
         let selectedBounds = normalizeBounds(map.getBounds());
+        let sentinelRegistered = false;
+
+        /**
+         * Sincroniza as opções do mapa com os pacotes ainda presentes no Cache Storage.
+         * @returns {Promise<void>} Sincronização concluída.
+         */
+        async function syncOfflineLayers() {
+            const isOnline = navigator.onLine !== false;
+            let availableSources = new Set();
+            if (!isOnline) {
+                try {
+                    availableSources = await getCachedPackageSources(
+                        loadPackages(), caches, packageLayerRegistry, leaflet
+                    );
+                } catch (error) {
+                    console.error('[PlanMilT][Offline] Não foi possível verificar os pacotes locais.', error);
+                }
+            }
+            if (!isOnline && availableSources.has(SENTINEL_LAYER_NAME) && !sentinelRegistered) {
+                registerOverlayLayer(SENTINEL_LAYER_NAME, packageLayerRegistry[SENTINEL_LAYER_NAME], false);
+                sentinelRegistered = true;
+            } else if ((isOnline || !availableSources.has(SENTINEL_LAYER_NAME)) && sentinelRegistered) {
+                removeOverlayLayer(SENTINEL_LAYER_NAME);
+                sentinelRegistered = false;
+            }
+            updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources });
+        }
 
         /**
          * Apresenta um erro do fluxo sem ocultar detalhes técnicos do console.
@@ -696,6 +805,7 @@
             if (!confirmation.isConfirmed) return;
             await caches.delete(item.cacheName);
             savePackages(packages.filter(candidate => candidate.id !== id));
+            await syncOfflineLayers();
             await openManager();
         }
 
@@ -845,6 +955,9 @@
             openManager().catch(showError);
         });
         attachConnectionState(document, navigator, window);
+        window.addEventListener('online', syncOfflineLayers);
+        window.addEventListener('offline', syncOfflineLayers);
+        syncOfflineLayers();
         registerWorker().catch(error => {
             console.warn('[PlanMilT][Offline] Serviço offline indisponível.', error);
             button.title = 'Pacotes offline indisponíveis neste contexto';
@@ -866,6 +979,8 @@
         listTileLayers,
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
+        getCachedPackageSources,
+        updateLayerAvailability,
         updateConnectionState,
         attachConnectionState,
         isSelectingArea: () => selectingArea

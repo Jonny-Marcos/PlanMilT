@@ -100,6 +100,16 @@ test('setup returns standard layers and planning state in its registry', () => {
     assert.equal(setup.layerRegistry['Sentinel-2 Cloudless 2024 (EOX)'], undefined);
 });
 
+test('inactive overlays can be registered in the control without loading map tiles', () => {
+    const { layersOnMap, overlays, setup } = createMapSetup();
+    const overlay = { id: 'offline-layer' };
+
+    setup.registerOverlayLayer('Offline', overlay, false);
+    assert.equal(setup.layerRegistry.Offline, overlay);
+    assert.equal(overlays.get('Offline'), overlay);
+    assert.equal(layersOnMap.has(overlay), false);
+});
+
 test('new overlays are registered, added to the control and map once', () => {
     const { layersOnMap, overlays, setup } = createMapSetup();
     const overlay = {

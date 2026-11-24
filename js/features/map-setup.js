@@ -322,20 +322,19 @@ window.PlanMilT.mapSetup = Object.freeze({
              * @param {string} layerName - Nome identificador da camada.
              * @param {Object} layer - Camada Leaflet ou feição processada.
              */
-            function addNewOverlayLayer(layerName, layer) {
-                // Verifica se o nome da camada já existe no registro
+            function registerOverlayLayer(layerName, layer, active = true) {
                 if (!Object.prototype.hasOwnProperty.call(layerRegistry, layerName)) {
-                    layerRegistry[layerName] = layer; // Adiciona a nova camada ao registro
-
-                    // Adiciona a camada ao controle de camadas existente
+                    layerRegistry[layerName] = layer;
                     layerControl.addOverlay(layer, layerName);
-
-                    // Opcionalmente, adiciona a camada ao mapa
-                    map.addLayer(layer);
+                    if (active) map.addLayer(layer);
                     synchronizeLayerSelector();
                 } else {
                     console.warn(`A camada "${layerName}" já existe e não será adicionada novamente.`);
                 }
+            }
+
+            function addNewOverlayLayer(layerName, layer) {
+                registerOverlayLayer(layerName, layer, true);
             }
 
             /**
@@ -424,6 +423,7 @@ window.PlanMilT.mapSetup = Object.freeze({
                 });
             }
 
-        return { layerControl, layerRegistry, planejamentoLayer, addNewOverlayLayer, removeOverlayLayer, applyMapDefaults };
+        return { layerControl, layerRegistry, planejamentoLayer, registerOverlayLayer,
+            addNewOverlayLayer, removeOverlayLayer, applyMapDefaults };
     }
 });

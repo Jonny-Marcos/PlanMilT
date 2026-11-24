@@ -31,6 +31,9 @@
                 map,
                 leaflet: L,
                 layerRegistry,
+                layerControl,
+                registerOverlayLayer: mapSetup.registerOverlayLayer,
+                removeOverlayLayer,
                 button: document.getElementById('offlineManagerButton'),
                 sweetAlert: Swal,
                 apiClient: window.PlanMilT.apiClient
