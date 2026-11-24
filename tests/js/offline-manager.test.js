@@ -398,7 +398,8 @@ test('prepares an existing package from server HGT and reads the resulting grid 
         if (url === 'php/endpoints/elevation-download.php') {
             return { ok: true, async json() { return { success: true, tile: 'S22W052.HGT' }; } };
         }
-        if (url.startsWith('SRTM3/')) {
+        if (url === 'php/endpoints/elevation-hgt.php') {
+            assert.equal(JSON.parse(options.body).tile, 'S22W052.HGT');
             const buffer = new ArrayBuffer(1201 * 1201 * 2);
             new DataView(buffer).setInt16((600 * 1201 + 600) * 2, 231, false);
             return { ok: true, async arrayBuffer() { return buffer; } };
@@ -414,7 +415,7 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     assert.equal(calls.length, 3);
     assert.equal(calls[0].url, 'php/endpoints/elevation-download.php');
     assert.equal(calls[1].url, 'php/endpoints/elevation-terrain.php');
-    assert.equal(calls[2].url, 'SRTM3/S22W052.HGT');
+    assert.equal(calls[2].url, 'php/endpoints/elevation-hgt.php');
     assert.deepEqual(calls[1].body.bounds.slice(0, 2), [-22, -52]);
     assert.ok(calls[1].body.bounds[2] < -21);
     assert.deepEqual(JSON.parse(stored)[0].terrainTiles, ['S22W052.HGT']);
@@ -494,7 +495,7 @@ test('automatically repairs SRTM packages once and reuses their cached HGT and g
         if (url === 'php/endpoints/elevation-terrain.php') {
             return { ok: true, async json() { return { elevations: [[5, 5], [5, 5]], missingTiles: [] }; } };
         }
-        assert.equal(url, 'SRTM3/S22W052.HGT');
+        assert.equal(url, 'php/endpoints/elevation-hgt.php');
         return { ok: true, async arrayBuffer() { return new ArrayBuffer(1201 * 1201 * 2); } };
     } };
 
@@ -503,7 +504,7 @@ test('automatically repairs SRTM packages once and reuses their cached HGT and g
     ]);
     assert.equal(first.length, 1);
     assert.equal(concurrent.length, 1);
-    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'SRTM3/S22W052.HGT']);
+    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'php/endpoints/elevation-hgt.php']);
     assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
     await manager.preparePendingTerrain(client);
     assert.equal(calls.length, 3);
@@ -592,7 +593,7 @@ test('manager automatically prepares existing SRTM packages after reconnecting',
     browserNavigator.onLine = true;
     for (const listener of listeners.get('online')) listener();
     await manager.preparePendingTerrain(client);
-    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'SRTM3/S22W052.HGT']);
+    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'php/endpoints/elevation-hgt.php']);
     assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
 });
 
@@ -814,7 +815,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v9/);
+    assert.match(worker, /planmilt-app-shell-v10/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

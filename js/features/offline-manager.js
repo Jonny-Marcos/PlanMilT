@@ -543,7 +543,12 @@
                     cachedHgtTiles.push(tile);
                     continue;
                 }
-                const response = await apiClient.request(`SRTM3/${tile}`, { method: 'GET', cache: 'no-store' });
+                const response = await apiClient.request('php/endpoints/elevation-hgt.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tile }),
+                    cache: 'no-store'
+                });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const buffer = await response.arrayBuffer();
                 if (![1201 * 1201 * 2, 3601 * 3601 * 2].includes(buffer.byteLength)) {
