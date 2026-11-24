@@ -1416,9 +1416,18 @@
             return result;
         }
 
-        button.addEventListener('click', () => {
+        /**
+         * Abre o gerenciador usando o enquadramento atual do mapa.
+         * @returns {Promise<void>} Abertura do gerenciador.
+         */
+        async function openFromMap() {
+            selectedBounds = normalizeBounds(map.getBounds());
             startAutomaticTerrainPreparation();
-            openManager().catch(showError);
+            await openManager();
+        }
+
+        button.addEventListener('click', () => {
+            openFromMap().catch(showError);
         });
         attachConnectionState(document, navigator, window);
         window.addEventListener('online', syncOfflineLayers);
@@ -1432,7 +1441,7 @@
             button.classList.add('is-disabled');
             button.disabled = true;
         });
-        return Object.freeze({ open: openManager });
+        return Object.freeze({ open: openFromMap });
     }
 
     window.PlanMilT.offlineManager = Object.freeze({

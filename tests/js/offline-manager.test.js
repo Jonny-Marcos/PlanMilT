@@ -20,7 +20,7 @@ function loadManager(options = {}) {
         location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
         localStorage: options.localStorage || { getItem() { return null; }, setItem() {} },
         navigator: options.navigator || {},
-        URL, Response,
+        URL, Response, MessageChannel: options.MessageChannel,
         console: { error() {}, info() {}, warn() {}, log() {} }
     };
     vm.runInNewContext(source, context);
@@ -460,6 +460,132 @@ test('package area action centers the map at the package maximum zoom', async ()
     assert.equal(view.zoom, 12);
     assert.ok(Math.abs(view.center[0] - (-21.5695)) < 1e-10);
     assert.ok(Math.abs(view.center[1] - (-51.2454)) < 1e-10);
+});
+
+test('opening the package manager uses the current viewport for SRTM downloads', async () => {
+    const saoPaulo = { south: -21.7716, west: -51.5005, north: -21.3674, east: -50.9903 };
+    const rioGrandeDoSul = { south: -29.8, west: -53.8, north: -29.2, east: -53.2 };
+    let bounds = saoPaulo;
+    let stored = null;
+    let resolveSaved;
+    const saved = new Promise(resolve => { resolveSaved = resolve; });
+    const cachesByName = new Map();
+    const caches = {
+        async keys() { return [...cachesByName.keys()]; },
+        async open(name) {
+            if (!cachesByName.has(name)) cachesByName.set(name, new Map());
+            const entries = cachesByName.get(name);
+            return {
+                async put(url, response) { entries.set(url, response); },
+                async match(url) { return entries.get(url)?.clone(); },
+                async keys() { return [...entries.keys()].map(url => ({ url })); }
+            };
+        },
+        async delete(name) { return cachesByName.delete(name); }
+    };
+    class FakeMessageChannel {
+        constructor() {
+            this.port1 = { close() {} };
+            this.port2 = { send: data => this.port1.onmessage({ data }) };
+        }
+    }
+    const worker = {
+        state: 'activated',
+        postMessage(message, ports) {
+            queueMicrotask(() => ports[0].send({ type: 'PACKAGE_COMPLETE', cached: 0, total: message.urls.length }));
+        }
+    };
+    const navigator = { onLine: true, serviceWorker: { async register() { return { active: worker }; } } };
+    const listeners = {};
+    const field = name => ({ addEventListener(event, callback) { listeners[name] = callback; } });
+    const fields = {
+        offlineUseViewport: field('viewport'), offlineDrawArea: field('draw'), offlineDownload: field('download'),
+        offlineMinZoom: { value: '8' }, offlineMaxZoom: { value: '8' },
+        offlineEstimate: {}, offlineElevation: { checked: true }, offlineProgress: {}
+    };
+    const document = {
+        body: { classList: { toggle() {} } }, addEventListener() {},
+        getElementById(id) { return fields[id] || null; },
+        querySelectorAll() { return []; }
+    };
+    let displayedHtml = '';
+    const sweetAlert = { close() {}, fire(config) {
+        if (config.title === 'Pacotes offline') {
+            displayedHtml = config.html;
+            config.didOpen();
+        }
+        return Promise.resolve({});
+    } };
+    const calls = [];
+    const apiClient = { async request(url, options) {
+        const body = JSON.parse(options.body);
+        calls.push({ url, body });
+        if (url.endsWith('elevation-download.php')) {
+            return { ok: true, async json() { return { success: true, tile: body.tile }; } };
+        }
+        if (url.endsWith('elevation-terrain.php')) {
+            return { ok: true, async json() { return { elevations: [[5, 5], [5, 5]], missingTiles: [] }; } };
+        }
+        return { ok: true, async arrayBuffer() { return new ArrayBuffer(1201 * 1201 * 2); } };
+    } };
+    const manager = loadManager({
+        caches, navigator, document, MessageChannel: FakeMessageChannel, addEventListener() {},
+        localStorage: {
+            getItem() { return stored; },
+            setItem(key, value) { stored = value; resolveSaved(); }
+        }
+    });
+    const mapListeners = {};
+    const map = {
+        getBounds: () => bounds, getZoom: () => 8, hasLayer: () => false,
+        on(name, callback) { mapListeners[name] = callback; },
+        off(name) { delete mapListeners[name]; }
+    };
+    const controller = manager.attach({
+        map,
+        leaflet: {
+            tileLayer() { return {}; },
+            Draw: { Event: { CREATED: 'draw:created' }, Rectangle: class {
+                enable() {}
+                disable() {}
+            } }
+        },
+        layerRegistry: {}, layerControl: {},
+        registerOverlayLayer() {}, removeOverlayLayer() {},
+        button: { addEventListener() {}, classList: { add() {} } }, sweetAlert, apiClient
+    });
+
+    bounds = rioGrandeDoSul;
+    await controller.open();
+    assert.match(displayedHtml, /S -29\.8000 · O -53\.8000 · N -29\.2000 · L -53\.2000/);
+    listeners.download();
+    await saved;
+    const item = JSON.parse(stored)[0];
+    assert.deepEqual(item.bounds, rioGrandeDoSul);
+    assert.deepEqual(item.srtmTiles, ['S30W054.HGT']);
+    assert.deepEqual(item.hgtTiles, ['S30W054.HGT']);
+    assert.deepEqual(calls.map(call => call.url), [
+        'php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php',
+        'php/endpoints/elevation-hgt.php'
+    ]);
+    assert.equal(calls[0].body.tile, 'S30W054.HGT');
+    assert.equal(calls[2].body.tile, 'S30W054.HGT');
+
+    navigator.onLine = false;
+    const terrain = await manager.getCachedTerrain(rioGrandeDoSul, 3, 3);
+    assert.equal(terrain.elevations[1][1], 5);
+    const profile = await manager.getCachedElevationProfile([{ latitude: -29.5, longitude: -53.5 }]);
+    assert.equal(profile[0].elevation, 0);
+    assert.equal(calls.length, 3);
+
+    await new Promise(resolve => setImmediate(resolve));
+    listeners.draw();
+    mapListeners['draw:created']({ layer: { getBounds: () => ({
+        south: -29.7, west: -53.7, north: -29.4, east: -53.4
+    }) } });
+    assert.match(displayedHtml, /S -29\.7000 · O -53\.7000 · N -29\.4000 · L -53\.4000/);
+    await controller.open();
+    assert.match(displayedHtml, /S -29\.8000 · O -53\.8000 · N -29\.2000 · L -53\.2000/);
 });
 
 test('prepares an existing package from server HGT and reads the resulting grid offline', async () => {
@@ -908,7 +1034,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v11/);
+    assert.match(worker, /planmilt-app-shell-v12/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);
