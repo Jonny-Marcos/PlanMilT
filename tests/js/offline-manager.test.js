@@ -340,7 +340,7 @@ test('cached terrain rejects packages without SRTM grids', async () => {
     const manager = loadManager({ caches: { async keys() { return []; } } });
     await assert.rejects(
         manager.getCachedTerrain({ south: 0.1, west: 0.1, north: 0.9, east: 0.9 }),
-        /Não há grades SRTM.*preparação automática/
+        /Não há grades SRTM.*N00E000\.HGT.*área/
     );
 });
 
@@ -367,6 +367,99 @@ test('samples full-resolution HGT files from offline packages without network', 
     assert.equal(result[0].elevation, -123);
     await assert.rejects(manager.getCachedElevationProfile([{ latitude: -21.75, longitude: -51.75 }]), /sem elevação/);
     await assert.rejects(manager.getCachedElevationProfile([{ latitude: -20.5, longitude: -51.5 }]), /HGT indisponíveis/);
+});
+
+test('provided package bounds cover S22 tiles but not a radio point in S30W054', async () => {
+    const bounds = { south: -21.7716, west: -51.5005, north: -21.3674, east: -50.9903 };
+    const tiles = ['S22W052.HGT', 'S22W051.HGT'];
+    const packageItem = {
+        id: '1-region', cacheName: 'planmilt-offline-package-v1:1-region',
+        sources: ['OpenTopo'], tileCount: 52, bounds, minZoom: 8, maxZoom: 12,
+        srtmTiles: tiles, terrainTiles: tiles, hgtTiles: tiles
+    };
+    const hgt = new ArrayBuffer(1201 * 1201 * 2);
+    const caches = {
+        async keys() { return ['planmilt-offline-terrain-v1:1-region']; },
+        async open() { return { async match(url) {
+            if (url.includes('__planmilt_offline_terrain__')) {
+                return new Response(JSON.stringify({ elevations: [[100, 100], [100, 100]] }));
+            }
+            if (url.includes('__planmilt_offline_hgt__')) return new Response(hgt);
+        } }; }
+    };
+    const manager = loadManager({
+        caches, navigator: { onLine: false },
+        localStorage: { getItem() { return JSON.stringify([packageItem]); }, setItem() {} }
+    });
+    assert.deepEqual(Array.from(manager.getSrtmTileNames(bounds)), tiles);
+    const terrain = await manager.getCachedTerrain(bounds, 3, 3);
+    assert.equal(terrain.elevations[1][1], 100);
+    assert.deepEqual(Array.from(terrain.missingTiles), []);
+    const profile = await manager.getCachedElevationProfile([{ latitude: -21.5, longitude: -51.5 }]);
+    assert.equal(profile[0].elevation, 0);
+    await assert.rejects(manager.getCachedElevationProfile([{ latitude: -29.5, longitude: -53.5 }]),
+        /S30W054\.HGT.*posição da antena e o raio/);
+    await assert.rejects(manager.getCachedTerrain({ south: -29.6, west: -53.6, north: -29.4, east: -53.4 }),
+        /S30W054\.HGT.*região do pacote/);
+});
+
+test('package area action centers the map at the package maximum zoom', async () => {
+    const item = {
+        id: '1-region', cacheName: 'planmilt-offline-package-v1:1-region',
+        sources: ['OpenTopo'], tileCount: 52,
+        bounds: { south: -21.7716, west: -51.5005, north: -21.3674, east: -50.9903 },
+        minZoom: 8, maxZoom: 12, srtmTiles: ['S22W052.HGT', 'S22W051.HGT'],
+        terrainTiles: ['S22W052.HGT', 'S22W051.HGT'], hgtTiles: ['S22W052.HGT', 'S22W051.HGT']
+    };
+    const listeners = {};
+    const field = () => ({ addEventListener() {} });
+    const fields = {
+        offlineUseViewport: field(), offlineDrawArea: field(), offlineDownload: field(),
+        offlineMinZoom: { value: '8' }, offlineMaxZoom: { value: '12' },
+        offlineEstimate: {}, offlineElevation: { checked: false }
+    };
+    const focusButton = {
+        dataset: { focusOffline: item.id },
+        addEventListener(name, callback) { listeners.focus = callback; }
+    };
+    const document = {
+        body: { classList: { toggle() {} } }, addEventListener() {},
+        getElementById(id) { return fields[id] || null; },
+        querySelectorAll(selector) { return selector === '[data-focus-offline]' ? [focusButton] : []; }
+    };
+    const caches = { async keys() { return []; } };
+    const navigator = { onLine: false, serviceWorker: {
+        async register() { return { active: { state: 'activated' } }; }
+    } };
+    let view;
+    let closed = false;
+    const map = {
+        getBounds: () => item.bounds, getZoom: () => 10, hasLayer: () => false,
+        setView(center, zoom) { view = { center: Array.from(center), zoom }; }
+    };
+    const manager = loadManager({
+        caches, navigator, document, addEventListener() {},
+        localStorage: { getItem() { return JSON.stringify([item]); }, setItem() {} }
+    });
+    const controller = manager.attach({
+        map, leaflet: { tileLayer() { return {}; } }, layerRegistry: {}, layerControl: {},
+        registerOverlayLayer() {}, removeOverlayLayer() {},
+        button: { addEventListener() {}, classList: { add() {} } },
+        sweetAlert: { close() { closed = true; }, fire(config) {
+            assert.match(config.html, /data-focus-offline="1-region"/);
+            assert.match(config.html, /SRTM 3D/);
+            assert.match(config.html, /SRTM rádio/);
+            config.didOpen();
+            return Promise.resolve({});
+        } },
+        apiClient: {}
+    });
+    await controller.open();
+    listeners.focus();
+    assert.equal(closed, true);
+    assert.equal(view.zoom, 12);
+    assert.ok(Math.abs(view.center[0] - (-21.5695)) < 1e-10);
+    assert.ok(Math.abs(view.center[1] - (-51.2454)) < 1e-10);
 });
 
 test('prepares an existing package from server HGT and reads the resulting grid offline', async () => {
@@ -815,7 +908,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v10/);
+    assert.match(worker, /planmilt-app-shell-v11/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

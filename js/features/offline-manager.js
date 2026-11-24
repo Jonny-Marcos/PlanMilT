@@ -459,7 +459,7 @@
         }
         const missing = tiles.filter(tile => !files.has(tile));
         if (missing.length) {
-            const error = new Error(`HGT indisponíveis neste navegador: ${missing.join(', ')}. Reconecte-se para a atualização automática ou baixe um pacote com elevação SRTM.`);
+            const error = new Error(`HGT indisponíveis para os pontos da análise: ${missing.join(', ')}. Verifique a posição da antena e o raio de cobertura ou baixe um pacote SRTM para essa região.`);
             error.userMessage = error.message;
             throw error;
         }
@@ -604,7 +604,7 @@
             }
         }
         if (!availableTiles.size) {
-            throw new Error('Não há grades SRTM no navegador para esta área. Reconecte-se para a preparação automática ou baixe um pacote com elevação SRTM.');
+            throw new Error(`Não há grades SRTM para a área exibida. Tiles necessários: ${requiredTiles.join(', ')}. Enquadre uma região do pacote offline ou baixe SRTM para esta área.`);
         }
 
         const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
@@ -1237,6 +1237,18 @@
         }
 
         /**
+         * Centraliza o mapa na área de um pacote usando seu maior zoom baixado.
+         * @param {string} id - Identificador do pacote.
+         */
+        function focusPackage(id) {
+            const item = loadPackages().find(candidate => candidate.id === id);
+            if (!item) throw new Error('Pacote offline não encontrado.');
+            const bounds = normalizeBounds(item.bounds);
+            Swal.close();
+            map.setView([(bounds.south + bounds.north) / 2, (bounds.west + bounds.east) / 2], item.maxZoom);
+        }
+
+        /**
          * Inicia a seleção de um retângulo diretamente no mapa.
          */
         async function selectArea() {
@@ -1299,7 +1311,8 @@
                         ...item.sources.map(source => PROVIDERS[source]?.label || source),
                         ...(Array.isArray(item.terrainTiles) && item.terrainTiles.length
                             ? ['SRTM 3D']
-                            : (Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM sem grade 3D'] : []))
+                            : (Array.isArray(item.srtmTiles) && item.srtmTiles.length ? ['SRTM sem grade 3D'] : [])),
+                        ...(Array.isArray(item.hgtTiles) && item.hgtTiles.length ? ['SRTM rádio'] : [])
                     ].map(escapeHtml).join(', ') || 'Pacote';
                     return `<li><div><strong>${labels}</strong><span>${escapeHtml(formatBounds(item.bounds))}</span>`
                         + `<span>${escapeHtml(formatZoomRange(item.minZoom, item.maxZoom))} · ${item.tileCount} tiles`
@@ -1307,7 +1320,9 @@
                         + (item.failedSrtm?.length ? ` · ${item.failedSrtm.length} grades SRTM pendentes` : '')
                         + (item.failedHgt?.length ? ` · ${item.failedHgt.length} HGT pendentes` : '')
                         + `</span></div>`
-                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></li>`;
+                        + `<div class="offline-actions">`
+                        + `<button type="button" data-focus-offline="${item.id}" title="Ir para a área do pacote" aria-label="Ir para a área do pacote"><i class="fas fa-crosshairs" aria-hidden="true"></i></button>`
+                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></div></li>`;
                 }).join('')
                 : '<li class="offline-empty">Nenhum pacote disponível neste navegador.</li>';
             const result = await Swal.fire({
@@ -1388,6 +1403,12 @@
                     });
                     document.querySelectorAll('[data-delete-offline]').forEach(item => {
                         item.addEventListener('click', () => deletePackage(item.dataset.deleteOffline).catch(showError));
+                    });
+                    document.querySelectorAll('[data-focus-offline]').forEach(item => {
+                        item.addEventListener('click', () => {
+                            try { focusPackage(item.dataset.focusOffline); }
+                            catch (error) { showError(error); }
+                        });
                     });
                     updateEstimate();
                 }
