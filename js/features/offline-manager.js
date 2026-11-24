@@ -411,10 +411,9 @@
      * @param {CacheStorage} cacheStorage - Cache Storage do navegador.
      * @param {Object} [layerRegistry] - Camadas disponíveis para reconstruir URLs.
      * @param {Object} [leaflet] - Namespace Leaflet usado na reconstrução.
-     * @param {number} [targetZoom] - Zoom atual que precisa estar disponível.
      * @returns {Promise<Set<string>>} Nomes das fontes efetivamente armazenadas.
      */
-    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet, targetZoom) {
+    async function getCachedPackageSources(packages, cacheStorage, layerRegistry, leaflet) {
         const available = new Set();
         const cacheNames = new Set(await cacheStorage.keys());
         for (const item of packages) {
@@ -430,14 +429,8 @@
             for (const source of item.sources) {
                 const layer = layerRegistry[source];
                 if (!layer) continue;
-                if (Number.isFinite(targetZoom)
-                    && (targetZoom < item.minZoom || targetZoom > item.maxZoom)) {
-                    continue;
-                }
-                const expectedZoom = Number.isFinite(targetZoom) ? targetZoom : item.minZoom;
-                const maximumZoom = Number.isFinite(targetZoom) ? targetZoom : item.maxZoom;
                 const expectedUrls = buildTileLayerUrls(
-                    layer, item.bounds, expectedZoom, maximumZoom, leaflet
+                    layer, item.bounds, item.minZoom, item.maxZoom, leaflet
                 );
                 if (expectedUrls.some(url => cachedUrls.has(url))) available.add(source);
             }
@@ -460,49 +453,20 @@
     }
 
     /**
-     * Remove e bloqueia camadas de rede sem pacote disponível durante o modo offline.
-     * @param {Object} dependencies - Estado do mapa e fontes em cache.
+     * Restaura controles que versões anteriores tenham desabilitado no modo offline.
+     * @param {Object} layerControl - Controle de camadas Leaflet.
+     * @param {Object} layerRegistry - Registro de camadas do mapa.
      */
-    function updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources }) {
-        for (const [name, layer] of Object.entries(layerRegistry)) {
-            if (!layer || typeof layer.getTileUrl !== 'function') continue;
+    function enableLayerControls(layerControl, layerRegistry) {
+        for (const name of Object.keys(layerRegistry)) {
             const input = findLayerControlInput(layerControl, name);
-            const available = isOnline || availableSources.has(name);
-            if (!input) {
-                if (!available && map.hasLayer(layer)) map.removeLayer(layer);
-                continue;
-            }
-            if (!available) {
-                if (map.hasLayer(layer)) map.removeLayer(layer);
-                input.disabled = true;
-                input.setAttribute('aria-disabled', 'true');
-                input.title = 'Sem dados armazenados neste pacote offline';
-            } else {
-                if (input.dataset.offlineManaged === 'true') {
-                    input.disabled = false;
-                    input.removeAttribute('aria-disabled');
-                    input.title = '';
-                    delete input.dataset.offlineManaged;
-                }
-                delete input.dataset.offlineManaged;
-                if (!isOnline) input.dataset.offlineAvailable = 'true';
-                else delete input.dataset.offlineAvailable;
-            }
-            if (!available) input.dataset.offlineManaged = 'true';
+            if (!input || input.dataset.offlineManaged !== 'true') continue;
+            input.disabled = false;
+            input.removeAttribute('aria-disabled');
+            input.title = '';
+            delete input.dataset.offlineManaged;
+            delete input.dataset.offlineAvailable;
         }
-    }
-
-    /**
-     * Remove do mapa uma camada ativada enquanto seus tiles não estão disponíveis offline.
-     * @param {Object} event - Evento overlayadd do Leaflet.
-     * @param {Object} dependencies - Estado atual de conectividade e registro.
-     */
-    function guardOfflineLayerAddition(event, { map, layerRegistry, isOnline, availableSources }) {
-        if (isOnline) return;
-        const entry = Object.entries(layerRegistry).find(([, layer]) => layer === event.layer);
-        if (!entry || !event.layer || typeof event.layer.getTileUrl !== 'function') return;
-        const [name] = entry;
-        if (!availableSources.has(name)) map.removeLayer(event.layer);
     }
 
     /**
@@ -619,7 +583,6 @@
         };
         let selectedBounds = normalizeBounds(map.getBounds());
         let sentinelRegistered = false;
-        let currentAvailableSources = new Set();
 
         /**
          * Sincroniza as opções do mapa com os pacotes ainda presentes no Cache Storage.
@@ -631,13 +594,12 @@
             if (!isOnline) {
                 try {
                     availableSources = await getCachedPackageSources(
-                        loadPackages(), caches, packageLayerRegistry, leaflet, map.getZoom()
+                        loadPackages(), caches, packageLayerRegistry, leaflet
                     );
                 } catch (error) {
                     console.error('[PlanMilT][Offline] Não foi possível verificar os pacotes locais.', error);
                 }
             }
-            currentAvailableSources = availableSources;
             if (!isOnline && availableSources.has(SENTINEL_LAYER_NAME) && !sentinelRegistered) {
                 registerOverlayLayer(SENTINEL_LAYER_NAME, packageLayerRegistry[SENTINEL_LAYER_NAME], false);
                 sentinelRegistered = true;
@@ -645,48 +607,8 @@
                 removeOverlayLayer(SENTINEL_LAYER_NAME);
                 sentinelRegistered = false;
             }
-            updateLayerAvailability({ map, layerRegistry, layerControl, isOnline, availableSources });
+            enableLayerControls(layerControl, layerRegistry);
         }
-
-        map.on('zoomend', () => {
-            if (navigator.onLine === false) {
-                try {
-                    const zoom = map.getZoom();
-                    const sourcesAtZoom = new Set(loadPackages()
-                        .filter(item => item.minZoom <= zoom && item.maxZoom >= zoom)
-                        .flatMap(item => item.sources));
-                    currentAvailableSources = new Set(
-                        [...currentAvailableSources].filter(source => sourcesAtZoom.has(source))
-                    );
-                } catch (error) {
-                    console.error('[PlanMilT][Offline] Não foi possível aplicar o intervalo de zoom.', error);
-                    currentAvailableSources = new Set();
-                }
-                updateLayerAvailability({
-                    map,
-                    layerRegistry,
-                    layerControl,
-                    isOnline: false,
-                    availableSources: currentAvailableSources
-                });
-            }
-            syncOfflineLayers();
-        });
-        map.on('overlayadd', event => {
-            guardOfflineLayerAddition(event, {
-                map,
-                layerRegistry,
-                isOnline: navigator.onLine !== false,
-                availableSources: currentAvailableSources
-            });
-            updateLayerAvailability({
-                map,
-                layerRegistry,
-                layerControl,
-                isOnline: navigator.onLine !== false,
-                availableSources: currentAvailableSources
-            });
-        });
 
         /**
          * Apresenta um erro do fluxo sem ocultar detalhes técnicos do console.
@@ -1077,8 +999,7 @@
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
         getCachedPackageSources,
-        guardOfflineLayerAddition,
-        updateLayerAvailability,
+        enableLayerControls,
         updateConnectionState,
         attachConnectionState,
         offlineZoomLevels: Object.freeze([...OFFLINE_ZOOM_LEVELS]),

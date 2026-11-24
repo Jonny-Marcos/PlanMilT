@@ -150,49 +150,26 @@ test('cached package sources are limited to manifests with non-empty caches', as
     assert.deepEqual([...sources], ['OpenTopo']);
 });
 
-test('offline availability disables network layers without a cached package', () => {
+test('offline synchronization restores layer controls without blocking selection', () => {
     const manager = loadManager();
-    const availableLayer = { getTileUrl() {} };
-    const missingLayer = { getTileUrl() {} };
-    const localLayer = {};
-    const layersOnMap = new Set([availableLayer, missingLayer, localLayer]);
-    const makeInput = name => ({
-        dataset: {},
-        disabled: false,
-        title: '',
-        attributes: {},
-        closest() { return { textContent: name }; },
-        setAttribute(key, value) { this.attributes[key] = value; },
+    const input = {
+        dataset: { offlineManaged: 'true', offlineAvailable: 'false' },
+        disabled: true,
+        title: 'Sem dados',
+        attributes: { 'aria-disabled': 'true' },
+        closest() { return { textContent: 'BDGEx - CTM50' }; },
         removeAttribute(key) { delete this.attributes[key]; }
-    });
-    const inputs = [makeInput('OpenTopo'), makeInput('BDGEx - CTM50')];
+    };
     const layerControl = {
-        getContainer() { return { querySelectorAll() { return inputs; } }; }
-    };
-    const map = {
-        hasLayer(layer) { return layersOnMap.has(layer); },
-        removeLayer(layer) { layersOnMap.delete(layer); }
-    };
-    const registry = {
-        OpenTopo: availableLayer,
-        'BDGEx - CTM50': missingLayer,
-        'Sugestão de Planejamento': localLayer
+        getContainer() { return { querySelectorAll() { return [input]; } }; }
     };
 
-    manager.updateLayerAvailability({
-        map, layerRegistry: registry, layerControl,
-        isOnline: false, availableSources: new Set(['OpenTopo'])
-    });
-    assert.equal(inputs[0].disabled, false);
-    assert.equal(inputs[1].disabled, true);
-    assert.equal(layersOnMap.has(missingLayer), false);
-    assert.equal(layersOnMap.has(localLayer), true);
-
-    manager.updateLayerAvailability({
-        map, layerRegistry: registry, layerControl,
-        isOnline: true, availableSources: new Set()
-    });
-    assert.equal(inputs[1].disabled, false);
+    manager.enableLayerControls(layerControl, { 'BDGEx - CTM50': {} });
+    assert.equal(input.disabled, false);
+    assert.equal(input.title, '');
+    assert.equal(input.dataset.offlineManaged, undefined);
+    assert.equal(input.dataset.offlineAvailable, undefined);
+    assert.equal(input.attributes['aria-disabled'], undefined);
 });
 
 test('offline manager exposes five descriptive zoom levels', () => {
@@ -207,10 +184,10 @@ test('offline manager exposes five descriptive zoom levels', () => {
     });
     assert.match(source, /OFFLINE_ZOOM_LEVELS\.map/);
     assert.match(source, /OFFLINE_ZOOM_LABELS\[level\]/);
-    assert.match(source, /map\.on\('zoomend'/);
+    assert.doesNotMatch(source, /map\.on\('zoomend'/);
 });
 
-test('cached package source is unavailable outside its stored zoom', async () => {
+test('cached package discovery is not recalculated for the current zoom', async () => {
     const manager = loadManager();
     const layer = {
         _url: 'https://example.test/{z}/{x}/{y}.png',
@@ -248,28 +225,8 @@ test('cached package source is unavailable outside its stored zoom', async () =>
     );
     assert.deepEqual(
         [...await manager.getCachedPackageSources(packages, cacheStorage, { Satellite: layer }, leaflet, 9)],
-        []
+        ['Satellite']
     );
-});
-
-test('offline layer guard removes a layer that has no local package', () => {
-    const manager = loadManager();
-    const unavailable = { getTileUrl() {} };
-    const available = { getTileUrl() {} };
-    let removed;
-    const map = { removeLayer(layer) { removed = layer; } };
-    const registry = { WMS: unavailable, Sentinel: available };
-
-    manager.guardOfflineLayerAddition({ layer: unavailable }, {
-        map, layerRegistry: registry, isOnline: false, availableSources: new Set(['Sentinel'])
-    });
-    assert.equal(removed, unavailable);
-
-    removed = undefined;
-    manager.guardOfflineLayerAddition({ layer: available }, {
-        map, layerRegistry: registry, isOnline: false, availableSources: new Set(['Sentinel'])
-    });
-    assert.equal(removed, undefined);
 });
 
 test('offline manager explains why Google Satellite cannot be downloaded', () => {
