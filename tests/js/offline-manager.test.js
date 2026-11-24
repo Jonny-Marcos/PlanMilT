@@ -14,8 +14,9 @@ const mapTools = fs.readFileSync(path.join(root, 'js/features/map-tools.js'), 'u
 
 function loadManager(options = {}) {
     const context = {
-        window: { PlanMilT: {}, caches: options.caches },
+        window: { PlanMilT: {}, caches: options.caches, addEventListener: options.addEventListener },
         caches: options.caches || {},
+        document: options.document,
         location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
         localStorage: options.localStorage || { getItem() { return null; }, setItem() {} },
         navigator: options.navigator || {},
@@ -339,7 +340,7 @@ test('cached terrain rejects packages without SRTM grids', async () => {
     const manager = loadManager({ caches: { async keys() { return []; } } });
     await assert.rejects(
         manager.getCachedTerrain({ south: 0.1, west: 0.1, north: 0.9, east: 0.9 }),
-        /Não há grades SRTM.*Preparar SRTM 3D/
+        /Não há grades SRTM.*preparação automática/
     );
 });
 
@@ -394,6 +395,9 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     const calls = [];
     const client = { async request(url, options) {
         calls.push({ url, body: options.body ? JSON.parse(options.body) : null });
+        if (url === 'php/endpoints/elevation-download.php') {
+            return { ok: true, async json() { return { success: true, tile: 'S22W052.HGT' }; } };
+        }
         if (url.startsWith('SRTM3/')) {
             const buffer = new ArrayBuffer(1201 * 1201 * 2);
             new DataView(buffer).setInt16((600 * 1201 + 600) * 2, 231, false);
@@ -407,11 +411,12 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     assert.deepEqual(Array.from(result.cachedTiles), ['S22W052.HGT']);
     assert.deepEqual(Array.from(result.failedTiles), []);
     assert.deepEqual(Array.from(result.hgtTiles), ['S22W052.HGT']);
-    assert.equal(calls.length, 2);
-    assert.equal(calls[0].url, 'php/endpoints/elevation-terrain.php');
-    assert.equal(calls[1].url, 'SRTM3/S22W052.HGT');
-    assert.deepEqual(calls[0].body.bounds.slice(0, 2), [-22, -52]);
-    assert.ok(calls[0].body.bounds[2] < -21);
+    assert.equal(calls.length, 3);
+    assert.equal(calls[0].url, 'php/endpoints/elevation-download.php');
+    assert.equal(calls[1].url, 'php/endpoints/elevation-terrain.php');
+    assert.equal(calls[2].url, 'SRTM3/S22W052.HGT');
+    assert.deepEqual(calls[1].body.bounds.slice(0, 2), [-22, -52]);
+    assert.ok(calls[1].body.bounds[2] < -21);
     assert.deepEqual(JSON.parse(stored)[0].terrainTiles, ['S22W052.HGT']);
     assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
 
@@ -420,9 +425,9 @@ test('prepares an existing package from server HGT and reads the resulting grid 
     assert.equal(grid.elevations[1][1], 100);
     const profile = await manager.getCachedElevationProfile([{ latitude: -21.5, longitude: -51.5 }]);
     assert.equal(profile[0].elevation, 231);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
     await assert.rejects(manager.preparePackageTerrain('1-old', client), /Reconecte-se/);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
 });
 
 test('preparing existing terrain reports missing HGT without overwriting cached map metadata', async () => {
@@ -446,6 +451,149 @@ test('preparing existing terrain reports missing HGT without overwriting cached 
     assert.equal(item.tileCount, 42);
     assert.deepEqual(item.sources, ['OpenTopo']);
     assert.deepEqual(item.terrainTiles, []);
+});
+
+test('automatically repairs SRTM packages once and reuses their cached HGT and grids', async () => {
+    let stored = JSON.stringify([{
+        id: '1-auto', cacheName: 'planmilt-offline-package-v1:1-auto',
+        sources: ['OpenTopo'], tileCount: 2,
+        bounds: { south: -21.8, west: -51.8, north: -21.2, east: -51.2 },
+        minZoom: 8, maxZoom: 12, srtmTiles: ['S22W052.HGT'], failedHgt: ['S22W052.HGT']
+    }, {
+        id: '2-map', cacheName: 'planmilt-offline-package-v1:2-map',
+        sources: ['OpenTopo'], tileCount: 2,
+        bounds: { south: -21.8, west: -51.8, north: -21.2, east: -51.2 },
+        minZoom: 8, maxZoom: 12, srtmTiles: []
+    }]);
+    const entries = new Map();
+    const caches = {
+        async keys() { return ['planmilt-offline-terrain-v1:1-auto']; },
+        async open(name) {
+            assert.equal(name, 'planmilt-offline-terrain-v1:1-auto');
+            return {
+                async put(url, response) { entries.set(url, response); },
+                async match(url) { return entries.get(url)?.clone(); }
+            };
+        }
+    };
+    const browserNavigator = { onLine: true };
+    const manager = loadManager({
+        caches, navigator: browserNavigator,
+        localStorage: { getItem() { return stored; }, setItem(key, value) { stored = value; } }
+    });
+    let serverHasHgt = false;
+    const calls = [];
+    const client = { async request(url, options) {
+        calls.push(url);
+        if (url === 'php/endpoints/elevation-download.php') {
+            assert.equal(JSON.parse(options.body).tile, 'S22W052.HGT');
+            serverHasHgt = true;
+            return { ok: true, async json() { return { success: true, tile: 'S22W052.HGT' }; } };
+        }
+        assert.equal(serverHasHgt, true);
+        if (url === 'php/endpoints/elevation-terrain.php') {
+            return { ok: true, async json() { return { elevations: [[5, 5], [5, 5]], missingTiles: [] }; } };
+        }
+        assert.equal(url, 'SRTM3/S22W052.HGT');
+        return { ok: true, async arrayBuffer() { return new ArrayBuffer(1201 * 1201 * 2); } };
+    } };
+
+    const [first, concurrent] = await Promise.all([
+        manager.preparePendingTerrain(client), manager.preparePendingTerrain(client)
+    ]);
+    assert.equal(first.length, 1);
+    assert.equal(concurrent.length, 1);
+    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'SRTM3/S22W052.HGT']);
+    assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
+    await manager.preparePendingTerrain(client);
+    assert.equal(calls.length, 3);
+    browserNavigator.onLine = false;
+    await manager.preparePendingTerrain(client);
+    assert.equal(calls.length, 3);
+});
+
+test('automatic terrain preparation stops requesting data when connectivity is lost', async () => {
+    let stored = JSON.stringify([{
+        id: '1-auto', cacheName: 'planmilt-offline-package-v1:1-auto',
+        sources: ['OpenTopo'], tileCount: 1,
+        bounds: { south: -21.8, west: -51.8, north: -21.2, east: -51.2 },
+        minZoom: 8, maxZoom: 12, srtmTiles: ['S22W052.HGT']
+    }]);
+    const navigator = { onLine: true };
+    const manager = loadManager({
+        navigator,
+        caches: { async open() { return { async match() { return undefined; } }; } },
+        localStorage: { getItem() { return stored; }, setItem(key, value) { stored = value; } }
+    });
+    const calls = [];
+    const results = await manager.preparePendingTerrain({ async request(url) {
+        calls.push(url);
+        navigator.onLine = false;
+        return { ok: true, async json() { return { success: true, tile: 'S22W052.HGT' }; } };
+    } });
+    assert.deepEqual(calls, ['php/endpoints/elevation-download.php']);
+    assert.deepEqual(Array.from(results[0].failedHgt), ['S22W052.HGT']);
+    assert.deepEqual(JSON.parse(stored)[0].failedHgt, ['S22W052.HGT']);
+});
+
+test('manager automatically prepares existing SRTM packages after reconnecting', async () => {
+    let stored = JSON.stringify([{
+        id: '1-auto', cacheName: 'planmilt-offline-package-v1:1-auto', sources: [], tileCount: 0,
+        bounds: { south: -21.8, west: -51.8, north: -21.2, east: -51.2 },
+        minZoom: 8, maxZoom: 12, srtmTiles: ['S22W052.HGT']
+    }]);
+    const entries = new Map();
+    const caches = {
+        async keys() { return []; },
+        async open() { return {
+            async put(url, response) { entries.set(url, response); },
+            async match(url) { return entries.get(url)?.clone(); }
+        }; }
+    };
+    const listeners = new Map();
+    const browserNavigator = {
+        onLine: false,
+        serviceWorker: { async register() { return { active: { state: 'activated' } }; } }
+    };
+    const document = {
+        body: { classList: { toggle() {} } },
+        addEventListener() {},
+        getElementById() { return null; },
+        querySelectorAll() { return []; }
+    };
+    const manager = loadManager({
+        caches, navigator: browserNavigator, document,
+        addEventListener(name, callback) {
+            if (!listeners.has(name)) listeners.set(name, []);
+            listeners.get(name).push(callback);
+        },
+        localStorage: { getItem() { return stored; }, setItem(key, value) { stored = value; } }
+    });
+    const calls = [];
+    const client = { async request(url) {
+        calls.push(url);
+        if (url === 'php/endpoints/elevation-download.php') {
+            return { ok: true, async json() { return { success: true, tile: 'S22W052.HGT' }; } };
+        }
+        if (url === 'php/endpoints/elevation-terrain.php') {
+            return { ok: true, async json() { return { elevations: [[5, 5], [5, 5]], missingTiles: [] }; } };
+        }
+        return { ok: true, async arrayBuffer() { return new ArrayBuffer(1201 * 1201 * 2); } };
+    } };
+    manager.attach({
+        map: { getBounds: () => ({ south: -21.8, west: -51.8, north: -21.2, east: -51.2 }) },
+        leaflet: { tileLayer() { return {}; } }, layerRegistry: {}, layerControl: {},
+        registerOverlayLayer() {}, removeOverlayLayer() {},
+        button: { addEventListener() {}, classList: { add() {} } },
+        sweetAlert: {}, apiClient: client
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, []);
+    browserNavigator.onLine = true;
+    for (const listener of listeners.get('online')) listener();
+    await manager.preparePendingTerrain(client);
+    assert.deepEqual(calls, ['php/endpoints/elevation-download.php', 'php/endpoints/elevation-terrain.php', 'SRTM3/S22W052.HGT']);
+    assert.deepEqual(JSON.parse(stored)[0].hgtTiles, ['S22W052.HGT']);
 });
 
 test('cached terrain reports missing HGT tiles while preserving available samples', async () => {
@@ -655,8 +803,8 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(worker, /Google Maps, cujo download em cache não é permitido/);
     assert.match(source, /offlineManager\.start\(\)\.catch/);
     assert.match(source, /SENTINEL_LAYER_NAME/);
-    assert.match(source, /data-prepare-terrain/);
-    assert.match(source, /prepareExistingTerrain\(item\.dataset\.prepareTerrain\)/);
+    assert.doesNotMatch(source, /data-prepare-terrain/);
+    assert.match(source, /preparePendingTerrain\(apiClient\)/);
     assert.doesNotMatch(source, /'linkPredictionBtn'/);
     assert.match(source, /packageLayerRegistry/);
     assert.match(source, /tiles\.maps\.eox\.at/);
@@ -666,7 +814,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v8/);
+    assert.match(worker, /planmilt-app-shell-v9/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

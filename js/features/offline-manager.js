@@ -51,6 +51,7 @@
     ]);
     let selectingArea = false;
     let workerRegistrationPromise;
+    let terrainPreparationPromise;
 
     /**
      * Atualiza o indicador e os controles que precisam de conexão com a rede.
@@ -458,7 +459,7 @@
         }
         const missing = tiles.filter(tile => !files.has(tile));
         if (missing.length) {
-            const error = new Error(`HGT indisponíveis neste navegador: ${missing.join(', ')}. Prepare a elevação do pacote enquanto estiver online.`);
+            const error = new Error(`HGT indisponíveis neste navegador: ${missing.join(', ')}. Reconecte-se para a atualização automática ou baixe um pacote com elevação SRTM.`);
             error.userMessage = error.message;
             throw error;
         }
@@ -493,6 +494,11 @@
         const cachedHgtTiles = [];
         const failedHgtTiles = [];
         for (const [index, tile] of tiles.entries()) {
+            if (navigator.onLine === false) {
+                failedTiles.push(tile);
+                failedHgtTiles.push(tile);
+                continue;
+            }
             const match = tile.match(/^([NS])(\d{2})([EW])(\d{3})\.HGT$/);
             if (!match) {
                 failedTiles.push(tile);
@@ -502,31 +508,41 @@
             const longitude = (match[3] === 'W' ? -1 : 1) * Number(match[4]);
             progress(`Preparando elevação ${index + 1}/${tiles.length}: ${tile}`);
             try {
-                const edgeInset = 1e-9;
-                const response = await apiClient.request('php/endpoints/elevation-terrain.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        bounds: [latitude, longitude, latitude + 1 - edgeInset, longitude + 1 - edgeInset],
-                        columns: TERRAIN_GRID_SIZE,
-                        rows: TERRAIN_GRID_SIZE
-                    })
-                });
-                const data = await response.json();
-                if (!response.ok || !Array.isArray(data.elevations)
-                    || data.missingTiles?.includes(tile)) {
-                    failedTiles.push(tile);
-                } else {
-                    await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
-                        headers: { 'Content-Type': 'application/json' }
-                    }));
+                const cached = await cache.match(getTerrainCacheUrl(tile));
+                if (cached?.ok) {
                     cachedTiles.push(tile);
+                } else {
+                    const edgeInset = 1e-9;
+                    const response = await apiClient.request('php/endpoints/elevation-terrain.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            bounds: [latitude, longitude, latitude + 1 - edgeInset, longitude + 1 - edgeInset],
+                            columns: TERRAIN_GRID_SIZE,
+                            rows: TERRAIN_GRID_SIZE
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !Array.isArray(data.elevations)
+                        || data.missingTiles?.includes(tile)) {
+                        failedTiles.push(tile);
+                    } else {
+                        await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
+                            headers: { 'Content-Type': 'application/json' }
+                        }));
+                        cachedTiles.push(tile);
+                    }
                 }
             } catch (error) {
                 console.error('[PlanMilT][Offline] Falha ao armazenar a grade SRTM.', error);
                 failedTiles.push(tile);
             }
             try {
+                const cached = await cache.match(getHgtCacheUrl(tile));
+                if (cached?.ok) {
+                    cachedHgtTiles.push(tile);
+                    continue;
+                }
                 const response = await apiClient.request(`SRTM3/${tile}`, { method: 'GET', cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const buffer = await response.arrayBuffer();
@@ -583,7 +599,7 @@
             }
         }
         if (!availableTiles.size) {
-            throw new Error('Não há grades SRTM no navegador para esta área. Conecte-se e use "Preparar SRTM 3D" no gerenciador de pacotes.');
+            throw new Error('Não há grades SRTM no navegador para esta área. Reconecte-se para a preparação automática ou baixe um pacote com elevação SRTM.');
         }
 
         const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
@@ -677,11 +693,37 @@
         if (!item) throw new Error('Pacote offline não encontrado.');
         const tiles = getSrtmTileNames(item.bounds);
         if (tiles.length > 32) throw new Error('A área excede o limite de 32 tiles SRTM por pacote.');
-        await cacheTerrainGrids(tiles, packageId, apiClient, progress);
+        const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+        const pending = [];
+        for (const tile of tiles) {
+            const grid = await cache.match(getTerrainCacheUrl(tile));
+            const hgt = await cache.match(getHgtCacheUrl(tile));
+            if (!grid?.ok || !hgt?.ok) pending.push(tile);
+        }
+        for (const [index, tile] of pending.entries()) {
+            if (navigator.onLine === false) break;
+            progress(`Obtendo elevação ${index + 1}/${pending.length}: ${tile}`);
+            try {
+                const response = await apiClient.request('php/endpoints/elevation-download.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tile })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success || result.tile !== tile) {
+                    throw new Error(result.error || 'Não foi possível obter o HGT.');
+                }
+            } catch (error) {
+                console.warn('[PlanMilT][Offline] Não foi possível obter automaticamente o HGT.', error);
+            }
+        }
+        await cacheTerrainGrids(pending, packageId, apiClient, progress);
         const packages = loadPackages();
         const current = packages.find(candidate => candidate.id === packageId);
-        if (!current) throw new Error('O pacote foi removido durante a preparação da elevação.');
-        const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+        if (!current) {
+            await caches.delete(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+            throw new Error('O pacote foi removido durante a preparação da elevação.');
+        }
         const available = [];
         const availableHgt = [];
         for (const tile of tiles) {
@@ -697,6 +739,44 @@
         current.failedHgt = tiles.filter(tile => !availableHgt.includes(tile));
         savePackages(packages);
         return { cachedTiles: available, failedTiles: current.failedSrtm, hgtTiles: availableHgt, failedHgt: current.failedHgt };
+    }
+
+    /**
+     * Recupera automaticamente a elevação pendente dos pacotes que incluem SRTM.
+     * @param {Object} apiClient - Cliente HTTP da aplicação.
+     * @returns {Promise<Array<Object>>} Resultados das preparações tentadas.
+     */
+    async function preparePendingTerrain(apiClient) {
+        if (navigator.onLine === false) return [];
+        if (terrainPreparationPromise) return terrainPreparationPromise;
+        terrainPreparationPromise = (async () => {
+            const results = [];
+            const packages = loadPackages().filter(item =>
+                (Array.isArray(item.srtmTiles) && item.srtmTiles.length > 0)
+                || (Array.isArray(item.terrainTiles) && item.terrainTiles.length > 0)
+                || (Array.isArray(item.hgtTiles) && item.hgtTiles.length > 0)
+                || (Array.isArray(item.failedSrtm) && item.failedSrtm.length > 0)
+                || (Array.isArray(item.failedHgt) && item.failedHgt.length > 0));
+            for (const item of packages) {
+                if (navigator.onLine === false) break;
+                try {
+                    const result = await preparePackageTerrain(item.id, apiClient);
+                    results.push({ id: item.id, ...result });
+                    if (result.failedTiles.length || result.failedHgt.length) {
+                        console.warn('[PlanMilT][Offline] Parte da elevação do pacote continua indisponível.', item.id);
+                    }
+                } catch (error) {
+                    console.warn('[PlanMilT][Offline] Não foi possível atualizar a elevação do pacote.', error);
+                    results.push({ id: item.id, error: true });
+                }
+            }
+            return results;
+        })();
+        try {
+            return await terrainPreparationPromise;
+        } finally {
+            terrainPreparationPromise = undefined;
+        }
     }
 
     /**
@@ -914,6 +994,27 @@
         }
 
         /**
+         * Inicia a recuperação de pacotes e atualiza seu estado no gerenciador aberto.
+         */
+        function startAutomaticTerrainPreparation() {
+            const preparation = preparePendingTerrain(apiClient);
+            const status = document.getElementById('offlineTerrainStatus');
+            if (status && navigator.onLine !== false) status.textContent = 'Atualizando elevação SRTM...';
+            preparation.then(results => {
+                const currentStatus = document.getElementById('offlineTerrainStatus');
+                if (!currentStatus) return;
+                const failed = results.filter(result => result.error || result.failedTiles?.length || result.failedHgt?.length);
+                currentStatus.textContent = failed.length
+                    ? 'Parte da elevação não pôde ser obtida. Verifique a conexão, o servidor e o espaço disponível.'
+                    : (results.length ? 'Elevação dos pacotes atualizada.' : '');
+            }).catch(error => {
+                console.warn('[PlanMilT][Offline] Não foi possível atualizar a elevação dos pacotes.', error);
+                const currentStatus = document.getElementById('offlineTerrainStatus');
+                if (currentStatus) currentStatus.textContent = 'Não foi possível atualizar a elevação dos pacotes.';
+            });
+        }
+
+        /**
          * Atualiza o resumo de conteúdo e custo estimado do formulário.
          */
         function updateEstimate() {
@@ -1052,6 +1153,7 @@
             let hgtTiles = [];
             let failedHgt = [];
             if (srtmTiles.length > 0) {
+                if (terrainPreparationPromise) await terrainPreparationPromise;
                 await downloadSrtm(srtmTiles, message => {
                     const progress = document.getElementById('offlineProgress');
                     if (progress) progress.textContent = message;
@@ -1130,36 +1232,6 @@
         }
 
         /**
-         * Prepara no navegador as grades SRTM de um pacote já baixado.
-         * @param {string} id - Identificador do pacote.
-         * @returns {Promise<void>} Conclusão da preparação e atualização da lista.
-         */
-        async function prepareExistingTerrain(id) {
-            if (navigator.onLine === false) throw new Error('Reconecte-se para preparar a elevação deste pacote.');
-            Swal.fire({
-                title: 'Preparando elevação para 3D e rádio',
-                html: '<p id="offlineProgress">Consultando arquivos SRTM do servidor...</p>',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false
-            });
-            const result = await preparePackageTerrain(id, apiClient, message => {
-                const progress = document.getElementById('offlineProgress');
-                if (progress) progress.textContent = message;
-            });
-            await Swal.fire({
-                title: result.failedTiles.length || result.failedHgt.length
-                    ? (result.cachedTiles.length || result.hgtTiles.length ? 'Elevação parcialmente disponível' : 'Elevação indisponível')
-                    : 'Elevação preparada',
-                text: `Grades 3D: ${result.cachedTiles.length}; HGT para rádio: ${result.hgtTiles.length}.`
-                    + (result.failedTiles.length ? ` Grades indisponíveis: ${result.failedTiles.join(', ')}.` : '')
-                    + (result.failedHgt.length ? ` HGT indisponíveis: ${result.failedHgt.join(', ')}.` : ''),
-                icon: result.failedTiles.length || result.failedHgt.length ? 'warning' : 'success'
-            });
-            await openManager();
-        }
-
-        /**
          * Inicia a seleção de um retângulo diretamente no mapa.
          */
         async function selectArea() {
@@ -1227,10 +1299,10 @@
                     return `<li><div><strong>${labels}</strong><span>${escapeHtml(formatBounds(item.bounds))}</span>`
                         + `<span>${escapeHtml(formatZoomRange(item.minZoom, item.maxZoom))} · ${item.tileCount} tiles`
                         + (item.failedTileCount ? ` · ${item.failedTileCount} pendentes` : '')
+                        + (item.failedSrtm?.length ? ` · ${item.failedSrtm.length} grades SRTM pendentes` : '')
+                        + (item.failedHgt?.length ? ` · ${item.failedHgt.length} HGT pendentes` : '')
                         + `</span></div>`
-                        + `<div class="offline-actions"><button type="button" data-prepare-terrain="${item.id}"`
-                        + `${navigator.onLine === false ? ' disabled title="Reconecte-se para preparar a elevação"' : ''}>Preparar SRTM 3D e rádio</button>`
-                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></div></li>`;
+                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></li>`;
                 }).join('')
                 : '<li class="offline-empty">Nenhum pacote disponível neste navegador.</li>';
             const result = await Swal.fire({
@@ -1289,6 +1361,7 @@
                         </section>
                         <section class="offline-box">
                             <h3>Pacotes disponíveis</h3>
+                            <div id="offlineTerrainStatus" role="status" aria-live="polite">${terrainPreparationPromise ? 'Atualizando elevação SRTM...' : ''}</div>
                             <ul>${list}</ul>
                             <small>A exclusão remove os tiles do navegador; SRTM continua em <code>SRTM3/</code>. Os dados do pacote ficam no perfil deste navegador e devem ser protegidos conforme a sensibilidade da área.</small>
                         </section>
@@ -1311,9 +1384,6 @@
                     document.querySelectorAll('[data-delete-offline]').forEach(item => {
                         item.addEventListener('click', () => deletePackage(item.dataset.deleteOffline).catch(showError));
                     });
-                    document.querySelectorAll('[data-prepare-terrain]').forEach(item => {
-                        item.addEventListener('click', () => prepareExistingTerrain(item.dataset.prepareTerrain).catch(showError));
-                    });
                     updateEstimate();
                 }
             });
@@ -1321,12 +1391,15 @@
         }
 
         button.addEventListener('click', () => {
+            startAutomaticTerrainPreparation();
             openManager().catch(showError);
         });
         attachConnectionState(document, navigator, window);
         window.addEventListener('online', syncOfflineLayers);
+        window.addEventListener('online', startAutomaticTerrainPreparation);
         window.addEventListener('offline', syncOfflineLayers);
         syncOfflineLayers();
+        startAutomaticTerrainPreparation();
         registerWorker().catch(error => {
             console.warn('[PlanMilT][Offline] Serviço offline indisponível.', error);
             button.title = 'Pacotes offline indisponíveis neste contexto';
@@ -1352,6 +1425,7 @@
         getCachedTerrain,
         getCachedElevationProfile,
         preparePackageTerrain,
+        preparePendingTerrain,
         getCachedPackageSources,
         enableLayerControls,
         updateConnectionState,
