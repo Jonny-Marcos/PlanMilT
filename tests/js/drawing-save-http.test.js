@@ -13,6 +13,7 @@ test('drawing endpoint persists a large collection and rejects oversized request
     const setup = spawnSync('php', ['-r', `
         $db = new PDO('sqlite:' . $argv[1]);
         $db->exec("CREATE TABLE drawings (id INTEGER PRIMARY KEY, username TEXT NOT NULL, password_hash TEXT NOT NULL, link TEXT NOT NULL, geojson TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+        $db->exec("CREATE TABLE app_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
         $db->exec("PRAGMA user_version=7");
     `, databasePath], { encoding: 'utf8' });
     assert.equal(setup.status, 0, setup.stderr);

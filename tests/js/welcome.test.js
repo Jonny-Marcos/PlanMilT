@@ -12,6 +12,7 @@ function setup(initial, options = {}) {
     const calls = [];
     const opened = [];
     const elements = {};
+    const math = Object.create(Math);
     const element = () => ({
         children: [],
         listeners: {},
@@ -34,11 +35,11 @@ function setup(initial, options = {}) {
         fire(config) { calls.push(config); config.didOpen(); return Promise.resolve({ dismiss: options.dismiss }); }
     };
     vm.runInNewContext(source, {
-        window, localStorage, Swal, URL,
+        window, localStorage, Swal, URL, Math: math,
         document: { getElementById: id => elements[id], createElement: element },
         console: { error(...args) { errors.push(args); } }
     });
-    return { welcome: window.PlanMilT.welcome, values, elements, errors, calls, opened };
+    return { welcome: window.PlanMilT.welcome, values, elements, errors, calls, opened, math };
 }
 
 const key = 'planmilt.welcome.v1:/plan/';
@@ -117,15 +118,10 @@ test('welcome selects a tip for each opening without adding it to local storage'
 
 test('tips are chosen from different positions using random values', () => {
     const fixture = setup();
-    const originalRandom = Math.random;
-    try {
-        Math.random = () => 0;
-        fixture.welcome.show();
-        const first = fixture.elements.welcomeTip.textContent;
-        Math.random = () => 0.999;
-        fixture.welcome.show();
-        assert.notEqual(fixture.elements.welcomeTip.textContent, first);
-    } finally {
-        Math.random = originalRandom;
-    }
+    fixture.math.random = () => 0;
+    fixture.welcome.show();
+    const first = fixture.elements.welcomeTip.textContent;
+    fixture.math.random = () => 0.999;
+    fixture.welcome.show();
+    assert.notEqual(fixture.elements.welcomeTip.textContent, first);
 });

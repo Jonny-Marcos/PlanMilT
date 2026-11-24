@@ -114,7 +114,8 @@ test('map fills the viewport and the toggle remains inside the compact toolbar',
     assert.doesNotMatch(styles, /\.toggle-controls\s*\{[^}]*position:\s*fixed/);
     assert.match(styles, /\.toggle-controls:focus-visible\s*\{/);
     assert.match(styles, /\.map-toolbar\.controls-hidden\s*\{\s*width:\s*auto;/);
-    assert.match(styles, /\.map-toolbar\.controls-hidden > :not\(\.toolbar-icons\),\s*\.map-toolbar\.controls-hidden \.toolbar-icons > :not\(\.toggle-controls\)\s*\{\s*display:\s*none;/);
+    assert.match(styles, /\.map-toolbar\.controls-hidden > :not\(\.toolbar-icons\),\s*\.map-toolbar\.controls-hidden \.toolbar-icons > :not\(\.toggle-controls\):not\(\.offline-status\)\s*\{\s*display:\s*none;/);
+    assert.match(styles, /\.map-toolbar\.controls-hidden \.offline-status\[hidden\]\s*\{\s*display:\s*none;/);
     assert.match(main, /<div class="toolbar-icons">[\s\S]*?id="toggleControlsBtn"[^>]*type="button"[^>]*aria-pressed="true"[\s\S]*?<\/div>/);
     assert.doesNotMatch(html, /id="toggleControlsBtn"/);
     assert.match(html, /css\/app\.css/);
