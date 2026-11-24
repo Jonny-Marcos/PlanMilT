@@ -19,7 +19,7 @@ function loadManager(options = {}) {
         location: { pathname: '/planmilt/', href: 'https://example.test/planmilt/' },
         localStorage: options.localStorage || { getItem() { return null; }, setItem() {} },
         navigator: options.navigator || {},
-        URL,
+        URL, Response,
         console: { error() {}, info() {}, warn() {}, log() {} }
     };
     vm.runInNewContext(source, context);
@@ -300,8 +300,78 @@ test('cached terrain rejects packages without SRTM grids', async () => {
     const manager = loadManager({ caches: { async keys() { return []; } } });
     await assert.rejects(
         manager.getCachedTerrain({ south: 0.1, west: 0.1, north: 0.9, east: 0.9 }),
-        /não contém grades SRTM/
+        /Não há grades SRTM.*Preparar SRTM 3D/
     );
+});
+
+test('prepares an existing package from server HGT and reads the resulting grid offline', async () => {
+    let stored = JSON.stringify([{
+        id: '1-old', cacheName: 'planmilt-offline-package-v1:1-old',
+        sources: ['OpenTopo'], tileCount: 1,
+        bounds: { south: -21.8, west: -51.8, north: -21.2, east: -51.2 },
+        minZoom: 8, maxZoom: 12, srtmTiles: ['S22W052.HGT']
+    }]);
+    const entries = new Map();
+    const caches = {
+        async keys() { return ['planmilt-offline-terrain-v1:1-old']; },
+        async open(name) {
+            assert.equal(name, 'planmilt-offline-terrain-v1:1-old');
+            return {
+                async put(url, response) { entries.set(url, response); },
+                async match(url) { return entries.get(url)?.clone(); }
+            };
+        }
+    };
+    const browserNavigator = { onLine: true };
+    const manager = loadManager({
+        caches, navigator: browserNavigator,
+        localStorage: { getItem() { return stored; }, setItem(key, value) { stored = value; } }
+    });
+    const calls = [];
+    const client = { async request(url, options) {
+        calls.push({ url, body: JSON.parse(options.body) });
+        return { ok: true, async json() {
+            return { elevations: [[100, 100], [100, 100]], missingTiles: [] };
+        } };
+    } };
+    const result = await manager.preparePackageTerrain('1-old', client);
+    assert.deepEqual(Array.from(result.cachedTiles), ['S22W052.HGT']);
+    assert.deepEqual(Array.from(result.failedTiles), []);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'php/endpoints/elevation-terrain.php');
+    assert.deepEqual(calls[0].body.bounds.slice(0, 2), [-22, -52]);
+    assert.ok(calls[0].body.bounds[2] < -21);
+    assert.deepEqual(JSON.parse(stored)[0].terrainTiles, ['S22W052.HGT']);
+
+    browserNavigator.onLine = false;
+    const grid = await manager.getCachedTerrain({ south: -21.8, west: -51.8, north: -21.2, east: -51.2 }, 3, 3);
+    assert.equal(grid.elevations[1][1], 100);
+    assert.equal(calls.length, 1);
+    await assert.rejects(manager.preparePackageTerrain('1-old', client), /Reconecte-se/);
+    assert.equal(calls.length, 1);
+});
+
+test('preparing existing terrain reports missing HGT without overwriting cached map metadata', async () => {
+    let stored = JSON.stringify([{
+        id: '1-old', cacheName: 'planmilt-offline-package-v1:1-old',
+        sources: ['OpenTopo'], tileCount: 42,
+        bounds: { south: 0.1, west: 0.1, north: 0.9, east: 0.9 }, minZoom: 8, maxZoom: 12
+    }]);
+    const caches = {
+        async open() { return { async match() { return undefined; }, async put() { throw new Error('unexpected'); } }; }
+    };
+    const manager = loadManager({
+        caches, navigator: { onLine: true },
+        localStorage: { getItem() { return stored; }, setItem(key, value) { stored = value; } }
+    });
+    const result = await manager.preparePackageTerrain('1-old', { async request() {
+        return { ok: true, async json() { return { elevations: [], missingTiles: ['N00E000.HGT'] }; } };
+    } });
+    assert.deepEqual(Array.from(result.failedTiles), ['N00E000.HGT']);
+    const item = JSON.parse(stored)[0];
+    assert.equal(item.tileCount, 42);
+    assert.deepEqual(item.sources, ['OpenTopo']);
+    assert.deepEqual(item.terrainTiles, []);
 });
 
 test('cached terrain reports missing HGT tiles while preserving available samples', async () => {
@@ -503,6 +573,9 @@ test('offline manager is wired through the rewritten root service worker', () =>
     assert.match(worker, /Google Maps, cujo download em cache não é permitido/);
     assert.match(source, /offlineManager\.start\(\)\.catch/);
     assert.match(source, /SENTINEL_LAYER_NAME/);
+    assert.match(source, /data-prepare-terrain/);
+    assert.match(source, /prepareExistingTerrain\(item\.dataset\.prepareTerrain\)/);
+    assert.match(source, /'linkPredictionBtn'/);
     assert.match(source, /packageLayerRegistry/);
     assert.match(source, /tiles\.maps\.eox\.at/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/features/map-setup.js'), 'utf8'), /tiles\.maps\.eox\.at/);
@@ -511,7 +584,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v6/);
+    assert.match(worker, /planmilt-app-shell-v7/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

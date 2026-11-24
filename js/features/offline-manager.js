@@ -379,6 +379,56 @@
     }
 
     /**
+     * Prepara grades por HGT no cache de um pacote usando o servidor enquanto conectado.
+     * @param {Array<string>} tiles - Nomes HGT da área.
+     * @param {string} packageId - Identificador do pacote.
+     * @param {Object} apiClient - Cliente HTTP da aplicação.
+     * @param {Function} progress - Callback de progresso.
+     * @returns {Promise<Object>} Nomes armazenados e nomes que falharam.
+     */
+    async function cacheTerrainGrids(tiles, packageId, apiClient, progress) {
+        const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+        const cachedTiles = [];
+        const failedTiles = [];
+        for (const [index, tile] of tiles.entries()) {
+            const match = tile.match(/^([NS])(\d{2})([EW])(\d{3})\.HGT$/);
+            if (!match) {
+                failedTiles.push(tile);
+                continue;
+            }
+            const latitude = (match[1] === 'S' ? -1 : 1) * Number(match[2]);
+            const longitude = (match[3] === 'W' ? -1 : 1) * Number(match[4]);
+            progress(`Preparando elevação ${index + 1}/${tiles.length}: ${tile}`);
+            try {
+                const edgeInset = 1e-9;
+                const response = await apiClient.request('php/endpoints/elevation-terrain.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bounds: [latitude, longitude, latitude + 1 - edgeInset, longitude + 1 - edgeInset],
+                        columns: TERRAIN_GRID_SIZE,
+                        rows: TERRAIN_GRID_SIZE
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok || !Array.isArray(data.elevations)
+                    || data.missingTiles?.includes(tile)) {
+                    failedTiles.push(tile);
+                    continue;
+                }
+                await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
+                    headers: { 'Content-Type': 'application/json' }
+                }));
+                cachedTiles.push(tile);
+            } catch (error) {
+                console.error('[PlanMilT][Offline] Falha ao armazenar a grade SRTM.', error);
+                failedTiles.push(tile);
+            }
+        }
+        return { cachedTiles, failedTiles };
+    }
+
+    /**
      * Lê amostras SRTM salvas nos pacotes e remonta a grade do enquadramento atual.
      * @param {Object} boundsInput - Limites WGS84 da área solicitada.
      * @param {number} columns - Quantidade de colunas da grade.
@@ -416,7 +466,7 @@
             }
         }
         if (!availableTiles.size) {
-            throw new Error('Este pacote não contém grades SRTM para o 3D. Crie um pacote incluindo elevação SRTM.');
+            throw new Error('Não há grades SRTM no navegador para esta área. Conecte-se e use "Preparar SRTM 3D" no gerenciador de pacotes.');
         }
 
         const missingTiles = requiredTiles.filter(tile => !availableTiles.has(tile));
@@ -491,6 +541,38 @@
      */
     function savePackages(packages) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(packages));
+    }
+
+    /**
+     * Prepara a elevação de um pacote existente a partir dos HGT disponíveis no servidor.
+     * @param {string} packageId - Identificador do pacote.
+     * @param {Object} apiClient - Cliente HTTP da aplicação.
+     * @param {Function} progress - Callback de progresso.
+     * @returns {Promise<Object>} Resultado da preparação das grades.
+     */
+    async function preparePackageTerrain(packageId, apiClient, progress = () => {}) {
+        if (navigator.onLine === false) {
+            throw new Error('Reconecte-se para preparar a elevação deste pacote.');
+        }
+        const item = loadPackages().find(candidate => candidate.id === packageId);
+        if (!item) throw new Error('Pacote offline não encontrado.');
+        const tiles = getSrtmTileNames(item.bounds);
+        if (tiles.length > 32) throw new Error('A área excede o limite de 32 tiles SRTM por pacote.');
+        const result = await cacheTerrainGrids(tiles, packageId, apiClient, progress);
+        const packages = loadPackages();
+        const current = packages.find(candidate => candidate.id === packageId);
+        if (!current) throw new Error('O pacote foi removido durante a preparação da elevação.');
+        const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
+        const available = [];
+        for (const tile of tiles) {
+            const response = await cache.match(getTerrainCacheUrl(tile));
+            if (response?.ok) available.push(tile);
+        }
+        current.srtmTiles = tiles;
+        current.terrainTiles = available;
+        current.failedSrtm = tiles.filter(tile => !available.includes(tile));
+        savePackages(packages);
+        return { cachedTiles: available, failedTiles: current.failedSrtm, attempted: result.cachedTiles.length };
     }
 
     /**
@@ -777,55 +859,6 @@
         }
 
         /**
-         * Armazena grades SRTM por tile para o visualizador funcionar sem o endpoint PHP.
-         * @param {Array<string>} tiles - Nomes HGT da área.
-         * @param {string} packageId - Identificador do pacote dono dos dados.
-         * @param {Function} progress - Callback de status do download.
-         * @returns {Promise<{cachedTiles: Array<string>, failedTiles: Array<string>}>} Tiles preparados.
-         */
-        async function cacheTerrainGrids(tiles, packageId, progress) {
-            const cache = await caches.open(`${TERRAIN_CACHE_PREFIX}${packageId}`);
-            const cachedTiles = [];
-            const failedTiles = [];
-            for (const [index, tile] of tiles.entries()) {
-                const match = tile.match(/^([NS])(\d{2})([EW])(\d{3})\.HGT$/);
-                if (!match) {
-                    failedTiles.push(tile);
-                    continue;
-                }
-                const latitude = (match[1] === 'S' ? -1 : 1) * Number(match[2]);
-                const longitude = (match[3] === 'W' ? -1 : 1) * Number(match[4]);
-                progress(`Preparando elevação ${index + 1}/${tiles.length}: ${tile}`);
-                try {
-                    const edgeInset = 1e-9;
-                    const response = await apiClient.request('php/endpoints/elevation-terrain.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            bounds: [latitude, longitude, latitude + 1 - edgeInset, longitude + 1 - edgeInset],
-                            columns: TERRAIN_GRID_SIZE,
-                            rows: TERRAIN_GRID_SIZE
-                        })
-                    });
-                    const data = await response.json();
-                    if (!response.ok || !Array.isArray(data.elevations)
-                        || data.missingTiles?.includes(tile)) {
-                        failedTiles.push(tile);
-                        continue;
-                    }
-                    await cache.put(getTerrainCacheUrl(tile), new Response(JSON.stringify(data), {
-                        headers: { 'Content-Type': 'application/json' }
-                    }));
-                    cachedTiles.push(tile);
-                } catch (error) {
-                    console.error('[PlanMilT][Offline] Falha ao armazenar a grade SRTM.', error);
-                    failedTiles.push(tile);
-                }
-            }
-            return { cachedTiles, failedTiles };
-        }
-
-        /**
          * Cria o pacote escolhido no formulário.
          */
         async function createPackage() {
@@ -897,7 +930,7 @@
                     const progress = document.getElementById('offlineProgress');
                     if (progress) progress.textContent = message;
                 });
-                const terrain = await cacheTerrainGrids(srtmTiles, id, message => {
+                const terrain = await cacheTerrainGrids(srtmTiles, id, apiClient, message => {
                     const progress = document.getElementById('offlineProgress');
                     if (progress) progress.textContent = message;
                 });
@@ -962,6 +995,36 @@
             await caches.delete(`${TERRAIN_CACHE_PREFIX}${item.id}`);
             savePackages(packages.filter(candidate => candidate.id !== id));
             await syncOfflineLayers();
+            await openManager();
+        }
+
+        /**
+         * Prepara no navegador as grades SRTM de um pacote já baixado.
+         * @param {string} id - Identificador do pacote.
+         * @returns {Promise<void>} Conclusão da preparação e atualização da lista.
+         */
+        async function prepareExistingTerrain(id) {
+            if (navigator.onLine === false) throw new Error('Reconecte-se para preparar a elevação deste pacote.');
+            Swal.fire({
+                title: 'Preparando elevação para 3D',
+                html: '<p id="offlineProgress">Consultando arquivos SRTM do servidor...</p>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false
+            });
+            const result = await preparePackageTerrain(id, apiClient, message => {
+                const progress = document.getElementById('offlineProgress');
+                if (progress) progress.textContent = message;
+            });
+            await Swal.fire({
+                title: result.failedTiles.length
+                    ? (result.cachedTiles.length ? 'Elevação parcialmente disponível' : 'Elevação indisponível')
+                    : 'Elevação preparada',
+                text: result.failedTiles.length
+                    ? `Grades disponíveis: ${result.cachedTiles.length}. HGT não disponíveis no servidor: ${result.failedTiles.join(', ')}.`
+                    : `${result.cachedTiles.length} grade(s) SRTM disponíveis neste navegador.`,
+                icon: result.failedTiles.length ? 'warning' : 'success'
+            });
             await openManager();
         }
 
@@ -1034,7 +1097,9 @@
                         + `<span>${escapeHtml(formatZoomRange(item.minZoom, item.maxZoom))} · ${item.tileCount} tiles`
                         + (item.failedTileCount ? ` · ${item.failedTileCount} pendentes` : '')
                         + `</span></div>`
-                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></li>`;
+                        + `<div class="offline-actions"><button type="button" data-prepare-terrain="${item.id}"`
+                        + `${navigator.onLine === false ? ' disabled title="Reconecte-se para preparar a elevação"' : ''}>Preparar SRTM 3D</button>`
+                        + `<button type="button" data-delete-offline="${item.id}">Excluir</button></div></li>`;
                 }).join('')
                 : '<li class="offline-empty">Nenhum pacote disponível neste navegador.</li>';
             const result = await Swal.fire({
@@ -1114,6 +1179,9 @@
                     document.querySelectorAll('[data-delete-offline]').forEach(item => {
                         item.addEventListener('click', () => deletePackage(item.dataset.deleteOffline).catch(showError));
                     });
+                    document.querySelectorAll('[data-prepare-terrain]').forEach(item => {
+                        item.addEventListener('click', () => prepareExistingTerrain(item.dataset.prepareTerrain).catch(showError));
+                    });
                     updateEstimate();
                 }
             });
@@ -1149,6 +1217,7 @@
         estimateRegisteredLayerTileCount,
         getSrtmTileNames,
         getCachedTerrain,
+        preparePackageTerrain,
         getCachedPackageSources,
         enableLayerControls,
         updateConnectionState,
