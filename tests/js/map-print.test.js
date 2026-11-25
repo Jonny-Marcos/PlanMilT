@@ -63,6 +63,16 @@ test('resolveSettings valida escala, folha, zoom e limite de folhas', () => {
     assert.match(many.error, /25 folhas/);
 });
 
+test('vizinhas de cada folha respeitam as bordas da grade', () => {
+    const grid = { columns: 3, rows: 2 };
+    assert.deepEqual(mp.getNeighbors(grid, { row: 0, column: 0 }), {
+        top: null, bottom: 4, left: null, right: 2, topLeft: null, topRight: null, bottomLeft: null, bottomRight: 5
+    });
+    assert.deepEqual(mp.getNeighbors(grid, { row: 1, column: 1 }), {
+        top: 2, bottom: null, left: 4, right: 6, topLeft: 1, topRight: 3, bottomLeft: null, bottomRight: null
+    });
+});
+
 test('rodapé numera as folhas quando há mais de uma', () => {
     const grid = { columns: 2, rows: 2, sheets: [1, 2, 3, 4] };
     const base = { paper: 'A4', orientation: 'landscape', scale: 25000, approximate: false, grid };
@@ -165,11 +175,28 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
         assert.equal(sheetMap.el.style.width, '190mm');
     }
     const css = doc.head.children[0].textContent;
-    assert.ok(css.includes('@page{size:A4 portrait;margin:10mm}'));
+    assert.ok(css.includes('@page{size:A4 portrait;margin:0}'));
+    assert.ok(css.includes('left:10mm;top:10mm'));
+    // Nenhuma marcação fica a menos de 4 mm do papel e todas ficam dentro da margem de 1 cm.
+    const offsets = [...css.matchAll(/map-print-edge\.[A-Za-z]+\{[^}]*?(?:top|bottom|left|right):(\d+)mm/g)].map(m => Number(m[1]));
+    assert.ok(offsets.length >= 8 && offsets.every(mm => mm >= 4 && mm <= 10));
     const overlay = doc.body.children[0];
     const sheets = overlay.children.filter(child => child.className === 'map-print-sheet');
     assert.equal(sheets.length, sheetMaps.length);
     assert.match(sheets[1].children[1].textContent, /Folha 2 de \d+ \(linha 1, coluna 2\)/);
+
+    const index = overlay.children.find(child => child.className === 'map-print-sheet map-print-index');
+    assert.ok(index && overlay.children.indexOf(index) < overlay.children.indexOf(sheets[0]));
+    const table = index.children.find(child => child.children.length && child.children[0].children.length);
+    assert.equal(table.children.length, settings.grid.rows);
+    assert.equal(table.children[0].children.length, settings.grid.columns);
+    assert.equal(table.children[0].children[1].textContent, '2');
+    const marks = sheet => sheet.children.filter(child => child.className.startsWith('map-print-edge'));
+    const first = marks(sheets[0]).map(m => [m.className, m.textContent]);
+    assert.deepEqual(first.find(([c]) => c.includes('right')), ['map-print-edge right', '▶ Cole a folha 2 ▶']);
+    assert.ok(!first.some(([c]) => c.includes(' left') || c.includes(' top')));
+    assert.equal(settings.grid.rows, 1);
+    assert.ok(!first.some(([c]) => c.includes('bottom')));
 
     listeners.afterprint();
     assert.ok(overlay.removed && sheetMaps.every(m => m.removed) && doc.head.children[0].removed);

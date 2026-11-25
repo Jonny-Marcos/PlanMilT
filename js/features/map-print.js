@@ -15,6 +15,8 @@ window.PlanMilT.mapPrint = (() => {
     const FOOTER_HEIGHT_MM = 8;
     // Folga de 1 mm evita que o conteúdo ultrapasse a área útil e gere uma folha em branco.
     const SAFETY_MM = 1;
+    // Faixa de 4 mm junto ao papel que nenhuma marcação ocupa, pois muitas impressoras não imprimem ali.
+    const UNPRINTABLE_MM = 4;
     const CSS_PIXELS_PER_MM = 96 / 25.4;
     const METERS_PER_PIXEL_AT_ZOOM_0 = 156543.03392804097;
     const SCALE_PRESETS = Object.freeze([5000, 10000, 25000, 50000, 100000, 250000, 500000]);
@@ -196,17 +198,59 @@ window.PlanMilT.mapPrint = (() => {
     }
 
     /**
+     * Identifica as folhas vizinhas (numeradas a partir de 1) que devem ser coladas em cada borda e canto.
+     * @param {{columns: number, rows: number}} grid - Grade de folhas.
+     * @param {{row: number, column: number}} sheet - Folha atual.
+     * @returns {Object<string, number|null>} Número da vizinha em `top`, `bottom`, `left`, `right` e cantos, ou null.
+     */
+    function getNeighbors(grid, sheet) {
+        const at = (dRow, dColumn) => {
+            const row = sheet.row + dRow;
+            const column = sheet.column + dColumn;
+            if (row < 0 || column < 0 || row >= grid.rows || column >= grid.columns) return null;
+            return row * grid.columns + column + 1;
+        };
+        return {
+            top: at(-1, 0), bottom: at(1, 0), left: at(0, -1), right: at(0, 1),
+            topLeft: at(-1, -1), topRight: at(-1, 1), bottomLeft: at(1, -1), bottomRight: at(1, 1)
+        };
+    }
+
+    /**
      * Gera o CSS da sobreposição de impressão (tela e `@media print`).
      * @param {Object} settings - Configuração resolvida da impressão.
      * @returns {string} Texto CSS.
      */
     function buildPrintCss(settings) {
+        const size = PAPER_SIZES_MM[settings.paper];
+        const landscape = settings.orientation === 'landscape';
+        const pageWidth = landscape ? size.height : size.width;
+        // 1 mm a menos evita que o arredondamento do navegador crie uma folha em branco.
+        const pageHeight = (landscape ? size.width : size.height) - 1;
         return `#mapPrintSheets{position:fixed;inset:0;z-index:100000;overflow:auto;background:#6b7280;padding:56px 0 20px;font-family:sans-serif}
 #mapPrintSheets .map-print-bar{position:fixed;top:0;left:0;right:0;height:44px;z-index:2;display:flex;align-items:center;gap:8px;padding:0 12px;background:#243447;color:#fff;font-size:14px}
 #mapPrintSheets .map-print-bar button{height:30px;padding:0 12px;border:0;border-radius:6px;cursor:pointer;font:inherit}
-#mapPrintSheets .map-print-sheet{background:#fff;margin:0 auto 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
-#mapPrintSheets .map-print-map{outline:.25mm solid #444;outline-offset:-.25mm}
-#mapPrintSheets .map-print-footer{font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;color:#000}
+#mapPrintSheets .map-print-sheet{position:relative;box-sizing:border-box;width:${pageWidth}mm;height:${pageHeight}mm;background:#fff;margin:0 auto 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden;color:#000}
+#mapPrintSheets .map-print-map{position:absolute;left:${PAGE_MARGIN_MM}mm;top:${PAGE_MARGIN_MM}mm;outline:.25mm solid #444;outline-offset:-.25mm}
+#mapPrintSheets .map-print-footer{position:absolute;left:${PAGE_MARGIN_MM}mm;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden}
+#mapPrintSheets .map-print-edge{position:absolute;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:nowrap;color:#000}
+#mapPrintSheets .map-print-edge.top,#mapPrintSheets .map-print-edge.bottom{left:${PAGE_MARGIN_MM}mm;right:${PAGE_MARGIN_MM}mm;height:5mm}
+#mapPrintSheets .map-print-edge.top{top:${UNPRINTABLE_MM}mm}
+#mapPrintSheets .map-print-edge.bottom{bottom:${UNPRINTABLE_MM + 1}mm}
+#mapPrintSheets .map-print-edge.left,#mapPrintSheets .map-print-edge.right{top:${PAGE_MARGIN_MM}mm;bottom:${PAGE_MARGIN_MM}mm;width:5mm;writing-mode:vertical-rl}
+#mapPrintSheets .map-print-edge.left{left:${UNPRINTABLE_MM}mm;transform:rotate(180deg)}
+#mapPrintSheets .map-print-edge.right{right:${UNPRINTABLE_MM}mm}
+#mapPrintSheets .map-print-edge.corner{width:12mm;height:5mm;font-size:9px;font-weight:400}
+#mapPrintSheets .map-print-edge.topLeft{left:${UNPRINTABLE_MM}mm;top:${UNPRINTABLE_MM}mm}
+#mapPrintSheets .map-print-edge.topRight{right:${UNPRINTABLE_MM}mm;top:${UNPRINTABLE_MM}mm}
+#mapPrintSheets .map-print-edge.bottomLeft{left:${UNPRINTABLE_MM}mm;bottom:${UNPRINTABLE_MM + 1}mm}
+#mapPrintSheets .map-print-edge.bottomRight{right:${UNPRINTABLE_MM}mm;bottom:${UNPRINTABLE_MM + 1}mm}
+#mapPrintSheets .map-print-index{padding:${PAGE_MARGIN_MM}mm;font-size:12px;line-height:1.4}
+#mapPrintSheets .map-print-index h2{margin:0 0 4mm;font-size:18px}
+#mapPrintSheets .map-print-index p{margin:0 0 3mm}
+#mapPrintSheets .map-print-index table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:4mm}
+#mapPrintSheets .map-print-index td{border:.3mm solid #000;height:16mm;text-align:center;font-size:16px;font-weight:700}
+#mapPrintSheets .map-print-index td small{display:block;font-size:9px;font-weight:400}
 @media print{
 html,body{height:auto!important;overflow:visible!important;background:#fff!important}
 body>*:not(#mapPrintSheets){display:none!important}
@@ -214,7 +258,7 @@ body>*:not(#mapPrintSheets){display:none!important}
 #mapPrintSheets .map-print-bar{display:none}
 #mapPrintSheets .map-print-sheet{margin:0;box-shadow:none;break-after:page;page-break-after:always}
 #mapPrintSheets .map-print-sheet:last-child{break-after:auto;page-break-after:auto}
-@page{size:${settings.paper} ${settings.orientation};margin:${PAGE_MARGIN_MM}mm}
+@page{size:${settings.paper} ${settings.orientation};margin:0}
 *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }`;
     }
@@ -295,6 +339,65 @@ body>*:not(#mapPrintSheets){display:none!important}
             return skipped;
         }
 
+        /**
+         * Cria um elemento com classe e texto opcionais.
+         * @param {string} tag - Nome da tag.
+         * @param {string} [className] - Classe CSS.
+         * @param {string} [text] - Texto simples.
+         * @returns {Object} Elemento criado.
+         */
+        function createElement(tag, className, text) {
+            const element = doc.createElement(tag);
+            if (className) element.className = className;
+            if (text !== undefined) element.textContent = text;
+            return element;
+        }
+
+        /**
+         * Cria a página-índice com a tabela de montagem do mosaico.
+         * @param {Object} settings - Configuração resolvida da impressão.
+         * @returns {Object} Elemento da página.
+         */
+        function buildIndexPage(settings) {
+            const grid = settings.grid;
+            const page = createElement('div', 'map-print-sheet map-print-index');
+            page.appendChild(createElement('h2', '', 'Mapa de montagem do mosaico'));
+            page.appendChild(createElement('p', '', `${grid.sheets.length} folhas ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]} (${grid.columns} colunas × ${grid.rows} linhas), `
+                + `${settings.approximate ? 'escala aproximada ' + formatScale(roundScale(settings.scale)) : 'escala ' + formatScale(settings.scale)}.`));
+            page.appendChild(createElement('p', '', 'Recorte as margens ao longo da moldura de cada folha e cole-as lado a lado, conforme a tabela. '
+                + 'Em cada borda, a marcação indica o número da folha vizinha que deve ser colada ali; nos cantos, a folha diagonal.'));
+            const table = createElement('table');
+            for (let row = 0; row < grid.rows; row++) {
+                const tr = createElement('tr');
+                for (let column = 0; column < grid.columns; column++) {
+                    const cell = createElement('td', '', String(row * grid.columns + column + 1));
+                    cell.appendChild(createElement('small', '', `L${row + 1} · C${column + 1}`));
+                    tr.appendChild(cell);
+                }
+                table.appendChild(tr);
+            }
+            page.appendChild(table);
+            page.appendChild(createElement('p', '', `Cada folha cobre ${formatDistance(settings.groundMeters.width)} × ${formatDistance(settings.groundMeters.height)} no terreno.`));
+            return page;
+        }
+
+        /**
+         * Adiciona à folha as marcações de colagem nas bordas e nos cantos.
+         * @param {Object} sheetEl - Elemento da folha.
+         * @param {Object} grid - Grade de folhas.
+         * @param {{row: number, column: number}} sheet - Folha atual.
+         */
+        function addEdgeMarks(sheetEl, grid, sheet) {
+            const neighbors = getNeighbors(grid, sheet);
+            const arrows = { top: '▲', bottom: '▼', left: '◀', right: '▶' };
+            for (const [position, number] of Object.entries(neighbors)) {
+                if (number === null) continue;
+                const corner = !(position in arrows);
+                const text = corner ? `Folha ${number}` : `${arrows[position]} Cole a folha ${number} ${arrows[position]}`;
+                sheetEl.appendChild(createElement('div', `map-print-edge ${position}${corner ? ' corner' : ''}`, text));
+            }
+        }
+
         /** Remove a sobreposição de impressão e libera os mapas das folhas. */
         function close() {
             if (!session) return;
@@ -342,24 +445,22 @@ body>*:not(#mapPrintSheets){display:none!important}
             status.textContent = `Preparando ${grid.sheets.length} folha(s) ${settings.paper}…`;
 
             let skipped = 0;
+            if (grid.sheets.length > 1) overlay.appendChild(buildIndexPage({ ...settings, grid }));
             for (const sheet of grid.sheets) {
-                const sheetEl = doc.createElement('div');
-                sheetEl.className = 'map-print-sheet';
-                sheetEl.style.width = `${settings.areaMm.width}mm`;
-                sheetEl.style.height = `${settings.areaMm.height + footerMm}mm`;
-                const mapEl = doc.createElement('div');
-                mapEl.className = 'map-print-map';
+                const sheetEl = createElement('div', 'map-print-sheet');
+                const mapEl = createElement('div', 'map-print-map');
                 mapEl.style.width = `${settings.areaMm.width}mm`;
                 mapEl.style.height = `${settings.areaMm.height}mm`;
                 sheetEl.appendChild(mapEl);
                 if (settings.footer) {
-                    const footerEl = doc.createElement('div');
-                    footerEl.className = 'map-print-footer';
+                    const footerEl = createElement('div', 'map-print-footer', buildFooterText(settings, sheet));
+                    footerEl.style.top = `${PAGE_MARGIN_MM + settings.areaMm.height}mm`;
+                    footerEl.style.width = `${settings.areaMm.width}mm`;
                     footerEl.style.height = `${footerMm}mm`;
                     footerEl.style.lineHeight = `${footerMm}mm`;
-                    footerEl.textContent = buildFooterText(settings, sheet);
                     sheetEl.appendChild(footerEl);
                 }
+                addEdgeMarks(sheetEl, grid, sheet);
                 overlay.appendChild(sheetEl);
                 const sheetMap = leaflet.map(mapEl, {
                     crs: map.options.crs, minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom(), zoomSnap: 0,
@@ -475,7 +576,7 @@ body>*:not(#mapPrintSheets){display:none!important}
 
     return Object.freeze({
         PAPER_SIZES_MM, PAGE_MARGIN_MM, SCALE_PRESETS, MAX_SHEETS, getMapAreaMm, scaleForZoom, zoomForScale,
-        getGroundSizeMeters, roundScale, formatScale, formatDistance, computeGrid, resolveSettings,
+        getGroundSizeMeters, roundScale, formatScale, formatDistance, computeGrid, getNeighbors, resolveSettings,
         buildFooterText, attach
     });
 })();
