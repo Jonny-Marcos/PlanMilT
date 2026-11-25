@@ -52,6 +52,7 @@ window.PlanMilT.localSession = (() => {
         let writing = Promise.resolve();
         let revision = 0;
         let notice;
+        let noticeTimer;
         const initialLayers = new Map(Object.entries(layerRegistry));
         const coverage = window.PlanMilT.coverageImage.getGroup();
 
@@ -59,9 +60,12 @@ window.PlanMilT.localSession = (() => {
          * Mantém falhas visíveis sem interromper diálogos abertos.
          * @param {string} message - Mensagem curta para o usuário.
          * @param {Error} error - Falha de armazenamento ou restauração.
+         * @param {number} [duration] - Tempo em milissegundos para ocultar o aviso.
          */
-        function report(message, error) {
+        function report(message, error, duration) {
             console.error('[PlanMilT][Rascunho local]', message, { name: error?.name || 'Error' });
+            clearTimeout(noticeTimer);
+            noticeTimer = undefined;
             if (!notice) {
                 notice = document.createElement('div');
                 notice.setAttribute('role', 'alert');
@@ -70,6 +74,13 @@ window.PlanMilT.localSession = (() => {
                 document.body.appendChild(notice);
             }
             notice.textContent = message;
+            if (duration !== undefined) {
+                noticeTimer = setTimeout(() => {
+                    notice.remove();
+                    notice = null;
+                    noticeTimer = undefined;
+                }, duration);
+            }
         }
 
         /**
@@ -188,7 +199,12 @@ window.PlanMilT.localSession = (() => {
                 return;
             }
             writing = writing.then(() => transact(db, current)).then(() => {
-                if (notice && currentRevision === revision) { notice.remove(); notice = null; }
+                if (notice && currentRevision === revision) {
+                    clearTimeout(noticeTimer);
+                    noticeTimer = undefined;
+                    notice.remove();
+                    notice = null;
+                }
             }).catch(error => report('Não foi possível guardar o rascunho local. Salve o planejamento no servidor.', error));
         }
 
@@ -329,7 +345,7 @@ window.PlanMilT.localSession = (() => {
             else if (state) {
                 blocked = true;
                 report('O rascunho anterior não foi carregado porque o mapa já foi alterado. Salve o trabalho atual e recarregue a página para recuperá-lo.',
-                    new Error('Restauração cancelada para preservar as alterações atuais.'));
+                    new Error('Restauração cancelada para preservar as alterações atuais.'), 5000);
             }
             restoring = false;
             if (changedDuringStartup && !state) save();

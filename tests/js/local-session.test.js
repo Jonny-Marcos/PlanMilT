@@ -106,12 +106,12 @@ function createHarness(records, pathname = '/app/') {
             drawingPatterns: { get: () => ({}) }
         } },
         document: {
-            createElement: () => ({ style: {}, setAttribute() {}, remove() {} }),
+            createElement: () => ({ style: {}, setAttribute() {}, remove() { this.removed = true; } }),
             addEventListener(name, callback) { documentEvents.set(name, callback); },
             body: { appendChild(element) { notices.push(element); } },
             getElementById: () => ({ addEventListener() {} })
         },
-        setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; },
+        setTimeout(callback, delay) { const id = ++timerId; timers.set(id, { callback, delay }); return id; },
         clearTimeout(id) { timers.delete(id); }
     };
     vm.runInNewContext(iconSource, context);
@@ -123,10 +123,20 @@ function createHarness(records, pathname = '/app/') {
         start: () => context.window.PlanMilT.localSession.start(deps),
         restored: () => restoredDrawings,
         async flush() {
-            const callbacks = [...timers.values()];
-            timers.clear();
-            callbacks.forEach(callback => callback());
+            for (const [id, timer] of timers) {
+                if (timer.delay > 500) continue;
+                timers.delete(id);
+                timer.callback();
+            }
             for (let i = 0; i < 10; i++) await Promise.resolve();
+        },
+        advance(ms) {
+            for (const [id, timer] of timers) {
+                timer.delay -= ms;
+                if (timer.delay > 0) continue;
+                timers.delete(id);
+                timer.callback();
+            }
         }
     };
 }
@@ -233,6 +243,13 @@ test('does not replace an earlier snapshot if the user edits before restoration'
     assert.equal(h.restored(), undefined);
     assert.equal(records.get('planmilt.session.v1:/app/').zoom, 2);
     assert.match(h.notices[0].textContent, /não foi carregado/);
+    h.advance(4999);
+    assert.equal(h.notices[0].removed, undefined);
+    h.advance(1);
+    assert.equal(h.notices[0].removed, true);
+    h.drawnItems.addLayer({ toGeoJSON: () => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [1, 1] } }) });
+    await h.flush();
+    assert.equal(records.get('planmilt.session.v1:/app/').zoom, 2);
 });
 
 test('reports credential-bearing WMS URLs and keeps the previous snapshot', async () => {
@@ -246,6 +263,8 @@ test('reports credential-bearing WMS URLs and keeps the previous snapshot', asyn
     await h.flush();
     assert.equal(records.get('planmilt.session.v1:/app/'), undefined);
     assert.match(h.notices[0].textContent, /Não foi possível guardar/);
+    h.advance(5000);
+    assert.equal(h.notices[0].removed, undefined);
 });
 
 test('restores planning markers as direct real Leaflet layers usable by task selectors', async () => {
