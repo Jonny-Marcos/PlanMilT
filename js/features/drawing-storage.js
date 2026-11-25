@@ -59,7 +59,7 @@ window.PlanMilT.drawingAutoSave = (() => {
         timer = undefined;
         target = undefined;
         saveButton.classList.remove('auto-save-active');
-        saveButton.title = 'Salvar desenhos';
+        saveButton.title = 'Salvar planejamento';
         if (message) showStatus(message);
     }
 
@@ -89,7 +89,7 @@ window.PlanMilT.drawingAutoSave = (() => {
             return { data, json: JSON.stringify(data), revision };
         } catch (error) {
             console.error('[PlanMilT][Desenhos] Falha ao preparar o salvamento.', { name: error.name });
-            throw new Error('Não foi possível preparar os desenhos para salvamento.');
+            throw new Error('Não foi possível preparar o planejamento para salvamento.');
         }
     }
 
@@ -113,12 +113,12 @@ window.PlanMilT.drawingAutoSave = (() => {
                         link: credentials.diretorio, leaflet: json }).toString()
                 });
             } catch (error) {
-                throw new Error('Não foi possível conectar ao servidor para salvar os desenhos.');
+                throw new Error('Não foi possível conectar ao servidor para salvar o planejamento.');
             }
             if (!response.ok) {
                 throw new Error(response.status === 413
-                    ? 'Os desenhos excedem o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza o tamanho da cobertura.'
-                    : 'Não foi possível salvar os desenhos.');
+                    ? 'O planejamento excede o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza o tamanho da cobertura.'
+                    : 'Não foi possível salvar o planejamento.');
             }
             let text;
             try {
@@ -127,7 +127,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 throw new Error('Não foi possível ler a resposta do servidor.');
             }
             if (!text.includes('Desenho atualizado com sucesso!') && !text.includes('Desenho salvo com sucesso!')) {
-                throw new Error(text.trim() === 'Senha incorreta.' ? 'Senha incorreta.' : 'O servidor recusou o salvamento dos desenhos.');
+                throw new Error(text.trim() === 'Senha incorreta.' ? 'Senha incorreta.' : 'O servidor recusou o salvamento do planejamento.');
             }
             return true;
         });
@@ -141,8 +141,8 @@ window.PlanMilT.drawingAutoSave = (() => {
      */
     async function confirmEmpty() {
         const result = await Swal.fire({
-            title: 'Nenhum desenho encontrado',
-            text: 'Não há desenhos para salvar. Deseja continuar salvando mesmo assim?',
+            title: 'Planejamento vazio',
+            text: 'Este planejamento está vazio. Deseja salvá-lo mesmo assim?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sim, salvar mesmo assim',
@@ -217,11 +217,11 @@ window.PlanMilT.drawingAutoSave = (() => {
         }
         const askChoice = choice === undefined;
         const result = await Swal.fire({
-            title: 'Salvar desenhos',
+            title: 'Salvar planejamento',
             html: `<style>${SAVE_MODAL_STYLES}</style>
 <div id="drawingSaveForm">
-    <p class="drawing-save-intro">Informe o usuário e a senha do planejamento para salvá-lo no servidor.</p>
-    <label class="drawing-save-field" for="swal-input-usuario">Usuário
+    <p class="drawing-save-intro">Informe o identificador e a senha do planejamento para salvá-lo no servidor.</p>
+    <label class="drawing-save-field" for="swal-input-usuario">Identificador do planejamento
         <input type="text" id="swal-input-usuario" autocomplete="username">
     </label>
     <label class="drawing-save-field" for="swal-input-senha">Senha
@@ -250,7 +250,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 const usuario = document.getElementById('swal-input-usuario').value;
                 const senha = document.getElementById('swal-input-senha').value;
                 if (!usuario || !senha) {
-                    Swal.showValidationMessage('Usuário e senha são necessários!');
+                    Swal.showValidationMessage('Identificador e senha são necessários!');
                     return false;
                 }
                 return { usuario, senha, autoSave: askChoice && document.getElementById('drawingAutoSaveChoice').checked };
@@ -272,7 +272,7 @@ window.PlanMilT.drawingAutoSave = (() => {
             let current = snapshot();
             if (!current.data.features.length) {
                 if (!await confirmEmpty()) {
-                    Swal.fire('Salvamento cancelado', 'Nenhum desenho foi salvo.', 'info');
+                    Swal.fire('Salvamento cancelado', 'Nenhum elemento do planejamento foi salvo.', 'info');
                     return;
                 }
                 if (requestGeneration !== generation) return;
@@ -288,7 +288,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                     target = credentials;
                     timer = setInterval(tick, 15000);
                     saveButton.classList.add('auto-save-active');
-                    saveButton.title = 'Salvar desenhos (salvamento automático ativo)';
+                    saveButton.title = 'Salvar planejamento (salvamento automático ativo)';
                     if (status) {
                         status.remove();
                         status = undefined;
@@ -299,12 +299,12 @@ window.PlanMilT.drawingAutoSave = (() => {
                 }
             }
             const recorded = window.PlanMilT.welcome.record(usuario);
-            Swal.fire('Sucesso!', recorded ? 'Desenhos salvos com sucesso!' :
-                'Desenhos salvos, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
+            Swal.fire('Sucesso!', recorded ? 'Planejamento salvo com sucesso!' :
+                'Planejamento salvo, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
             console.info('[PlanMilT][Desenhos] Salvamento concluído.', { featureCount: current.data.features.length });
         } catch (error) {
             console.error('[PlanMilT][Desenhos] Falha ao salvar desenhos.', { name: error.name });
-            Swal.fire('Erro!', error.message || 'Não foi possível preparar os desenhos para salvamento.', 'error');
+            Swal.fire('Erro!', error.message || 'Não foi possível preparar o planejamento para salvamento.', 'error');
             if (choice) showStatus('Salvamento automático pausado. Salve manualmente para retomá-lo.');
         }
     });

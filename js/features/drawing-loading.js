@@ -4,15 +4,15 @@
  */
             document.getElementById('loadDrawings').addEventListener('click', async function() {
                 const { value: usuario } = await Swal.fire({
-                    title: 'Insira seu usuário',
+                    title: 'Identifique o planejamento',
                     input: 'text',
-                    inputPlaceholder: 'Digite o usuário',
+                    inputPlaceholder: 'Identificador do planejamento',
                     showCancelButton: true,
                     cancelButtonText: 'Cancelar',
                     confirmButtonText: 'Confirmar',
                     inputValidator: (value) => {
                         if (!value) {
-                            return 'Usuário é necessário para carregar os desenhos!';
+                            return 'Informe o identificador do planejamento para carregá-lo.';
                         }
                     }
                 });
@@ -47,7 +47,7 @@
                     if (!isValidGeoJson(geoJsonData)) {
                         if (localData) throw new Error('Rascunho local inválido.');
                         console.error('[PlanMilT][Desenhos] Resposta inválida ao carregar desenhos.');
-                        Swal.fire('Erro', 'Erro ao carregar os desenhos. Verifique o usuário e o link!', 'error');
+                        Swal.fire('Erro', 'Não foi possível carregar o planejamento. Verifique o identificador e o link!', 'error');
                         return;
                     }
 
@@ -56,12 +56,12 @@
                     });
 
                     const { isConfirmed: escolha } = localData ? { isConfirmed: true } : await Swal.fire({
-                        title: 'Como deseja carregar os desenhos?',
-                        text: "Escolha 'Edição' para edição ou 'Camada não-editável' para carregá-los como uma nova camada.",
+                        title: 'Como deseja carregar o planejamento?',
+                        text: "Escolha 'Edição' para editar o planejamento ou 'Camada não editável' para abri-lo como uma nova camada.",
                         icon: 'question',
                         showCancelButton: true,
                         confirmButtonText: 'Edição',
-                        cancelButtonText: 'Camada não-editável'
+                        cancelButtonText: 'Camada não editável'
                     });
 
                     const coverageFeatures = geoJsonData.features.filter(feature => feature.properties && feature.properties.coverageImage);
@@ -262,7 +262,7 @@
                     }
 
                     if (!window.PlanMilT.welcome.record(usuario)) {
-                        Swal.fire('Aviso', 'Desenhos carregados, mas não foi possível atualizar a lista de recentes neste navegador.', 'warning');
+                        Swal.fire('Aviso', 'Planejamento carregado, mas não foi possível atualizar a lista de recentes neste navegador.', 'warning');
                     }
                 } catch (error) {
                     if (localData) throw error;

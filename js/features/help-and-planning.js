@@ -41,8 +41,8 @@
 <p><b>Simbologia militar:</b> use o controle de escudo para pesquisar gráficos táticos por seção, ver a prévia e informar uma designação opcional antes de desenhar.</p>
 </div></details>
 <details><summary>Salvar, carregar e compartilhar</summary><div>
-<p><b>Salvar desenhos:</b> informe usuário e senha. Para carregar, informe o usuário e escolha edição ou camada não editável.</p>
-<p><b>Recentes:</b> a tela de boas-vindas lista até dez planejamentos salvos ou carregados neste navegador. Não guarda senha nem cópia dos desenhos; limpar os dados do navegador pode apagar a lista.</p>
+<p><b>Salvar planejamento:</b> informe o identificador do planejamento e a senha. Para carregar, informe o identificador e escolha edição ou camada não editável.</p>
+<p><b>Recentes:</b> a tela de boas-vindas lista até dez planejamentos salvos ou carregados neste navegador. Não guarda senha nem cópia do conteúdo dos planejamentos; limpar os dados do navegador pode apagar a lista.</p>
 <p><b>KMZ e compartilhamento:</b> importe ou exporte arquivos KMZ e gere links para compartilhar camadas. Novas coberturas são incluídas no KMZ como imagens.</p>
 </div></details>
 <details><summary>Camadas e temas</summary><div>
@@ -93,11 +93,11 @@
                 });
 
                 document.getElementById('savePlanningButton').addEventListener('click', function() {
-                    // Utiliza o SweetAlert2 para solicitar o usuário e senha
+                    // Utiliza o SweetAlert2 para identificar o planejamento e validar a senha.
                     Swal.fire({
-                        title: 'Insira suas credenciais',
+                        title: 'Identifique o planejamento',
                         html: `
-<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Usuário">
+<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Identificador do planejamento">
 <input type="password" id="swal-input-senha" class="swal2-input" placeholder="Senha">
 `,
                         focusConfirm: false,
@@ -105,7 +105,7 @@
                             const usuario = document.getElementById('swal-input-usuario').value;
                             const senha = document.getElementById('swal-input-senha').value;
                             if (!usuario || !senha) {
-                                Swal.showValidationMessage('Usuário e senha são necessários!');
+                                Swal.showValidationMessage('Identificador e senha são necessários!');
                                 return false;
                             }
                             return { usuario: usuario, senha: senha };
@@ -190,7 +190,7 @@
                                 error: function(xhr, status, error) {
                                     console.error("Erro ao salvar a Sugestão de Planejamento:", error);
                                     Swal.fire('Erro!', xhr.status === 413
-                                        ? 'A sugestão excede o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza os desenhos.'
+                                        ? 'A sugestão excede o limite de envio do servidor. Ajuste post_max_size no PHP ou reduza o conteúdo enviado.'
                                         : 'Não foi possível salvar a Sugestão de Planejamento.', 'error');
                                 }
                             });

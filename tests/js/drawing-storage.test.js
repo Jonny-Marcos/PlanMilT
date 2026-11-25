@@ -28,7 +28,7 @@ function setup() {
     const validationMessages = [];
     const classes = new Set();
     const saveButton = {
-        title: 'Salvar desenhos',
+        title: 'Salvar planejamento',
         classList: {
             add(name) { classes.add(name); },
             remove(name) { classes.delete(name); },
@@ -98,7 +98,7 @@ function setup() {
             async fire(...args) {
                 alerts.push(args);
                 const options = args[0];
-                if (options?.title === 'Salvar desenhos') {
+                if (options?.title === 'Salvar planejamento') {
                     if (cancelCredentials) return { isConfirmed: false };
                     options.didOpen();
                     nodes['swal-input-usuario'].value = username;
@@ -106,7 +106,7 @@ function setup() {
                     nodes.drawingAutoSaveChoice.checked = enabled;
                     return { isConfirmed: true, value: options.preConfirm() };
                 }
-                if (options?.title === 'Nenhum desenho encontrado') {
+                if (options?.title === 'Planejamento vazio') {
                     return { isConfirmed: typeof confirmEmpty === 'function' ? await confirmEmpty() : confirmEmpty };
                 }
                 return { isConfirmed: true };
@@ -147,8 +147,9 @@ test('manual save offers automatic saving once per page and preserves the HTTP c
     assert.equal(JSON.parse(h.requestData(0).get('leaflet')).features.length, 1);
     assert.equal(h.timers.size, 0);
     assert.deepEqual(h.recent, ['teste']);
+    assert.equal(h.alerts.at(-1)[1], 'Planejamento salvo com sucesso!');
     await h.click();
-    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
+    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar planejamento')[1][0].html, /drawingAutoSaveChoice/);
     assert.equal(h.timers.size, 0);
 });
 
@@ -160,7 +161,7 @@ test('cancelled credentials do not consume the first choice', async () => {
     assert.equal(h.timers.size, 0);
     h.cancelCredentials(false);
     await h.click();
-    assert.match(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
+    assert.match(h.alerts.filter(args => args[0]?.title === 'Salvar planejamento')[1][0].html, /drawingAutoSaveChoice/);
 });
 
 test('save dialog presents labelled credentials, an optional explanation and clear actions', async () => {
@@ -169,7 +170,8 @@ test('save dialog presents labelled credentials, an optional explanation and cle
     const dialog = h.alerts[0][0];
     assert.equal(dialog.customClass.popup, 'drawing-save-modal');
     assert.match(dialog.html, /<style>[\s\S]*drawing-save-modal/);
-    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Usuário/);
+    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Identificador do planejamento/);
+    assert.match(dialog.html, /Informe o identificador e a senha do planejamento/);
     assert.match(dialog.html, /<label[^>]*for="swal-input-senha"[^>]*>Senha/);
     assert.match(dialog.html, /for="drawingAutoSaveChoice"/);
     assert.match(dialog.html, /aria-describedby="drawingAutoSaveDescription"/);
@@ -180,7 +182,7 @@ test('save dialog presents labelled credentials, an optional explanation and cle
     assert.equal(dialog.cancelButtonText, 'Cancelar');
     h.nodes['swal-input-senha'].value = '';
     assert.equal(dialog.preConfirm(), false);
-    assert.match(h.validationMessages[0], /Usuário e senha são necessários/);
+    assert.match(h.validationMessages[0], /Identificador e senha são necessários/);
 });
 
 test('save button indicates active automatic saving and clears warnings when resumed', async () => {
@@ -194,7 +196,7 @@ test('save button indicates active automatic saving and clears warnings when res
 
     h.context.window.PlanMilT.drawingAutoSave.pauseForLoad();
     assert.equal(h.saveButton.classList.contains('auto-save-active'), false);
-    assert.equal(h.saveButton.title, 'Salvar desenhos');
+    assert.equal(h.saveButton.title, 'Salvar planejamento');
     assert.match(h.notices[0].textContent, /pausado/);
 
     await h.click();
@@ -297,7 +299,9 @@ for (const confirmed of [false, true]) {
         h.setConfirmEmpty(confirmed);
         h.drawnItems.fire('layerremove');
         await h.tick();
-        assert.ok(h.alerts.some(args => args[0]?.title === 'Nenhum desenho encontrado'));
+        const emptyPrompt = h.alerts.find(args => args[0]?.title === 'Planejamento vazio');
+        assert.ok(emptyPrompt);
+        assert.equal(emptyPrompt[0].text, 'Este planejamento está vazio. Deseja salvá-lo mesmo assim?');
         assert.equal(h.requests.length, confirmed ? 2 : 1);
         assert.equal(h.timers.size, confirmed ? 1 : 0);
         if (confirmed) assert.equal(JSON.parse(h.requestData(1).get('leaflet')).features.length, 0);
@@ -333,7 +337,7 @@ test('loading a different planning pauses until the next successful manual save'
     assert.match(h.notices[0].textContent, /pausado/);
     await h.click();
     assert.equal(h.timers.size, 1);
-    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar desenhos')[1][0].html, /drawingAutoSaveChoice/);
+    assert.doesNotMatch(h.alerts.filter(args => args[0]?.title === 'Salvar planejamento')[1][0].html, /drawingAutoSaveChoice/);
 });
 
 test('manual and automatic errors are surfaced and do not leave automatic saving active', async () => {

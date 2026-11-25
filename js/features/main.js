@@ -26,8 +26,8 @@
 <i id="exportKMZ" class="fas fa-file-export toolbar-icon" title="Exportar para KMZ"></i>
 <i id="importKMZ" class="fas fa-file-import toolbar-icon" title="Importar arquivo KMZ"></i>
 <i id="locateMeButton" class="fas fa-map-marker-alt toolbar-icon" title="Mostrar/esconder minha localização"></i>
-<i id="saveDrawings" class="fas fa-save toolbar-icon" title="Salvar desenhos"></i>
-<i id="loadDrawings" class="fas fa-download toolbar-icon" title="Carregar desenhos"></i>
+<i id="saveDrawings" class="fas fa-save toolbar-icon" title="Salvar planejamento"></i>
+<i id="loadDrawings" class="fas fa-download toolbar-icon" title="Carregar planejamento"></i>
 <i id="loadImages" class="fas fa-images toolbar-icon" title="Carregar imagens"></i>
 <i id="shareLink" class="fas fa-share-alt toolbar-icon" title="Compartilhar link com camadas"></i>
 <i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>

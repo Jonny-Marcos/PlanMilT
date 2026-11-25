@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/help-and-planning.js'), 'utf8');
 const welcomeSource = fs.readFileSync(path.join(__dirname, '../../js/features/welcome.js'), 'utf8');
+const mainSource = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
 
 function setup(ready = Promise.resolve()) {
     const handlers = {};
@@ -75,9 +76,12 @@ test('help groups current tools in accessible expandable sections', () => {
     const html = fixture.alerts.at(-1).html;
     for (const term of ['<details', '<summary>', 'Dados do ponto', 'Simbologia militar',
         'Recentes', 'KMZ', 'Criar tema', 'Predição de Enlace', 'Pequena (Rápida), com 72 radiais; Média (Padrão), com 180; ou Alta (Lenta), com 360 radiais',
-        'Penetração/Difração', 'Planejamento automático', 'Aparecer mensagem de boas-vindas']) {
+        'Penetração/Difração', 'Planejamento automático', 'Aparecer mensagem de boas-vindas',
+        'Salvar planejamento', 'identificador do planejamento']) {
         assert.ok(html.includes(term), term);
     }
+    assert.match(mainSource, /id="saveDrawings"[^>]*title="Salvar planejamento"/);
+    assert.match(mainSource, /id="loadDrawings"[^>]*title="Carregar planejamento"/);
 });
 
 test('help and welcome share the existing preference and preserve recent entries', () => {
@@ -131,6 +135,8 @@ test('successful planning suggestion saves enter recent list; failed ones do not
     const fixture = setup();
     fixture.handlers.savePlanningButton();
     await new Promise(resolve => setImmediate(resolve));
+    assert.equal(fixture.alerts[0].title, 'Identifique o planejamento');
+    assert.match(fixture.alerts[0].html, /placeholder="Identificador do planejamento"/);
     const request = fixture.getRequest();
     request.success('Senha incorreta');
     request.error({ status: 500 }, 'error', 'failure');

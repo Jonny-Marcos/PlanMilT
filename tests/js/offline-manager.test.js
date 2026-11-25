@@ -1014,7 +1014,7 @@ test('offline connectivity state marks the interface and disables network action
     };
     const saveButton = {
         disabled: false,
-        title: 'Salvar desenhos',
+        title: 'Salvar planejamento',
         tabIndex: 0,
         dataset: {},
         attributes: {},
@@ -1063,7 +1063,7 @@ test('offline connectivity state marks the interface and disables network action
     manager.updateConnectionState(documentRoot, true);
     assert.equal(status.hidden, true);
     assert.equal(saveButton.disabled, false);
-    assert.equal(saveButton.title, 'Salvar desenhos');
+    assert.equal(saveButton.title, 'Salvar planejamento');
     assert.equal(saveButton.classList.contains('is-offline-disabled'), false);
 });
 
