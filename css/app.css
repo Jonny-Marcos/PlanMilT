@@ -82,6 +82,9 @@
             .offline-status[hidden] {
                 display: none;
             }
+            body.map-3d-open .offline-status {
+                display: none;
+            }
             .offline-status i {
                 margin: 0 !important;
             }

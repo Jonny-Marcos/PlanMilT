@@ -5,6 +5,7 @@
 (() => {
     const OFFLINE_ZOOM_LEVELS = [8, 10, 12, 14, 15];
     const canvas = document.getElementById('terrainCanvas');
+    const connectionStatus = document.getElementById('viewerConnectionStatus');
     const status = document.getElementById('viewerStatus');
     const warnings = document.getElementById('viewerWarnings');
     const exaggeration = document.getElementById('verticalExaggeration');
@@ -30,6 +31,17 @@
     let zoomOverride = null;
     let textureReady = false;
     let showingHint = false;
+
+    /**
+     * Mantém o indicador de conexão próprio do iframe sincronizado com o navegador.
+     */
+    function updateConnectionStatus() {
+        connectionStatus.hidden = window.navigator?.onLine !== false;
+    }
+
+    updateConnectionStatus();
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
 
     /**
      * Exibe uma mensagem de estado sem interpretar conteúdo externo como HTML.

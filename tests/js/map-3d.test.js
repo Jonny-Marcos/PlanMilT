@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/map-3d.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
+const cssSource = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
 const viewerSource = fs.readFileSync(path.join(__dirname, '../../js/features/map-3d-viewer.js'), 'utf8');
 const viewerHtml = fs.readFileSync(path.join(__dirname, '../../visualizador-3d.html'), 'utf8');
 const offlineManagerSource = fs.readFileSync(path.join(__dirname, '../../js/features/offline-manager.js'), 'utf8');
@@ -327,7 +328,7 @@ test('the embedded renderer communicates only with its parent and provides a ret
     const messages = [];
     const events = {};
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
+    for (const id of ['terrainCanvas', 'viewerConnectionStatus', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
         elements[id] = { hidden: false, events: {}, addEventListener(name, callback) { this.events[name] = callback; }, setAttribute(name, value) { this[name] = value; } };
     }
     elements.terrainCanvas.getContext = () => null;
@@ -369,11 +370,12 @@ test('places the 3D button beside Help and loads its controller after map initia
     assert.match(indexSource, /main\.js[\s\S]*map-3d\.js/);
 });
 
-test('middle drag and two-finger gestures move the view and reset restores it', () => {
+test('connection state, middle drag and two-finger gestures update the viewer correctly', () => {
     const elements = {};
-    for (const id of ['terrainCanvas', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
+    for (const id of ['terrainCanvas', 'viewerConnectionStatus', 'viewerStatus', 'viewerWarnings', 'verticalExaggeration', 'verticalExaggerationValue', 'refreshViewer', 'resetCamera', 'closeViewer', 'baseLayer3D', 'baseZoom3D', 'applyBaseZoom', 'viewerAttribution', 'viewerControlFields', 'toggleViewerControls']) {
         elements[id] = { hidden: false, events: {}, addEventListener(name, callback) { this.events[name] = callback; }, setAttribute(name, value) { this[name] = value; } };
     }
+    elements.viewerConnectionStatus.hidden = true;
     let matrix;
     const gl = new Proxy({
         getShaderParameter: () => true,
@@ -393,6 +395,7 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     const media = { matches: true, addEventListener(name, callback) { this[name] = callback; } };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
+        navigator: { onLine: false },
         matchMedia: () => media,
         addEventListener(name, callback) { events[name] = callback; },
         PlanMilT: { map3dGeometry: { createMesh: () => ({
@@ -401,6 +404,13 @@ test('middle drag and two-finger gestures move the view and reset restores it', 
     };
     class Image { set src(value) { this.onload(); } }
     vm.runInNewContext(viewerSource, { window, document: { getElementById: id => elements[id] }, Image });
+    assert.equal(elements.viewerConnectionStatus.hidden, false);
+    window.navigator.onLine = true;
+    events.online();
+    assert.equal(elements.viewerConnectionStatus.hidden, true);
+    window.navigator.onLine = false;
+    events.offline();
+    assert.equal(elements.viewerConnectionStatus.hidden, false);
     events.message({ origin: 'https://plan.test', source: host, data: {
         type: 'planmilt-3d-data',
         payload: { image: 'data:image/png;base64,AA==', bounds: [-1, -1, 1, 1], zoom: 12, zoomRequested: null, missingTiles: ['S22W052.HGT'] }
@@ -475,6 +485,8 @@ test('3D controls use a bottom-centered light toolbar on desktop and mobile', ()
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
     assert.match(viewerHtml, /data-planmilt-viewer-layout="offline-3d-presets-v1"/);
     assert.match(viewerHtml, /id="viewerAttribution"[\s\S]*id="viewerControlFields"/);
-    assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
+    assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerConnectionStatus"[\s\S]*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
+    assert.match(cssSource, /body\.map-3d-open\s+\.offline-status\s*\{\s*display:\s*none/);
+    assert.match(viewerHtml, /#viewerConnectionStatus\[hidden\]\s*\{\s*display:\s*none/);
     assert.match(viewerHtml, /map-3d-viewer\.js/);
 });

@@ -59,6 +59,12 @@
         }
         #viewerStatus[hidden], #viewerWarnings[hidden] { display: none; }
         #viewerWarnings { color: #ffe4a8; background: #382e19e8; }
+        #viewerConnectionStatus {
+            align-self: flex-start; display: flex; align-items: center; gap: 6px;
+            padding: 7px 12px; border: 1px solid #a96916; border-radius: 6px;
+            background: #fff4d6; color: #70420a; font-size: 13px; font-weight: 600;
+        }
+        #viewerConnectionStatus[hidden] { display: none; }
         @media (max-width: 600px), (hover: none) and (pointer: coarse) {
             .viewer-header { bottom: 8px; width: calc(100vw - 16px); }
             .viewer-controls { display: block; max-height: none; overflow: visible; padding: 4px; }
@@ -128,6 +134,10 @@
         </aside>
     </header>
     <div class="viewer-messages">
+        <div id="viewerConnectionStatus" role="status" aria-live="polite" hidden>
+            <i class="fas fa-wifi" aria-hidden="true"></i>
+            Modo offline
+        </div>
         <div id="viewerWarnings" role="status" aria-live="polite" hidden></div>
         <div id="viewerStatus" role="status" aria-live="polite">Abra o visualizador pelo botão 3D no mapa PlanMilT.</div>
     </div>
