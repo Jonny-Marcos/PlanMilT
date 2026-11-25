@@ -632,10 +632,6 @@
                     display: block;
                 }
 
-                .leaflet-control-browser-print {
-                    display: none !important;
-                }
-
                 /* Seletor de Camadas */
                 #layerSelector {
                     display: block !important;

@@ -63,34 +63,12 @@
 
 
 
-            // Adiciona o botão de exportação
-            L.control.browserPrint({
-                position: 'topright',
-                title: 'Print ...',
-            }).addTo(map);
-
             // Adiciona o controle de escala ao mapa
             L.control.scale({maxWidth: 100, metric: true, imperial: false, position: 'bottomleft'}).addTo(map);
 
-            // Adiciona um evento de clique ao botão de impressão
-            document.querySelector('.leaflet-control-browser-print a').addEventListener('click', function() {
-                var originalZoom = map.getZoom();
-                var targetZoom = 13; // Defina o nível de zoom desejado para a escala 1:50000
+            // Controle de impressão em escala (A4/A3)
+            window.PlanMilT.mapPrint.attach({ map: map, leaflet: L, Swal: Swal });
 
-                // Ajusta o zoom do mapa para a escala desejada
-                map.setZoom(targetZoom);
-
-                // Garante que o controle de escala seja atualizado
-                map.on('zoomend', function() {
-                    setTimeout(function() {
-                        // Chama a função de impressão padrão do navegador
-                        window.print();
-
-                        // Restaura o zoom original após a impressão
-                        map.setZoom(originalZoom);
-                    }, 1000); // Aguarda 1 segundo antes de imprimir para garantir que o mapa e a escala sejam atualizados
-                });
-            });
 
 
 
