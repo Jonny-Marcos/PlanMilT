@@ -38,7 +38,7 @@
                         const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                             method: "POST",
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: `plan_name=${encodeURIComponent(planName)}&link=${encodeURIComponent(diretorio)}`
+                            body: `plan_name=${encodeURIComponent(planName)}&usuario=${encodeURIComponent(planName)}&link=${encodeURIComponent(diretorio)}`
                         });
                         if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
                         geoJsonData = await response.json();
@@ -46,8 +46,19 @@
 
                     if (!isValidGeoJson(geoJsonData)) {
                         if (localData) throw new Error('Rascunho local inválido.');
+                        if (geoJsonData && typeof geoJsonData.error === 'string') {
+                            const notFound = geoJsonData.error === 'Nenhum desenho encontrado para o usuário fornecido.'
+                                || geoJsonData.error === 'Nenhum planejamento encontrado.';
+                            console.error('[PlanMilT][Desenhos] Servidor não retornou o planejamento.', {
+                                problem: notFound ? 'Planejamento não encontrado.' : 'Falha no servidor.'
+                            });
+                            Swal.fire('Erro', notFound
+                                ? 'Planejamento não encontrado. Verifique o nome informado e tente novamente.'
+                                : 'O servidor não conseguiu carregar o planejamento. Tente novamente.', 'error');
+                            return;
+                        }
                         console.error('[PlanMilT][Desenhos] Resposta inválida ao carregar desenhos.');
-                        Swal.fire('Erro', 'Não foi possível carregar o planejamento. Verifique o nome e o link!', 'error');
+                        Swal.fire('Erro', 'O servidor retornou dados inválidos para o planejamento.', 'error');
                         return;
                     }
 

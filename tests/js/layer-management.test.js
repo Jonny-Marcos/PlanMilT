@@ -8,6 +8,31 @@ const source = fs.readFileSync(path.join(__dirname, '../../js/features/layer-man
 const styles = fs.readFileSync(path.join(__dirname, '../../css/app.css'), 'utf8');
 const documentSource = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
 
+test('refreshing a shared planning sends both names to the legacy endpoint', async () => {
+    const name = 'São João & Norte';
+    const calls = [];
+    const added = [];
+    const context = {
+        window: { PlanMilT: { apiClient: { request: async (url, options) => {
+            calls.push({ url, options });
+            const body = new URLSearchParams(options.body);
+            return { ok: true, json: async () => body.get('usuario') === name
+                ? { type: 'FeatureCollection', features: [] } : { error: 'não encontrado' } };
+        } } } },
+        Swal: { fire() {} },
+        L: { geoJson: () => ({}) }, layerRegistry: {}, addNewOverlayLayer(name) { added.push(name); },
+        console: { error(...args) { throw new Error(args.join(' ')); } }
+    };
+    vm.runInNewContext(source.slice(0, source.indexOf('function promptPlansAndUpdate()')), context);
+    context.selectedLayers = [name];
+    await context.reloadLayer();
+    assert.equal(calls[0].url, '/carregar.php');
+    const body = new URLSearchParams(calls[0].options.body);
+    assert.equal(body.get('usuario'), name);
+    assert.equal(body.get('plan_name'), name);
+    assert.deepEqual(added, [name]);
+});
+
 test('layer catalog fetches only the selected WMS and keeps global recommendations local', () => {
     assert.match(source, /Carregando catálogo de camadas/);
     assert.match(source, /Buscar camadas/);

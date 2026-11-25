@@ -29,7 +29,7 @@
                             const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                                 method: "POST",
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: `plan_name=${encodeURIComponent(layerName)}`
+                                body: `plan_name=${encodeURIComponent(layerName)}&usuario=${encodeURIComponent(layerName)}`
                             });
 
                             if (!response.ok) {

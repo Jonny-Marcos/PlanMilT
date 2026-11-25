@@ -9,6 +9,35 @@ const welcomeSource = fs.readFileSync(path.join(__dirname, '../../js/features/we
 const mainSource = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
 const sharedLayersSource = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
 
+test('shared planning links load names using the current and legacy fields', async () => {
+    const name = 'São João & Norte';
+    const calls = [];
+    const added = [];
+    const context = {
+        URL, URLSearchParams,
+        document: { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] },
+        window: { location: { href: `https://example.test/PlanMilT/?camada=${encodeURIComponent(name)}` },
+            PlanMilT: { apiClient: { request: async (url, options) => {
+                calls.push({ url, options });
+                const body = new URLSearchParams(options.body);
+                return { ok: true, json: async () => body.get('usuario') === name
+                    ? { type: 'FeatureCollection', features: [] } : { error: 'não encontrado' } };
+            } } } },
+        L: { geoJson: () => ({ addTo() { return this; } }) },
+        map: {}, layerRegistry: {}, addNewOverlayLayer(name) { added.push(name); },
+        isValidGeoJson: value => value?.type === 'FeatureCollection',
+        Swal: { fire() { throw new Error('unexpected error'); } },
+        console: { info() {}, warn(...args) { throw new Error(args.join(' ')); }, error(...args) { throw new Error(args.join(' ')); } }
+    };
+    vm.runInNewContext(sharedLayersSource.slice(0, sharedLayersSource.indexOf("document.getElementById('shareLink')")), context);
+    await context.loadSharedLayers();
+    assert.equal(calls[0].url, '/carregar.php');
+    const body = new URLSearchParams(calls[0].options.body);
+    assert.equal(body.get('plan_name'), name);
+    assert.equal(body.get('usuario'), name);
+    assert.deepEqual(added, [name]);
+});
+
 function setup(ready = Promise.resolve()) {
     const handlers = {};
     const recent = [];
@@ -144,6 +173,8 @@ test('successful planning suggestion saves enter recent list; failed ones do not
     assert.equal(fixture.alerts[0].title, 'Nome do planejamento');
     assert.match(fixture.alerts[0].html, /placeholder="Nome do planejamento"/);
     const request = fixture.getRequest();
+    assert.equal(request.data.plan_name, 'teste');
+    assert.equal(request.data.usuario, 'teste');
     request.success('Senha incorreta');
     request.error({ status: 500 }, 'error', 'failure');
     assert.deepEqual(fixture.recent, []);

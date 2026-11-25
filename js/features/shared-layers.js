@@ -50,7 +50,7 @@
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
                             },
-                            body: `plan_name=${encodeURIComponent(camada)}&link=${encodeURIComponent(diretorio)}`
+                            body: `plan_name=${encodeURIComponent(camada)}&usuario=${encodeURIComponent(camada)}&link=${encodeURIComponent(diretorio)}`
                         });
 
                         if (!response.ok) {

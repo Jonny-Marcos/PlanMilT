@@ -164,6 +164,7 @@
                             }
                             const data = {
                                 plan_name: planName,
+                                usuario: planName,
                                 senha: senha,
                                 link: diretorio, // Diretório a ser usado na requisição
                                 leaflet: serializedData

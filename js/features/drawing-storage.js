@@ -109,7 +109,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 response = await window.PlanMilT.apiClient.request('/salvar.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ plan_name: credentials.planName, senha: credentials.senha,
+                    body: new URLSearchParams({ plan_name: credentials.planName, usuario: credentials.planName, senha: credentials.senha,
                         link: credentials.diretorio, leaflet: json }).toString()
                 });
             } catch (error) {

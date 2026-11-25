@@ -23,6 +23,74 @@ test('loading a saved plan asks for its name rather than a user account', async 
     assert.equal(prompt.inputValidator('plano-1'), undefined);
 });
 
+for (const legacy of [true, false]) {
+    for (const editable of [true, false]) {
+        test(`loads a plan from ${legacy ? 'legacy' : 'current'} endpoint ${editable ? 'for editing' : 'as a layer'}`, async () => {
+            const name = 'Plano São João & Cia=1';
+            const requests = [];
+            const recent = [];
+            const overlays = [];
+            let cleared = 0;
+            const collection = { type: 'FeatureCollection', features: [] };
+            const context = {
+                document: { getElementById: () => ({ addEventListener() {} }) },
+                window: { location: { href: 'https://example.test/PlanMilT-dev/index.html' }, PlanMilT: {
+                    apiClient: { request: async (url, options) => {
+                        requests.push({ url, options });
+                        const body = new URLSearchParams(options.body);
+                        const value = body.get(legacy ? 'usuario' : 'plan_name');
+                        return { ok: true, json: async () => value === name && body.get('link') === ''
+                            ? collection : { error: 'Nenhum desenho encontrado para o usuário fornecido.' } };
+                    } },
+                    drawingAutoSave: { pauseForLoad() {} },
+                    coverageImage: { clear() {}, fromFeature() { throw new Error('unexpected raster'); } },
+                    welcome: { record(value) { recent.push(value); return true; } }
+                } },
+                Swal: { fire: async () => ({ isConfirmed: editable }) },
+                L: { geoJson: () => ({ addTo() { return this; } }) },
+                map: {}, drawnItems: { clearLayers() { cleared++; }, getLayers: () => [] },
+                addNewOverlayLayer(name) { overlays.push(name); },
+                isValidGeoJson: value => value?.type === 'FeatureCollection' && Array.isArray(value.features),
+                console: { info() {}, error(...args) { throw new Error(args.join(' ')); } }
+            };
+            vm.runInNewContext(source, context);
+            await context.window.PlanMilT.drawingLoading.load(name);
+            assert.equal(requests[0].url, '/carregar.php');
+            const body = new URLSearchParams(requests[0].options.body);
+            assert.equal(body.get('plan_name'), name);
+            assert.equal(body.get('usuario'), name);
+            assert.equal(cleared, editable ? 1 : 0);
+            assert.deepEqual(overlays, editable ? [] : [name]);
+            assert.deepEqual(recent, [name]);
+        });
+    }
+}
+
+for (const [response, expected] of [
+    [{ error: 'Nenhum desenho encontrado para o usuário fornecido.' }, /Planejamento não encontrado/],
+    [{ error: 'Não foi possível carregar os desenhos.' }, /servidor não conseguiu carregar/],
+    [{ error: 'dados internos confidenciais' }, /servidor não conseguiu carregar/],
+    [{ unexpected: true }, /dados inválidos/]
+]) {
+    test(`reports loading failure without interpreting it as GeoJSON: ${expected}`, async () => {
+        const alerts = [];
+        const logs = [];
+        const context = {
+            document: { getElementById: () => ({ addEventListener() {} }) },
+            window: { location: { href: 'https://example.test/' }, PlanMilT: {
+                apiClient: { request: async () => ({ ok: true, json: async () => response }) }
+            } },
+            Swal: { fire: (...args) => { alerts.push(args); } },
+            isValidGeoJson: value => value?.type === 'FeatureCollection',
+            console: { info() {}, error(...args) { logs.push(args); } }
+        };
+        vm.runInNewContext(source, context);
+        await context.window.PlanMilT.drawingLoading.load('plano');
+        assert.match(alerts[0][1], expected);
+        assert.doesNotMatch(JSON.stringify({ alerts, logs }), /dados internos confidenciais/);
+    });
+}
+
 test('local restoration reuses editable drawing loading without a server request or dialog', async () => {
     const feature = { type: 'Feature', properties: { color: '#123456', fillPattern: 'patternDots' },
         geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } };

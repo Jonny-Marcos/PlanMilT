@@ -144,6 +144,7 @@ test('manual save offers automatic saving once per page and preserves the HTTP c
     assert.match(h.alerts[0][0].html, /id="drawingAutoSaveChoice"/);
     assert.equal(h.requests[0].url, '/salvar.php');
     assert.equal(h.requestData(0).get('plan_name'), 'teste');
+    assert.equal(h.requestData(0).get('usuario'), 'teste');
     assert.equal(h.storage.get('planName'), 'teste');
     assert.equal(h.storage.has('usuario'), false);
     assert.equal(h.requestData(0).get('senha'), 'senha');
@@ -300,6 +301,8 @@ test('a manual save waits for an in-flight automatic save before switching targe
     await manual;
     assert.equal(h.requestData(1).get('plan_name'), 'teste');
     assert.equal(h.requestData(2).get('plan_name'), 'outro');
+    assert.equal(h.requestData(1).get('usuario'), 'teste');
+    assert.equal(h.requestData(2).get('usuario'), 'outro');
     assert.equal(JSON.parse(h.requestData(2).get('leaflet')).features[0].properties.name, 'novo');
 });
 
