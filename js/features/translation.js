@@ -7,6 +7,7 @@ window.PlanMilT = window.PlanMilT || {};
 window.PlanMilT.translation = (() => {
     let settings = null;
     let ready = false;
+    let loading = false;
     const targets = ['google_translate_element', 'image_editor_google_translate_element'];
 
     /**
@@ -17,12 +18,18 @@ window.PlanMilT.translation = (() => {
         ready = true;
         const options = { pageLanguage: 'pt-br' };
         if (settings.languages.length) options.includedLanguages = settings.languages.join(',');
+        const languages = settings.languages.join(',');
         targets.forEach(id => {
             const element = document.getElementById(id);
             if (!element) return;
+            if (element.dataset.initialized && element.dataset.translationLanguages !== languages) {
+                element.replaceChildren();
+                delete element.dataset.initialized;
+            }
             if (!element.dataset.initialized) {
                 new window.google.translate.TranslateElement(options, id);
                 element.dataset.initialized = 'true';
+                element.dataset.translationLanguages = languages;
             }
             element.hidden = false;
             const hidden = id === 'google_translate_element'
@@ -53,9 +60,18 @@ window.PlanMilT.translation = (() => {
                 });
                 return;
             }
+            if (window.google?.translate?.TranslateElement) {
+                initialize();
+                return;
+            }
+            if (loading) return;
+            loading = true;
             const script = document.createElement('script');
             script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-            script.onerror = () => console.error('[PlanMilT][Tradução] Não foi possível carregar o Google Tradutor.');
+            script.onerror = () => {
+                loading = false;
+                console.error('[PlanMilT][Tradução] Não foi possível carregar o Google Tradutor.');
+            };
             document.head.appendChild(script);
         },
         /**

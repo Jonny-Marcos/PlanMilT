@@ -13,17 +13,18 @@ async function startMapSettings({ online, restored = false, reject = false }) {
     const settings = { translation: { enabled: false, languages: [] } };
     const context = {
         map: {}, L: { DomEvent: { on() {} } }, drawnItems: { on() {} },
-        document: { getElementById() { return { addEventListener() {} }; } },
+        document: { addEventListener() {}, getElementById() { return { addEventListener() {} }; } },
         console: { info() {}, error(...args) { errors.push(args); } },
         window: {
             navigator: { onLine: online },
+            addEventListener() {},
             PlanMilT: {
                 localSessionRestored: restored,
                 mapSetup: { attach: () => ({ applyMapDefaults: value => calls.push(['defaults', value]) }) },
                 coverageImage: { attach() {} },
-                translation: { configure: value => calls.push(['translation', value]) },
-                apiClient: { async getJson(endpoint) {
-                    calls.push(['request', endpoint]);
+                translation: { configure: value => calls.push(['translation', JSON.parse(JSON.stringify(value))]) },
+                apiClient: { async getJson(endpoint, options) {
+                    calls.push(['request', endpoint, options.cache]);
                     if (reject) throw new Error('Falha de rede');
                     return settings;
                 } }
@@ -37,25 +38,136 @@ async function startMapSettings({ online, restored = false, reject = false }) {
 
 test('map settings are not requested when starting offline', async () => {
     const { calls } = await startMapSettings({ online: false });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(calls, [['translation', { enabled: false, languages: [] }]]);
 });
 
 test('map settings are still loaded online and do not replace a restored session', async () => {
     const online = await startMapSettings({ online: true });
     assert.deepEqual(online.calls, [
-        ['request', 'php/endpoints/map-settings.php'],
+        ['translation', { enabled: false, languages: [] }],
+        ['request', 'php/endpoints/map-settings.php', 'no-store'],
         ['translation', online.settings.translation],
         ['defaults', online.settings]
     ]);
     const restored = await startMapSettings({ online: true, restored: true });
-    assert.deepEqual(restored.calls.map(call => call[0]), ['request', 'translation']);
+    assert.deepEqual(restored.calls.map(call => call[0]), ['translation', 'request', 'translation']);
 });
 
 test('map settings request failures are reported while online', async () => {
     const { calls, errors } = await startMapSettings({ online: true, reject: true });
-    assert.deepEqual(calls, [['request', 'php/endpoints/map-settings.php']]);
+    assert.deepEqual(calls, [
+        ['translation', { enabled: false, languages: [] }],
+        ['request', 'php/endpoints/map-settings.php', 'no-store']
+    ]);
     assert.equal(errors.length, 1);
     assert.match(errors[0][0], /Não foi possível aplicar/);
+});
+
+test('returning to the page refreshes disabled settings and ignores stale responses', async () => {
+    const pending = [];
+    const handlers = {};
+    const elements = new Map([
+        ['google_translate_element', { dataset: {}, style: {}, hidden: true }],
+        ['image_editor_google_translate_element', { dataset: {}, style: {}, hidden: true }]
+    ]);
+    const scripts = [];
+    const translations = [];
+    const defaults = [];
+    const errors = [];
+    const document = {
+        visibilityState: 'visible',
+        addEventListener(name, callback) { handlers[name] = callback; },
+        getElementById(id) {
+            return elements.get(id) || (id === 'close-btn' ? { addEventListener() {} } : null);
+        },
+        createElement() { return {}; },
+        head: { appendChild(script) { scripts.push(script); } }
+    };
+    const window = {
+        navigator: { onLine: true },
+        addEventListener(name, callback) { handlers[name] = callback; },
+        google: { translate: { TranslateElement: function (options, id) { translations.push(id); } } },
+        PlanMilT: {
+            mapSetup: { attach: () => ({ applyMapDefaults: value => defaults.push(value) }) },
+            coverageImage: { attach() {} },
+            apiClient: { getJson(url, options) {
+                assert.equal(url, 'php/endpoints/map-settings.php');
+                assert.equal(options.cache, 'no-store');
+                return new Promise((resolve, reject) => pending.push({ resolve, reject }));
+            } }
+        }
+    };
+    const context = {
+        window, document, map: {}, L: { DomEvent: { on() {} } }, drawnItems: { on() {} },
+        console: { info() {}, error(...args) { errors.push(args); } }
+    };
+    vm.runInNewContext(source, context);
+    vm.runInNewContext(elevationToolsSource, context);
+    pending[0].resolve({ translation: { enabled: true, languages: [] } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(elements.get('google_translate_element').hidden, false);
+    assert.deepEqual(translations, ['google_translate_element', 'image_editor_google_translate_element']);
+    assert.equal(defaults.length, 1);
+    document.visibilityState = 'hidden';
+    handlers.visibilitychange();
+    assert.equal(elements.get('google_translate_element').hidden, true);
+    assert.equal(elements.get('image_editor_google_translate_element').hidden, true);
+    document.visibilityState = 'visible';
+    handlers.visibilitychange();
+    handlers.pageshow({ persisted: true });
+    pending[2].resolve({ translation: { enabled: false, languages: [] } });
+    await new Promise(resolve => setImmediate(resolve));
+    pending[1].resolve({ translation: { enabled: true, languages: [] } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(elements.get('google_translate_element').hidden, true);
+    assert.equal(window.PlanMilT.translation.isReady(), false);
+    assert.equal(defaults.length, 1);
+    assert.equal(scripts.length, 0);
+
+    handlers.online();
+    pending[3].reject(new Error('rede indisponível'));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(elements.get('google_translate_element').hidden, true);
+    assert.equal(errors.length, 1);
+    handlers.online();
+    pending[4].resolve({ translation: { enabled: true, languages: [] } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(elements.get('google_translate_element').hidden, false);
+    assert.equal(translations.length, 2);
+    assert.equal(defaults.length, 1);
+});
+
+test('offline startup revalidates translation on reconnect without applying map defaults', async () => {
+    const handlers = {};
+    const configurations = [];
+    const applied = [];
+    const requests = [];
+    const window = {
+        navigator: { onLine: false },
+        addEventListener(name, callback) { handlers[name] = callback; },
+        PlanMilT: {
+            mapSetup: { attach: () => ({ applyMapDefaults: settings => applied.push(settings) }) },
+            coverageImage: { attach() {} },
+            translation: { configure: settings => configurations.push(settings.enabled) },
+            apiClient: { async getJson(endpoint, options) {
+                requests.push([endpoint, options.cache]);
+                return { translation: { enabled: false, languages: [] } };
+            } }
+        }
+    };
+    const context = {
+        window, map: {}, L: { DomEvent: { on() {} } }, drawnItems: { on() {} },
+        document: { addEventListener() {}, getElementById() { return { addEventListener() {} }; } },
+        console: { info() {}, error() { throw new Error('unexpected error'); } }
+    };
+    vm.runInNewContext(elevationToolsSource, context);
+    assert.deepEqual(requests, []);
+    window.navigator.onLine = true;
+    handlers.online();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(requests, [['php/endpoints/map-settings.php', 'no-store']]);
+    assert.deepEqual(configurations, [false, false, false]);
+    assert.deepEqual(applied, []);
 });
 
 test('settings gate the Google script in the page', () => {
@@ -139,4 +251,39 @@ test('all languages are available by default and load errors are reported', () =
     window.google = { translate: { TranslateElement: function (options) { calls.push(options); } } };
     window.googleTranslateElementInit();
     assert.equal(calls[0].includedLanguages, undefined);
+});
+
+test('late Google callback cannot show disabled controls and reactivation avoids duplicate scripts', () => {
+    const { window, service, scripts, elements, calls } = harness();
+    const control = { dataset: {}, style: {}, hidden: true };
+    elements.set('google_translate_element', control);
+    service.configure({ enabled: true, languages: ['en'] });
+    service.configure({ enabled: true, languages: ['en'] });
+    assert.equal(scripts.length, 1);
+    service.configure({ enabled: false, languages: [] });
+    window.google = { translate: { TranslateElement: function (options, id) { calls.push(id); } } };
+    window.googleTranslateElementInit();
+    assert.equal(control.hidden, true);
+    assert.deepEqual(calls, []);
+    service.configure({ enabled: true, languages: ['en'] });
+    assert.equal(control.hidden, false);
+    assert.deepEqual(calls, ['google_translate_element']);
+    assert.equal(scripts.length, 1);
+});
+
+test('revalidation updates allowed languages and retries a failed script load', () => {
+    const { window, service, scripts, elements, calls } = harness();
+    const control = { dataset: {}, style: {}, replaceChildren() { this.cleared = true; } };
+    elements.set('google_translate_element', control);
+    service.configure({ enabled: true, languages: ['en'] });
+    scripts[0].onerror();
+    service.configure({ enabled: true, languages: ['en'] });
+    assert.equal(scripts.length, 2);
+    window.google = { translate: { TranslateElement: function (options) { calls.push(options.includedLanguages); } } };
+    window.googleTranslateElementInit();
+    service.configure({ enabled: false, languages: [] });
+    service.configure({ enabled: true, languages: ['es'] });
+    assert.deepEqual(calls, ['en', 'es']);
+    assert.equal(control.cleared, true);
+    assert.equal(scripts.length, 2);
 });

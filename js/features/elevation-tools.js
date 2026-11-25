@@ -9,13 +9,24 @@
             var addNewOverlayLayer = mapSetup.addNewOverlayLayer;
             var removeOverlayLayer = mapSetup.removeOverlayLayer;
             window.PlanMilT.coverageImage.attach(map, L, layerControl);
-            if (window.navigator.onLine === false) {
-                console.info('[PlanMilT][Mapa] Modo offline: configurações iniciais do servidor ignoradas.');
-            } else {
-                window.PlanMilT.apiClient.getJson('php/endpoints/map-settings.php')
+            let mapSettingsRequest = 0;
+            /**
+             * Atualiza a tradução sem permitir que respostas antigas sobrescrevam a configuração recente.
+             * @param {boolean} initial - Aplica também os padrões iniciais do mapa.
+             */
+            function loadMapSettings(initial) {
+                const request = ++mapSettingsRequest;
+                window.PlanMilT.translation.configure({ enabled: false, languages: [] });
+                if (window.navigator.onLine === false) {
+                    console.info('[PlanMilT][Mapa] Modo offline: configurações iniciais do servidor ignoradas.');
+                    return;
+                }
+                window.PlanMilT.apiClient.getJson('php/endpoints/map-settings.php', { cache: 'no-store' })
                     .then(settings => {
-                        window.PlanMilT.translation.configure(settings.translation);
-                        if (!window.PlanMilT.localSessionRestored) mapSetup.applyMapDefaults(settings);
+                        if (request === mapSettingsRequest) {
+                            window.PlanMilT.translation.configure(settings.translation);
+                        }
+                        if (initial && !window.PlanMilT.localSessionRestored) mapSetup.applyMapDefaults(settings);
                     })
                     .catch(error => {
                         if (window.navigator.onLine === false) {
@@ -25,6 +36,19 @@
                         console.error('[PlanMilT][Mapa] Não foi possível aplicar as configurações iniciais.', error);
                     });
             }
+            loadMapSettings(true);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    mapSettingsRequest++;
+                    window.PlanMilT.translation.configure({ enabled: false, languages: [] });
+                } else if (document.visibilityState === 'visible') {
+                    loadMapSettings(false);
+                }
+            });
+            window.addEventListener('pageshow', event => {
+                if (event.persisted) loadMapSettings(false);
+            });
+            window.addEventListener('online', () => loadMapSettings(false));
 
             // botão de fechar perfil topográfico
             document.getElementById('close-btn').addEventListener('click', function() {
