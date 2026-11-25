@@ -61,9 +61,15 @@ window.PlanMilT.militarySymbols = (() => {
      */
     function render(config) {
         const normalized = normalize(config);
+        const baseSize = 35;
+        // A escala depende do símbolo sem textos, para não reduzir a moldura ao adicionar amplificadores.
+        const base = window.PlanMilTSymbols.renderSymbol({
+            sidc: normalized.sidc,
+            options: { size: baseSize }
+        });
         const rendered = window.PlanMilTSymbols.renderSymbol({
             ...normalized,
-            options: { ...normalized.options, size: 35 }
+            options: { ...normalized.options, size: baseSize * 40 / Math.max(base.size.width, base.size.height) }
         });
         return {
             config: normalized, iconUrl: rendered.dataUrl,

@@ -48,10 +48,12 @@ function setup() {
     };
     const context = vm.createContext({ window, document, Swal, localStorage, URL, setTimeout, clearTimeout,
         TextEncoder, TextDecoder, console: { error() {}, info() {}, warn() {} } });
-    for (const file of ['js/library/planmilt-symbols/planmilt-symbols.js', 'js/features/military-symbols.js']) {
+    for (const file of ['js/library/planmilt-symbols/planmilt-symbols.js', 'js/features/military-symbols.js',
+        'js/features/icon-selector.js']) {
         vm.runInContext(read(file), context);
     }
     return { symbols: window.PlanMilT.militarySymbols, library: window.PlanMilTSymbols,
+        iconSelector: window.PlanMilT.iconSelector,
         catalog: window.PlanMilTSymbols.catalog, elements, values, active: () => active,
         failStorage() { failStorage = true; } };
 }
@@ -107,14 +109,49 @@ test('category and doctrine example selection load their complete SIDC and text'
 });
 
 test('Brazilian entity extensions preserve distinct SIDCs through the static library', () => {
-    const { symbols, library } = setup();
+    const { symbols } = setup();
     const special = '100310000012189900000760000000';
     const pathfinder = '100310000012189900000760016384';
     const a = symbols.render({ sidc: special, options: {} });
     const b = symbols.render({ sidc: pathfinder, options: {} });
     assert.notEqual(a.iconUrl, b.iconUrl);
-    assert.equal(a.iconUrl, library.renderSymbol(special, { size: 35 }).dataUrl);
     assert.equal(b.config.sidc, pathfinder);
+});
+
+test('created symbols match the visible size of equivalent quick icons without shrinking text', () => {
+    const { symbols, iconSelector } = setup();
+    for (const [file, sidc] of [
+        ['symbols/friend/btl-inf-mtz.svg', '10031000161211000000'],
+        ['symbols/enemy/btl-inf-mtz.svg', '10061000161211000000'],
+        ['symbols/friend/pel-inf.svg', '10031000141211000000']
+    ]) {
+        const quickSvg = read(file);
+        const quickViewBox = quickSvg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+        const plain = symbols.render({ sidc, options: {} });
+        const svg = decodeURIComponent(plain.iconUrl);
+        const viewBox = svg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+        assert.deepEqual(viewBox, quickViewBox);
+        const quickScale = 40 / Math.max(quickViewBox[2], quickViewBox[3]);
+        assert.ok(Math.abs(plain.iconSize[0] / viewBox[2] - quickScale) < 1e-10);
+        assert.ok(Math.abs(plain.iconSize[1] / viewBox[3] - quickScale) < 1e-10);
+
+        const withText = symbols.render({ sidc, options: { uniqueDesignation: 'UNIDADE' } });
+        const textSvg = decodeURIComponent(withText.iconUrl);
+        const textViewBox = textSvg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+        assert.ok(textSvg.includes('UNIDADE'));
+        assert.ok(withText.iconSize[0] > plain.iconSize[0]);
+        assert.ok(Math.abs(withText.iconSize[0] / textViewBox[2] - quickScale) < 1e-10);
+        assert.ok(withText.iconAnchor[0] > plain.iconAnchor[0]);
+    }
+
+    const extended = symbols.render({ sidc: '100310001612189900000760000000', options: {} });
+    assert.ok(Math.abs(Math.max(...extended.iconSize) - 40) < 1e-10);
+    const old = { iconUrl: 'data:image/svg+xml,old', iconSize: [55.3, 37.8], iconAnchor: [27.65, 18.9] };
+    const restored = iconSelector.createStoredIcon(
+        JSON.parse(JSON.stringify({ militarySymbol: old })), { icon: options => options }
+    );
+    assert.deepEqual(Array.from(restored.iconSize), old.iconSize);
+    assert.deepEqual(Array.from(restored.iconAnchor), old.iconAnchor);
 });
 
 test('editor puts the preview above the controls and adapts its layout to the viewport', async () => {

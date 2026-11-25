@@ -203,7 +203,7 @@ test('worker caches the application shell, then serves it and its assets without
     const worker = loadWorker(caches, network);
     await worker.install();
 
-    const shell = await caches.open('planmilt-app-shell-v17');
+    const shell = await caches.open('planmilt-app-shell-v18');
     for (const asset of ['index.html', 'css/app.css', 'js/features/main.js', 'img/bg.png', 'js/features/map-3d-viewer.js']) {
         assert.ok(await shell.match(`${ORIGIN}/${asset}`), `${asset} deve estar no cache do shell`);
     }
