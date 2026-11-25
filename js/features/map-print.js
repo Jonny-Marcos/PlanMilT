@@ -331,7 +331,7 @@ body>*:not(#mapPrintSheets){display:none!important}
      * @param {Object} dependencies - `map`, `leaflet`, `Swal` e, opcionalmente, `doc`, `win` e `settleMs` (espera após o carregamento dos tiles).
      * @returns {{control: Object, open: Function, print: Function, close: Function}} Controle criado e ações disponíveis.
      */
-    function attach({ map, leaflet, Swal, doc = document, win = window, settleMs = 800 }) {
+    function attach({ map, leaflet, Swal, boundaryLayout, doc = document, win = window, settleMs = 800 }) {
         let session = null;
 
         /**
@@ -360,7 +360,7 @@ body>*:not(#mapPrintSheets){display:none!important}
          * @param {Object} sheetMap - Mapa da folha.
          * @returns {number} Quantidade de camadas que não puderam ser copiadas.
          */
-        function copyLayers(sheetMap) {
+        function copyLayers(sheetMap, zoom) {
             const utils = leaflet.BrowserPrint.Utils;
             let skipped = 0;
             for (const [name, pane] of Object.entries(map.getPanes())) {
@@ -382,10 +382,33 @@ body>*:not(#mapPrintSheets){display:none!important}
                     continue;
                 }
                 clone.addTo(sheetMap);
+                restyleBoundary(layer, clone, zoom);
                 const tooltip = layer.getTooltip && layer.getTooltip();
                 if (tooltip && clone.bindTooltip) clone.bindTooltip(tooltip.getContent(), tooltip.options);
             }
             return skipped;
+        }
+
+        /**
+         * Recalcula as lacunas de um limite tático no zoom da folha: o padrão tracejado
+         * é em pixels e, copiado do mapa na tela, não coincide com os símbolos impressos.
+         * @param {Object} layer - Camada original do mapa.
+         * @param {Object} clone - Cópia adicionada à folha.
+         * @param {number} zoom - Zoom da folha.
+         */
+        function restyleBoundary(layer, clone, zoom) {
+            const properties = layer.feature && layer.feature.properties;
+            if (!boundaryLayout || !clone.setStyle || !properties || !properties.boundaryId
+                || !properties.tacticalGraphic || properties.tacticalGraphic.name !== 'Boundary') return;
+            try {
+                const geometry = layer.toGeoJSON(false).geometry;
+                if (!geometry || !/LineString/.test(geometry.type)) return;
+                const count = Number((properties.tacticalGraphic.boundary || {}).count ?? 1);
+                const layout = boundaryLayout(geometry, count, zoom);
+                if (layout) clone.setStyle({ dashArray: layout.dashArray });
+            } catch (error) {
+                console.warn('[PlanMilT][Impressão] Não foi possível ajustar as lacunas de um limite.');
+            }
         }
 
         /**
@@ -567,7 +590,7 @@ body>*:not(#mapPrintSheets){display:none!important}
                 });
                 current.maps.push(sheetMap);
                 sheetMap.setView(sheet.center, settings.zoom, { animate: false });
-                skipped += copyLayers(sheetMap);
+                skipped += copyLayers(sheetMap, settings.zoom);
                 if (settings.footer) {
                     leaflet.control.scale({ maxWidth: 150, metric: true, imperial: false, position: 'bottomleft' }).addTo(sheetMap);
                 }

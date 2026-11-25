@@ -186,6 +186,9 @@
                     }
                 };
 
+            // A impressão em escala recalcula as lacunas dos limites no zoom de cada folha
+            window.PlanMilT.boundaryLayout = tacticalGraphics.getBoundaryLayout;
+
             if (!symbolsLibrary?.tacticalGraphics) {
                 tacticalGraphicsButton.classList.add('is-disabled');
                 tacticalGraphicsButton.title = 'Biblioteca de gráfico tático indisponível';

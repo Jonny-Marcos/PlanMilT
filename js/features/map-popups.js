@@ -67,7 +67,10 @@
             L.control.scale({maxWidth: 100, metric: true, imperial: false, position: 'bottomleft'}).addTo(map);
 
             // Controle de impressão em escala (A4/A3)
-            window.PlanMilT.mapPrint.attach({ map: map, leaflet: L, Swal: Swal });
+            window.PlanMilT.mapPrint.attach({
+                map: map, leaflet: L, Swal: Swal,
+                boundaryLayout: function (geometry, count, zoom) { return window.PlanMilT.boundaryLayout(geometry, count, zoom); }
+            });
 
 
 

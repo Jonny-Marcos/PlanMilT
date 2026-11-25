@@ -161,7 +161,11 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     const polygon = new Layer('polygon');
     polygon.tip = { getContent: () => 'Alvo', options: { permanent: true } };
     const group = new Layer('group');
-    map._layers = { 1: tile, 2: polygon, 3: group, 4: new Popup('popup'), 5: utm };
+    const boundary = new Layer('line');
+    boundary.feature = { properties: { boundaryId: 'b1', tacticalGraphic: { name: 'Boundary', boundary: { count: 3 } } } };
+    boundary.toGeoJSON = () => ({ geometry: { type: 'LineString', coordinates: [[0, 0], [1, 0]] } });
+    map._layers = { 1: tile, 2: polygon, 3: group, 4: new Popup('popup'), 5: utm, 6: boundary };
+    const layoutCalls = [];
     const sheetMaps = [];
     let scales = 0;
     const L = {
@@ -173,7 +177,8 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
                 getType: layer => (layer.kind === 'group' ? null : layer.kind),
                 cloneLayer: layer => {
                     const clone = { kind: layer.kind, tooltips: [], addTo(target) { target.added.push(this); return this; },
-                        bindTooltip(content) { this.tooltips.push(content); } };
+                        bindTooltip(content) { this.tooltips.push(content); },
+                        setStyle(style) { this.style = style; } };
                     return clone;
                 }
             }
@@ -200,7 +205,10 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
         print() { printed++; }
     };
     const warnings = [];
-    const api = mp.attach({ map, leaflet: L, Swal: {}, doc, win, settleMs: 0 });
+    const api = mp.attach({
+        map, leaflet: L, Swal: {}, doc, win, settleMs: 0,
+        boundaryLayout: (geometry, count, zoom) => { layoutCalls.push([geometry.type, count, zoom]); return { dashArray: `z${zoom}` }; }
+    });
     const settings = mp.resolveSettings({ paper: 'A4', orientation: 'portrait', scaleChoice: 'current', footer: true, overlap: '5' },
         { latitude: 0, currentZoom: 10, minZoom: 1, maxZoom: 28, computeGrid: (zoom, area, overlap) => mp.computeGrid(map, zoom, area, overlap) }).settings;
     await api.print(settings);
@@ -210,7 +218,7 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     assert.equal(printed, 1);
     assert.equal(scales, sheetMaps.length);
     for (const [index, sheetMap] of sheetMaps.entries()) {
-        assert.deepEqual(sheetMap.added.map(l => l.kind), ['tile', 'polygon', 'grid']);
+        assert.deepEqual(sheetMap.added.map(l => l.kind), ['tile', 'polygon', 'grid', 'line']);
         assert.notEqual(sheetMap.added[2], utm);
         assert.deepEqual(sheetMap.added[2].options, { color: '#800', weight: 2, minZoom: 4 });
         assert.deepEqual(sheetMap.added[1].tooltips, ['Alvo']);
@@ -220,6 +228,9 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
         assert.equal(sheetMap.panes.customPane.style.zIndex, '650');
         assert.equal(sheetMap.el.style.width, '190mm');
     }
+    // As lacunas do limite são recalculadas no zoom da folha, não copiadas do mapa da tela.
+    assert.deepEqual(layoutCalls, sheetMaps.map(() => ['LineString', 3, settings.zoom]));
+    assert.ok(sheetMaps.every(m => m.added[3].style.dashArray === `z${settings.zoom}`));
     const css = doc.head.children[0].textContent;
     assert.ok(css.includes('@page{size:A4 portrait;margin:0}'));
     assert.ok(css.includes('left:10mm;top:10mm'));
