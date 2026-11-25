@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/help-and-planning.js'), 'utf8');
 const welcomeSource = fs.readFileSync(path.join(__dirname, '../../js/features/welcome.js'), 'utf8');
 const mainSource = fs.readFileSync(path.join(__dirname, '../../js/features/main.js'), 'utf8');
+const sharedLayersSource = fs.readFileSync(path.join(__dirname, '../../js/features/shared-layers.js'), 'utf8');
 
 function setup(ready = Promise.resolve()) {
     const handlers = {};
@@ -77,11 +78,16 @@ test('help groups current tools in accessible expandable sections', () => {
     for (const term of ['<details', '<summary>', 'Dados do ponto', 'Simbologia militar',
         'Recentes', 'KMZ', 'Criar tema', 'Predição de Enlace', 'Pequena (Rápida), com 72 radiais; Média (Padrão), com 180; ou Alta (Lenta), com 360 radiais',
         'Penetração/Difração', 'Planejamento automático', 'Aparecer mensagem de boas-vindas',
-        'Salvar planejamento', 'identificador do planejamento']) {
+        'Salvar planejamento', 'nome do planejamento']) {
         assert.ok(html.includes(term), term);
     }
     assert.match(mainSource, /id="saveDrawings"[^>]*title="Salvar planejamento"/);
     assert.match(mainSource, /id="loadDrawings"[^>]*title="Carregar planejamento"/);
+    assert.match(sharedLayersSource, /<label for="userInput">Insira os nomes dos planejamentos:<\/label>/);
+    assert.match(sharedLayersSource, /id="userInput"[^>]*placeholder="Nome do planejamento"/);
+    assert.match(sharedLayersSource, /id="addUserBtn"[^>]*>Adicionar planejamento<\/button>/);
+    assert.match(sharedLayersSource, /Você deve inserir pelo menos um nome de planejamento/);
+    assert.match(sharedLayersSource, /camadasParam = encodeURIComponent\(users\.join\(','\)\)/);
 });
 
 test('help and welcome share the existing preference and preserve recent entries', () => {
@@ -135,8 +141,8 @@ test('successful planning suggestion saves enter recent list; failed ones do not
     const fixture = setup();
     fixture.handlers.savePlanningButton();
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(fixture.alerts[0].title, 'Identifique o planejamento');
-    assert.match(fixture.alerts[0].html, /placeholder="Identificador do planejamento"/);
+    assert.equal(fixture.alerts[0].title, 'Nome do planejamento');
+    assert.match(fixture.alerts[0].html, /placeholder="Nome do planejamento"/);
     const request = fixture.getRequest();
     request.success('Senha incorreta');
     request.error({ status: 500 }, 'error', 'failure');

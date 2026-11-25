@@ -170,8 +170,8 @@ test('save dialog presents labelled credentials, an optional explanation and cle
     const dialog = h.alerts[0][0];
     assert.equal(dialog.customClass.popup, 'drawing-save-modal');
     assert.match(dialog.html, /<style>[\s\S]*drawing-save-modal/);
-    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Identificador do planejamento/);
-    assert.match(dialog.html, /Informe o identificador e a senha do planejamento/);
+    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Nome do planejamento/);
+    assert.match(dialog.html, /Informe o nome e a senha do planejamento/);
     assert.match(dialog.html, /<label[^>]*for="swal-input-senha"[^>]*>Senha/);
     assert.match(dialog.html, /for="drawingAutoSaveChoice"/);
     assert.match(dialog.html, /aria-describedby="drawingAutoSaveDescription"/);
@@ -182,7 +182,7 @@ test('save dialog presents labelled credentials, an optional explanation and cle
     assert.equal(dialog.cancelButtonText, 'Cancelar');
     h.nodes['swal-input-senha'].value = '';
     assert.equal(dialog.preConfirm(), false);
-    assert.match(h.validationMessages[0], /Identificador e senha são necessários/);
+    assert.match(h.validationMessages[0], /Nome do planejamento e senha são necessários/);
 });
 
 test('save button indicates active automatic saving and clears warnings when resumed', async () => {

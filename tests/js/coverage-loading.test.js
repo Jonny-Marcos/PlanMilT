@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../js/features/drawing-loading.js'), 'utf8');
 const iconSource = fs.readFileSync(path.join(__dirname, '../../js/features/icon-selector.js'), 'utf8');
 
-test('loading a saved plan asks for its identifier rather than a user account', async () => {
+test('loading a saved plan asks for its name rather than a user account', async () => {
     let click;
     let prompt;
     const context = {
@@ -17,9 +17,9 @@ test('loading a saved plan asks for its identifier rather than a user account', 
     };
     vm.runInNewContext(source, context);
     await click();
-    assert.equal(prompt.title, 'Identifique o planejamento');
-    assert.equal(prompt.inputPlaceholder, 'Identificador do planejamento');
-    assert.match(prompt.inputValidator(''), /identificador do planejamento/);
+    assert.equal(prompt.title, 'Nome do planejamento');
+    assert.equal(prompt.inputPlaceholder, 'Nome do planejamento');
+    assert.match(prompt.inputValidator(''), /nome do planejamento/);
     assert.equal(prompt.inputValidator('plano-1'), undefined);
 });
 

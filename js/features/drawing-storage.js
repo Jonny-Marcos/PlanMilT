@@ -220,8 +220,8 @@ window.PlanMilT.drawingAutoSave = (() => {
             title: 'Salvar planejamento',
             html: `<style>${SAVE_MODAL_STYLES}</style>
 <div id="drawingSaveForm">
-    <p class="drawing-save-intro">Informe o identificador e a senha do planejamento para salvá-lo no servidor.</p>
-    <label class="drawing-save-field" for="swal-input-usuario">Identificador do planejamento
+    <p class="drawing-save-intro">Informe o nome e a senha do planejamento para salvá-lo no servidor.</p>
+    <label class="drawing-save-field" for="swal-input-usuario">Nome do planejamento
         <input type="text" id="swal-input-usuario" autocomplete="username">
     </label>
     <label class="drawing-save-field" for="swal-input-senha">Senha
@@ -250,7 +250,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 const usuario = document.getElementById('swal-input-usuario').value;
                 const senha = document.getElementById('swal-input-senha').value;
                 if (!usuario || !senha) {
-                    Swal.showValidationMessage('Identificador e senha são necessários!');
+                    Swal.showValidationMessage('Nome do planejamento e senha são necessários!');
                     return false;
                 }
                 return { usuario, senha, autoSave: askChoice && document.getElementById('drawingAutoSaveChoice').checked };

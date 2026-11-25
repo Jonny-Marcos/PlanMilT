@@ -4,15 +4,15 @@
  */
             document.getElementById('loadDrawings').addEventListener('click', async function() {
                 const { value: usuario } = await Swal.fire({
-                    title: 'Identifique o planejamento',
+                    title: 'Nome do planejamento',
                     input: 'text',
-                    inputPlaceholder: 'Identificador do planejamento',
+                    inputPlaceholder: 'Nome do planejamento',
                     showCancelButton: true,
                     cancelButtonText: 'Cancelar',
                     confirmButtonText: 'Confirmar',
                     inputValidator: (value) => {
                         if (!value) {
-                            return 'Informe o identificador do planejamento para carregá-lo.';
+                            return 'Informe o nome do planejamento para carregá-lo.';
                         }
                     }
                 });
@@ -47,7 +47,7 @@
                     if (!isValidGeoJson(geoJsonData)) {
                         if (localData) throw new Error('Rascunho local inválido.');
                         console.error('[PlanMilT][Desenhos] Resposta inválida ao carregar desenhos.');
-                        Swal.fire('Erro', 'Não foi possível carregar o planejamento. Verifique o identificador e o link!', 'error');
+                        Swal.fire('Erro', 'Não foi possível carregar o planejamento. Verifique o nome e o link!', 'error');
                         return;
                     }
 

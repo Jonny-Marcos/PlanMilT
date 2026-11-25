@@ -168,12 +168,12 @@
                 const { value: formValues } = await Swal.fire({
                     title: 'Compartilhar Camadas Ativas',
                     html:
-                    `<label for="userInput">Insira os nomes dos usuários:</label>
-<input id="userInput" class="swal2-input" placeholder="Nome de usuário" type="text">
+                    `<label for="userInput">Insira os nomes dos planejamentos:</label>
+<input id="userInput" class="swal2-input" placeholder="Nome do planejamento" type="text">
 <div id="userList" style="margin-top: 10px;"></div>
 <label for="imageSelect">Selecione as imagens:</label>
 <select id="imageSelect" class="swal2-input" multiple style="width: 100%; height: 150px;" size="6"></select>
-<button type="button" id="addUserBtn" class="swal2-confirm swal2-styled">Adicionar Usuário</button>`,
+<button type="button" id="addUserBtn" class="swal2-confirm swal2-styled">Adicionar planejamento</button>`,
                     focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonText: 'Gerar Link',
@@ -202,7 +202,7 @@
                         const users = Array.from(document.querySelectorAll('#userList .user')).map(el => el.textContent.trim());
                         const images = Array.from(document.querySelectorAll('#imageSelect option:checked')).map(el => el.value);
                         if (!users.length) {
-                            Swal.showValidationMessage('Você deve inserir pelo menos um nome de usuário!');
+                            Swal.showValidationMessage('Você deve inserir pelo menos um nome de planejamento!');
                             return false;
                         }
                         return { users, images };

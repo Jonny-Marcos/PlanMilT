@@ -41,7 +41,7 @@
 <p><b>Simbologia militar:</b> use o controle de escudo para pesquisar gráficos táticos por seção, ver a prévia e informar uma designação opcional antes de desenhar.</p>
 </div></details>
 <details><summary>Salvar, carregar e compartilhar</summary><div>
-<p><b>Salvar planejamento:</b> informe o identificador do planejamento e a senha. Para carregar, informe o identificador e escolha edição ou camada não editável.</p>
+<p><b>Salvar planejamento:</b> informe o nome do planejamento e a senha. Para carregar, informe o nome e escolha edição ou camada não editável.</p>
 <p><b>Recentes:</b> a tela de boas-vindas lista até dez planejamentos salvos ou carregados neste navegador. Não guarda senha nem cópia do conteúdo dos planejamentos; limpar os dados do navegador pode apagar a lista.</p>
 <p><b>KMZ e compartilhamento:</b> importe ou exporte arquivos KMZ e gere links para compartilhar camadas. Novas coberturas são incluídas no KMZ como imagens.</p>
 </div></details>
@@ -95,9 +95,9 @@
                 document.getElementById('savePlanningButton').addEventListener('click', function() {
                     // Utiliza o SweetAlert2 para identificar o planejamento e validar a senha.
                     Swal.fire({
-                        title: 'Identifique o planejamento',
+                        title: 'Nome do planejamento',
                         html: `
-<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Identificador do planejamento">
+<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Nome do planejamento">
 <input type="password" id="swal-input-senha" class="swal2-input" placeholder="Senha">
 `,
                         focusConfirm: false,
@@ -105,7 +105,7 @@
                             const usuario = document.getElementById('swal-input-usuario').value;
                             const senha = document.getElementById('swal-input-senha').value;
                             if (!usuario || !senha) {
-                                Swal.showValidationMessage('Identificador e senha são necessários!');
+                                Swal.showValidationMessage('Nome do planejamento e senha são necessários!');
                                 return false;
                             }
                             return { usuario: usuario, senha: senha };
