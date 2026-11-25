@@ -1,7 +1,8 @@
 /**
- * @fileoverview Impressão do mapa em folhas A4/A3, com escala fixa ou zoom atual, escala gráfica e rodapé.
+ * @fileoverview Impressão do mapa em folhas A4/A3: divide o quadro visível em quantas folhas forem
+ * necessárias na escala escolhida (zoom atual ou 1:N), repetindo as camadas ativas, com escala gráfica e rodapé.
  * @exports window.PlanMilT.mapPrint
- * @requires Leaflet, leaflet.browser.print e SweetAlert2
+ * @requires Leaflet, leaflet.browser.print (apenas o controle e as rotinas de clonagem de camadas) e SweetAlert2
  */
 window.PlanMilT = window.PlanMilT || {};
 
@@ -12,17 +13,19 @@ window.PlanMilT.mapPrint = (() => {
     });
     const PAGE_MARGIN_MM = 10;
     const FOOTER_HEIGHT_MM = 8;
-    // O plugin reserva a altura do rodapé mais 1 mm ao calcular a altura do mapa.
-    const FOOTER_RESERVED_MM = FOOTER_HEIGHT_MM + 1;
+    // Folga de 1 mm evita que o conteúdo ultrapasse a área útil e gere uma folha em branco.
+    const SAFETY_MM = 1;
     const CSS_PIXELS_PER_MM = 96 / 25.4;
     const METERS_PER_PIXEL_AT_ZOOM_0 = 156543.03392804097;
     const SCALE_PRESETS = Object.freeze([5000, 10000, 25000, 50000, 100000, 250000, 500000]);
     const MIN_SCALE = 1000;
     const MAX_SCALE = 5000000;
+    const MAX_SHEETS = 24;
+    const TILE_WAIT_LIMIT_MS = 30000;
     const ORIENTATION_LABELS = Object.freeze({ portrait: 'retrato', landscape: 'paisagem' });
 
     /**
-     * Calcula a área do mapa impresso dentro das margens da folha.
+     * Calcula a área do mapa impresso dentro das margens de uma folha.
      * @param {string} paper - Folha (`A4` ou `A3`).
      * @param {string} orientation - `portrait` ou `landscape`.
      * @param {boolean} withFooter - Indica se o rodapé reduz a altura do mapa.
@@ -33,10 +36,10 @@ window.PlanMilT.mapPrint = (() => {
         if (!size) throw new Error('Folha não suportada.');
         const short = size.width - 2 * PAGE_MARGIN_MM;
         const long = size.height - 2 * PAGE_MARGIN_MM;
-        const footer = withFooter ? FOOTER_RESERVED_MM : 0;
+        const reserved = SAFETY_MM + (withFooter ? FOOTER_HEIGHT_MM : 0);
         return orientation === 'landscape'
-            ? { width: long, height: short - footer }
-            : { width: short, height: long - footer };
+            ? { width: long, height: short - reserved }
+            : { width: short, height: long - reserved };
     }
 
     /**
@@ -62,7 +65,7 @@ window.PlanMilT.mapPrint = (() => {
     }
 
     /**
-     * Calcula a extensão do terreno coberta pela área impressa.
+     * Calcula a extensão do terreno coberta por uma folha.
      * @param {number} scale - Denominador da escala (1:N).
      * @param {{width: number, height: number}} areaMm - Área do mapa em milímetros.
      * @returns {{width: number, height: number}} Dimensões em metros.
@@ -101,9 +104,41 @@ window.PlanMilT.mapPrint = (() => {
     }
 
     /**
-     * Valida as escolhas do formulário e resolve escala e zoom de impressão.
+     * Divide o quadro visível do mapa em folhas contíguas, centralizando a grade sobre o quadro.
+     * @param {Object} map - Mapa Leaflet (usa `getBounds`, `project` e `unproject`).
+     * @param {number} zoom - Zoom (possivelmente fracionário) da impressão.
+     * @param {{width: number, height: number}} areaMm - Área do mapa em cada folha, em milímetros.
+     * @returns {{columns: number, rows: number, sheets: Array<{row: number, column: number, center: Object}>}} Grade de folhas, da esquerda para a direita e de cima para baixo.
+     */
+    function computeGrid(map, zoom, areaMm) {
+        const bounds = map.getBounds();
+        const northWest = map.project(bounds.getNorthWest(), zoom);
+        const southEast = map.project(bounds.getSouthEast(), zoom);
+        const pageWidth = areaMm.width * CSS_PIXELS_PER_MM;
+        const pageHeight = areaMm.height * CSS_PIXELS_PER_MM;
+        const width = southEast.x - northWest.x;
+        const height = southEast.y - northWest.y;
+        // A tolerância evita uma folha extra por erro de arredondamento em quadros que cabem exatamente.
+        const columns = Math.max(1, Math.ceil(width / pageWidth - 1e-6));
+        const rows = Math.max(1, Math.ceil(height / pageHeight - 1e-6));
+        const originX = northWest.x + width / 2 - columns * pageWidth / 2;
+        const originY = northWest.y + height / 2 - rows * pageHeight / 2;
+        const sheets = [];
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                sheets.push({
+                    row, column,
+                    center: map.unproject({ x: originX + (column + 0.5) * pageWidth, y: originY + (row + 0.5) * pageHeight }, zoom)
+                });
+            }
+        }
+        return { columns, rows, sheets };
+    }
+
+    /**
+     * Valida as escolhas do formulário e resolve escala, zoom e grade de folhas.
      * @param {Object} input - Valores do formulário (`paper`, `orientation`, `scaleChoice`, `customScale`, `footer`).
-     * @param {Object} context - Contexto do mapa (`latitude`, `currentZoom`, `minZoom`, `maxZoom`).
+     * @param {Object} context - Contexto do mapa (`latitude`, `currentZoom`, `minZoom`, `maxZoom`, `computeGrid` opcional).
      * @returns {{settings?: Object, error?: string}} Configuração pronta ou mensagem de erro.
      */
     function resolveSettings(input, context) {
@@ -128,61 +163,60 @@ window.PlanMilT.mapPrint = (() => {
         }
         const footer = Boolean(input.footer);
         const areaMm = getMapAreaMm(input.paper, input.orientation, footer);
+        const grid = context.computeGrid ? context.computeGrid(zoom, areaMm) : null;
+        if (grid && grid.sheets.length > MAX_SHEETS) {
+            return { error: `Esta escala exige ${grid.sheets.length} folhas (máximo ${MAX_SHEETS}). Aproxime o mapa ou use uma escala menor.` };
+        }
         return {
             settings: {
                 paper: input.paper, orientation: input.orientation, scale, zoom, approximate, footer,
-                areaMm, groundMeters: getGroundSizeMeters(scale, areaMm)
+                areaMm, groundMeters: getGroundSizeMeters(scale, areaMm), grid
             }
         };
     }
 
     /**
-     * Monta o texto do rodapé da folha impressa.
+     * Monta o texto do rodapé de uma folha impressa.
      * @param {Object} settings - Configuração resolvida da impressão.
+     * @param {{row: number, column: number}} [sheet] - Folha atual, para numerá-la.
      * @param {Date} [date] - Data de impressão.
      * @returns {string} Texto simples do rodapé.
      */
-    function buildFooterText(settings, date = new Date()) {
+    function buildFooterText(settings, sheet, date = new Date()) {
         const scale = settings.approximate ? `Escala aproximada ${formatScale(roundScale(settings.scale))}`
             : `Escala ${formatScale(settings.scale)}`;
-        return `${scale} · Folha ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]} · `
-            + `Impresso em ${date.toLocaleDateString('pt-BR')}`;
+        const parts = [scale, `Folha ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]}`];
+        const grid = settings.grid;
+        if (sheet && grid && grid.sheets.length > 1) {
+            const number = sheet.row * grid.columns + sheet.column + 1;
+            parts.push(`Folha ${number} de ${grid.sheets.length} (linha ${sheet.row + 1}, coluna ${sheet.column + 1})`);
+        }
+        parts.push(`Impresso em ${date.toLocaleDateString('pt-BR')}`);
+        return parts.join(' · ');
     }
 
     /**
-     * Cria o modo do plugin de impressão para a configuração escolhida.
-     * @param {Object} leaflet - Namespace Leaflet com `BrowserPrint`.
+     * Gera o CSS da sobreposição de impressão (tela e `@media print`).
      * @param {Object} settings - Configuração resolvida da impressão.
-     * @returns {Object} Modo de impressão do plugin.
+     * @returns {string} Texto CSS.
      */
-    function buildMode(leaflet, settings) {
-        const factory = settings.orientation === 'landscape'
-            ? leaflet.BrowserPrint.Mode.Landscape : leaflet.BrowserPrint.Mode.Portrait;
-        return factory(settings.paper, {
-            title: `${settings.paper} ${ORIENTATION_LABELS[settings.orientation]}`,
-            margin: PAGE_MARGIN_MM,
-            zoom: settings.zoom,
-            footer: {
-                enabled: settings.footer, text: buildFooterText(settings),
-                size: `${FOOTER_HEIGHT_MM}mm`, overTheMap: false
-            }
-        });
-    }
-
-    /**
-     * Faz o plugin usar milímetros físicos, sem multiplicar a folha por `devicePixelRatio`.
-     * @param {Object} helper - `L.BrowserPrint.Helper`.
-     */
-    function ignorePixelRatio(helper) {
-        if (helper.pixelRatioIgnored) return;
-        const original = helper.getSize;
-        helper.getSize = function getSizeWithoutPixelRatio(mode, orientation) {
-            const size = original.call(this, mode, orientation);
-            const ratio = window.devicePixelRatio || 1;
-            const toMm = value => `${Math.round(parseFloat(value) / ratio * 1000) / 1000}mm`;
-            return { Width: toMm(size.Width), Height: toMm(size.Height) };
-        };
-        helper.pixelRatioIgnored = true;
+    function buildPrintCss(settings) {
+        return `#mapPrintSheets{position:fixed;inset:0;z-index:100000;overflow:auto;background:#6b7280;padding:56px 0 20px;font-family:sans-serif}
+#mapPrintSheets .map-print-bar{position:fixed;top:0;left:0;right:0;height:44px;z-index:2;display:flex;align-items:center;gap:8px;padding:0 12px;background:#243447;color:#fff;font-size:14px}
+#mapPrintSheets .map-print-bar button{height:30px;padding:0 12px;border:0;border-radius:6px;cursor:pointer;font:inherit}
+#mapPrintSheets .map-print-sheet{background:#fff;margin:0 auto 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
+#mapPrintSheets .map-print-map{outline:.25mm solid #444;outline-offset:-.25mm}
+#mapPrintSheets .map-print-footer{font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;color:#000}
+@media print{
+html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+body>*:not(#mapPrintSheets){display:none!important}
+#mapPrintSheets{position:static;inset:auto;overflow:visible;background:none;padding:0}
+#mapPrintSheets .map-print-bar{display:none}
+#mapPrintSheets .map-print-sheet{margin:0;box-shadow:none;break-after:page;page-break-after:always}
+#mapPrintSheets .map-print-sheet:last-child{break-after:auto;page-break-after:auto}
+@page{size:${settings.paper} ${settings.orientation};margin:${PAGE_MARGIN_MM}mm}
+*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}`;
     }
 
     /**
@@ -212,59 +246,152 @@ window.PlanMilT.mapPrint = (() => {
 <input id="mapPrintCustomScale" type="number" min="${MIN_SCALE}" max="${MAX_SCALE}" step="1" placeholder="Ex.: 40000" aria-label="Denominador da escala" hidden>
 <label class="map-print-check"><input id="mapPrintFooter" type="checkbox" checked> Incluir escala gráfica e rodapé com a escala</label>
 <p id="mapPrintSummary" role="status"></p>
-<p class="map-print-hint">A impressão é centralizada no centro do mapa visível. A escala é exata na latitude desse centro. Na janela do navegador, use o mesmo papel e orientação, escala 100 % (sem “ajustar à página”) e desative cabeçalhos e rodapés.</p>
+<p class="map-print-hint">Todo o quadro visível no mapa é impresso, em quantas folhas forem necessárias (até ${MAX_SHEETS}), com as camadas ativas. A escala é exata na latitude do centro do mapa. Na janela do navegador, use o mesmo papel e orientação, escala 100 % (sem “ajustar à página”) e desative cabeçalhos e rodapés.</p>
 </div>`;
     }
 
     /**
      * Liga o controle de impressão ao mapa.
-     * @param {Object} dependencies - Mapa, Leaflet e SweetAlert2.
-     * @returns {{control: Object, open: Function, print: Function}} Controle criado e ações disponíveis.
+     * @param {Object} dependencies - `map`, `leaflet`, `Swal` e, opcionalmente, `doc`, `win` e `settleMs` (espera após o carregamento dos tiles).
+     * @returns {{control: Object, open: Function, print: Function, close: Function}} Controle criado e ações disponíveis.
      */
-    function attach({ map, leaflet, Swal }) {
-        ignorePixelRatio(leaflet.BrowserPrint.Helper);
-        const printer = leaflet.browserPrint(map, { documentTitle: 'Planejamento PlanMilT', closePopupsOnPrint: true });
-        let pending = null;
-        let savedZoomSnap;
-        let snapOverridden = false;
-
-        /** Permite zoom fracionário apenas na criação do mapa de impressão. */
-        function allowFractionalZoom() {
-            savedZoomSnap = Object.prototype.hasOwnProperty.call(map.options, 'zoomSnap')
-                ? map.options.zoomSnap : undefined;
-            map.options.zoomSnap = 0;
-            snapOverridden = true;
-        }
-
-        /** Restaura o ajuste de zoom do mapa principal. */
-        function restoreZoomSnap() {
-            if (!snapOverridden) return;
-            if (savedZoomSnap === undefined) delete map.options.zoomSnap;
-            else map.options.zoomSnap = savedZoomSnap;
-            snapOverridden = false;
-        }
-
-        map.on(leaflet.BrowserPrint.Event.PrintInit, allowFractionalZoom);
-        map.on(leaflet.BrowserPrint.Event.PrintCancel, () => { restoreZoomSnap(); pending = null; });
-        map.on(leaflet.BrowserPrint.Event.PrintStart, event => {
-            restoreZoomSnap();
-            if (!pending) return;
-            if (pending.footer) {
-                leaflet.control.scale({ maxWidth: 150, metric: true, imperial: false, position: 'bottomleft' })
-                    .addTo(event.printMap);
-                const footer = document.getElementById('print-footer');
-                if (footer) footer.style.fontSize = '12px';
-            }
-        });
-        map.on(leaflet.BrowserPrint.Event.PrintEnd, () => { pending = null; });
+    function attach({ map, leaflet, Swal, doc = document, win = window, settleMs = 800 }) {
+        let session = null;
 
         /**
-         * Imprime com a configuração resolvida.
-         * @param {Object} settings - Resultado de `resolveSettings`.
+         * Informa se algum mapa de folha ainda carrega tiles.
+         * @param {Array<Object>} maps - Mapas das folhas.
+         * @returns {boolean} Verdadeiro enquanto houver carregamento.
          */
-        function print(settings) {
-            pending = settings;
-            printer.print(buildMode(leaflet, settings));
+        function isLoading(maps) {
+            return maps.some(sheetMap => Object.values(sheetMap._layers || {}).some(layer => layer._loading));
+        }
+
+        /**
+         * Copia para o mapa da folha as camadas hoje visíveis no mapa principal.
+         * @param {Object} sheetMap - Mapa da folha.
+         * @returns {number} Quantidade de camadas que não puderam ser copiadas.
+         */
+        function copyLayers(sheetMap) {
+            const utils = leaflet.BrowserPrint.Utils;
+            let skipped = 0;
+            for (const [name, pane] of Object.entries(map.getPanes())) {
+                if (!sheetMap.getPane(name)) {
+                    const created = sheetMap.createPane(name);
+                    if (created && created.style && pane && pane.style) created.style.zIndex = pane.style.zIndex;
+                }
+            }
+            for (const layer of Object.values(map._layers)) {
+                if (layer instanceof leaflet.Popup || layer instanceof leaflet.Tooltip || !utils.getType(layer)) continue;
+                const clone = utils.cloneLayer(layer);
+                if (!clone) {
+                    skipped++;
+                    continue;
+                }
+                clone.addTo(sheetMap);
+                const tooltip = layer.getTooltip && layer.getTooltip();
+                if (tooltip && clone.bindTooltip) clone.bindTooltip(tooltip.getContent(), tooltip.options);
+            }
+            return skipped;
+        }
+
+        /** Remove a sobreposição de impressão e libera os mapas das folhas. */
+        function close() {
+            if (!session) return;
+            const current = session;
+            session = null;
+            current.cancelled = true;
+            clearTimeout(current.timer);
+            win.removeEventListener('afterprint', current.onAfterPrint);
+            current.maps.forEach(sheetMap => sheetMap.remove());
+            current.overlay.remove();
+            current.style.remove();
+        }
+
+        /**
+         * Monta as folhas, espera os tiles e abre a impressão do navegador.
+         * @param {Object} settings - Resultado de `resolveSettings`.
+         * @returns {Promise<void>} Resolve quando a impressão do navegador for solicitada ou cancelada.
+         */
+        async function print(settings) {
+            close();
+            leaflet.BrowserPrint.Utils.initialize();
+            const grid = settings.grid || computeGrid(map, settings.zoom, settings.areaMm);
+            const footerMm = settings.footer ? FOOTER_HEIGHT_MM : 0;
+            const style = doc.createElement('style');
+            style.textContent = buildPrintCss(settings);
+            doc.head.appendChild(style);
+            const overlay = doc.createElement('div');
+            overlay.id = 'mapPrintSheets';
+            const bar = doc.createElement('div');
+            bar.className = 'map-print-bar';
+            const status = doc.createElement('span');
+            const printButton = doc.createElement('button');
+            printButton.textContent = 'Imprimir';
+            printButton.disabled = true;
+            const closeButton = doc.createElement('button');
+            closeButton.textContent = 'Fechar';
+            bar.append(status, printButton, closeButton);
+            overlay.appendChild(bar);
+            doc.body.appendChild(overlay);
+            const current = { overlay, style, maps: [], timer: null, cancelled: false, onAfterPrint: () => close() };
+            session = current;
+            closeButton.addEventListener('click', close);
+            printButton.addEventListener('click', () => win.print());
+            win.addEventListener('afterprint', current.onAfterPrint);
+            status.textContent = `Preparando ${grid.sheets.length} folha(s) ${settings.paper}…`;
+
+            let skipped = 0;
+            for (const sheet of grid.sheets) {
+                const sheetEl = doc.createElement('div');
+                sheetEl.className = 'map-print-sheet';
+                sheetEl.style.width = `${settings.areaMm.width}mm`;
+                sheetEl.style.height = `${settings.areaMm.height + footerMm}mm`;
+                const mapEl = doc.createElement('div');
+                mapEl.className = 'map-print-map';
+                mapEl.style.width = `${settings.areaMm.width}mm`;
+                mapEl.style.height = `${settings.areaMm.height}mm`;
+                sheetEl.appendChild(mapEl);
+                if (settings.footer) {
+                    const footerEl = doc.createElement('div');
+                    footerEl.className = 'map-print-footer';
+                    footerEl.style.height = `${footerMm}mm`;
+                    footerEl.style.lineHeight = `${footerMm}mm`;
+                    footerEl.textContent = buildFooterText(settings, sheet);
+                    sheetEl.appendChild(footerEl);
+                }
+                overlay.appendChild(sheetEl);
+                const sheetMap = leaflet.map(mapEl, {
+                    crs: map.options.crs, minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom(), zoomSnap: 0,
+                    zoomControl: false, attributionControl: false, dragging: false, keyboard: false,
+                    scrollWheelZoom: false, touchZoom: false, doubleClickZoom: false, boxZoom: false, tap: false,
+                    zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false
+                });
+                current.maps.push(sheetMap);
+                sheetMap.setView(sheet.center, settings.zoom, { animate: false });
+                skipped += copyLayers(sheetMap);
+                if (settings.footer) {
+                    leaflet.control.scale({ maxWidth: 150, metric: true, imperial: false, position: 'bottomleft' }).addTo(sheetMap);
+                }
+            }
+            if (skipped) console.warn(`[PlanMilT][Impressão] ${skipped} camada(s) sem suporte à impressão foram omitidas.`);
+
+            const startedAt = Date.now();
+            await new Promise(resolve => {
+                const poll = () => {
+                    if (current.cancelled) return resolve();
+                    if (isLoading(current.maps) && Date.now() - startedAt < TILE_WAIT_LIMIT_MS) {
+                        current.timer = setTimeout(poll, 100);
+                    } else {
+                        current.timer = setTimeout(resolve, settleMs);
+                    }
+                };
+                poll();
+            });
+            if (current.cancelled) return;
+            status.textContent = `${grid.sheets.length} folha(s) ${settings.paper} · ${formatScale(settings.scale)}. Use Imprimir se a janela não abrir.`;
+            printButton.disabled = false;
+            win.print();
         }
 
         /**
@@ -275,10 +402,11 @@ window.PlanMilT.mapPrint = (() => {
             const latitude = map.getCenter().lat;
             const size = map.getSize();
             const context = {
-                latitude, currentZoom: map.getZoom(), minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom()
+                latitude, currentZoom: map.getZoom(), minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom(),
+                computeGrid: (zoom, areaMm) => computeGrid(map, zoom, areaMm)
             };
             const readForm = () => {
-                const value = id => document.getElementById(id);
+                const value = id => doc.getElementById(id);
                 return resolveSettings({
                     paper: value('mapPrintPaper').value, orientation: value('mapPrintOrientation').value,
                     scaleChoice: value('mapPrintScale').value, customScale: value('mapPrintCustomScale').value,
@@ -296,18 +424,23 @@ window.PlanMilT.mapPrint = (() => {
                 confirmButtonText: 'Imprimir',
                 cancelButtonText: 'Cancelar',
                 didOpen: () => {
-                    const summary = document.getElementById('mapPrintSummary');
-                    const custom = document.getElementById('mapPrintCustomScale');
+                    const summary = doc.getElementById('mapPrintSummary');
+                    const custom = doc.getElementById('mapPrintCustomScale');
                     const refresh = () => {
-                        custom.hidden = document.getElementById('mapPrintScale').value !== 'custom';
+                        custom.hidden = doc.getElementById('mapPrintScale').value !== 'custom';
                         const { settings, error } = readForm();
-                        summary.textContent = error ? (custom.hidden || custom.value ? error : 'Informe a escala desejada.')
-                            : `${settings.approximate ? 'Escala aproximada' : 'Escala'} `
-                            + `${formatScale(settings.approximate ? roundScale(settings.scale) : settings.scale)} · cobre `
-                            + `${formatDistance(settings.groundMeters.width)} × ${formatDistance(settings.groundMeters.height)} no terreno.`;
+                        if (error) {
+                            summary.textContent = custom.hidden || custom.value ? error : 'Informe a escala desejada.';
+                            return;
+                        }
+                        const count = settings.grid.sheets.length;
+                        summary.textContent = `${settings.approximate ? 'Escala aproximada' : 'Escala'} `
+                            + `${formatScale(settings.approximate ? roundScale(settings.scale) : settings.scale)} · `
+                            + `${count} folha${count > 1 ? 's' : ''} (${settings.grid.columns} × ${settings.grid.rows}); cada uma cobre `
+                            + `${formatDistance(settings.groundMeters.width)} × ${formatDistance(settings.groundMeters.height)}.`;
                     };
                     for (const id of ['mapPrintPaper', 'mapPrintOrientation', 'mapPrintScale', 'mapPrintFooter']) {
-                        document.getElementById(id).addEventListener('change', refresh);
+                        doc.getElementById(id).addEventListener('change', refresh);
                     }
                     custom.addEventListener('input', refresh);
                     refresh();
@@ -323,10 +456,9 @@ window.PlanMilT.mapPrint = (() => {
             });
             if (!result.isConfirmed) return null;
             try {
-                print(result.value);
+                await print(result.value);
             } catch (error) {
-                restoreZoomSnap();
-                pending = null;
+                close();
                 console.error('[PlanMilT][Impressão] Falha ao preparar a impressão.', error);
                 await Swal.fire('Erro', 'Não foi possível preparar a impressão do mapa.', 'error');
                 return null;
@@ -337,13 +469,13 @@ window.PlanMilT.mapPrint = (() => {
         const entry = leaflet.BrowserPrint.Mode.Portrait('A4', { title: 'Imprimir mapa', action: () => () => { open(); } });
         const control = leaflet.control.browserPrint({
             position: 'topright', title: 'Imprimir mapa (A4/A3, em escala)', printModes: [entry]
-        }, printer).addTo(map);
-        return { control, open, print };
+        }).addTo(map);
+        return { control, open, print, close };
     }
 
     return Object.freeze({
-        PAPER_SIZES_MM, PAGE_MARGIN_MM, SCALE_PRESETS, getMapAreaMm, scaleForZoom, zoomForScale,
-        getGroundSizeMeters, roundScale, formatScale, formatDistance, resolveSettings, buildFooterText,
-        buildMode, ignorePixelRatio, attach
+        PAPER_SIZES_MM, PAGE_MARGIN_MM, SCALE_PRESETS, MAX_SHEETS, getMapAreaMm, scaleForZoom, zoomForScale,
+        getGroundSizeMeters, roundScale, formatScale, formatDistance, computeGrid, resolveSettings,
+        buildFooterText, attach
     });
 })();
