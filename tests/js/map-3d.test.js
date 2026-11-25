@@ -99,12 +99,12 @@ function setup({ terrainResults = [{ elevations: [[100, 110], [100, 110]], missi
     context.coverageGroup = {};
     vm.runInNewContext(source, context);
     return {
-        context, viewer, requests, messages, textures, textureOptions, overlay, frame, button, classes, downloads,
+        context, viewer, requests, messages, textures, textureOptions, overlay, frame, button, classes, downloads, listeners,
             context, viewer, requests, messages, textures, textureOptions, textureZooms, terrainLookups, overlay, frame, button, classes, downloads,
         click: () => click(),
         message(event) {
             if (event.data?.type === 'planmilt-3d-ready' && !frame.contentDocument) {
-                this.setViewerLayout('offline-3d-presets-v1');
+                this.setViewerLayout('offline-3d-presets-v2');
             }
             listeners.get('message')(event);
         },
@@ -127,6 +127,7 @@ test('opens the embedded viewer, sends a snapshot, and returns to the unchanged 
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     const dataMessage = h.messages.find(entry => entry.message.type === 'planmilt-3d-data');
+    assert.equal(h.messages.find(entry => entry.message.type === 'planmilt-3d-connection').message.offline, false);
     assert.equal(dataMessage.origin, 'https://plan.test');
     assert.equal(dataMessage.message.payload.image, 'data:image/png;base64,AA==');
     assert.equal(dataMessage.message.payload.zoom, 12);
@@ -156,6 +157,7 @@ test('allows offline 3D rendering from cached textures without trying to downloa
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     const dataMessage = h.messages.find(entry => entry.message.type === 'planmilt-3d-data');
+    assert.equal(h.messages.find(entry => entry.message.type === 'planmilt-3d-connection').message.offline, true);
     assert.equal(h.textureOptions[0].offlineOnly, true);
     assert.equal(h.textureOptions[0].zoom, undefined);
     assert.equal(h.textureOptions[0].tileLayer, openTopoLayer);
@@ -165,6 +167,9 @@ test('allows offline 3D rendering from cached textures without trying to downloa
         south: -21.7, west: -51.4, north: -21.4, east: -51.1
     });
     assert.deepEqual(h.downloads, []);
+    h.context.window.navigator.onLine = true;
+    h.listeners.get('online')();
+    assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-connection').at(-1).message.offline, false);
     assert.deepEqual(Array.from(dataMessage.message.payload.missingTiles), ['S22W052.HGT']);
     assert.equal(dataMessage.message.payload.zoomRequested, 12);
 });
@@ -182,7 +187,7 @@ test('reloads a retained iframe when its 3D layout is outdated', async () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 0);
 
-    h.setViewerLayout('offline-3d-presets-v1');
+    h.setViewerLayout('offline-3d-presets-v2');
     h.message({ origin: 'https://plan.test', source: h.viewer, data: { type: 'planmilt-3d-ready', source: 'opentopo' } });
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.requests.length, 1);
@@ -324,7 +329,7 @@ test('does not publish an outdated snapshot after closing and reopening', async 
     assert.equal(h.messages.filter(entry => entry.message.type === 'planmilt-3d-data').length, 1);
 });
 
-test('the embedded renderer communicates only with its parent and provides a return control', () => {
+test('the embedded renderer synchronizes offline state with its parent and provides a return control', () => {
     const messages = [];
     const events = {};
     const elements = {};
@@ -332,15 +337,23 @@ test('the embedded renderer communicates only with its parent and provides a ret
         elements[id] = { hidden: false, events: {}, addEventListener(name, callback) { this.events[name] = callback; }, setAttribute(name, value) { this[name] = value; } };
     }
     elements.terrainCanvas.getContext = () => null;
+    elements.viewerConnectionStatus.hidden = true;
     elements.baseLayer3D.value = 'opentopo';
     elements.baseZoom3D.value = '';
     const host = { postMessage: (message, origin) => messages.push({ message, origin }) };
     const window = {
         parent: host, location: { origin: 'https://plan.test' },
+        navigator: { onLine: true },
         matchMedia: () => ({ matches: true, addEventListener() {} }),
         addEventListener(name, callback) { events[name] = callback; }
     };
     vm.runInNewContext(viewerSource, { window, document: { getElementById: id => elements[id] } });
+    events.message({ origin: 'https://attacker.test', source: host, data: { type: 'planmilt-3d-connection', offline: true } });
+    assert.equal(elements.viewerConnectionStatus.hidden, true);
+    events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-connection', offline: true } });
+    assert.equal(elements.viewerConnectionStatus.hidden, false);
+    events.message({ origin: 'https://plan.test', source: host, data: { type: 'planmilt-3d-connection', offline: false } });
+    assert.equal(elements.viewerConnectionStatus.hidden, true);
     elements.closeViewer.events.click();
     elements.refreshViewer.events.click();
     assert.deepEqual(messages.map(entry => entry.message.type), ['planmilt-3d-close', 'planmilt-3d-refresh']);
@@ -483,10 +496,10 @@ test('3D controls use a bottom-centered light toolbar on desktop and mobile', ()
     assert.match(viewerHtml, /class="fas fa-layer-group viewer-control-icon"/);
     assert.match(viewerHtml, /class="sr-only"/);
     assert.match(viewerHtml, /id="toggleViewerControls"[^>]*aria-controls="viewerControlFields"[^>]*aria-expanded="true"/);
-    assert.match(viewerHtml, /data-planmilt-viewer-layout="offline-3d-presets-v1"/);
+    assert.match(viewerHtml, /data-planmilt-viewer-layout="offline-3d-presets-v2"/);
     assert.match(viewerHtml, /id="viewerAttribution"[\s\S]*id="viewerControlFields"/);
-    assert.match(viewerHtml, /<div class="viewer-messages">\s*<div id="viewerConnectionStatus"[\s\S]*<div id="viewerWarnings"[\s\S]*<div id="viewerStatus"/);
-    assert.match(cssSource, /body\.map-3d-open\s+\.offline-status\s*\{\s*display:\s*none/);
+    assert.match(viewerHtml, /<div class="viewer-actions">\s*<span id="viewerConnectionStatus"[^>]*aria-label="Modo offline"[^>]*hidden>/);
     assert.match(viewerHtml, /#viewerConnectionStatus\[hidden\]\s*\{\s*display:\s*none/);
+    assert.match(cssSource, /body\.map-3d-open\s+\.offline-status\s*\{\s*display:\s*none/);
     assert.match(viewerHtml, /map-3d-viewer\.js/);
 });

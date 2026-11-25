@@ -305,6 +305,10 @@ void main() {
 
     window.addEventListener('message', event => {
         if (!host || event.source !== host || event.origin !== origin || !event.data) return;
+        if (event.data.type === 'planmilt-3d-connection' && typeof event.data.offline === 'boolean') {
+            connectionStatus.hidden = !event.data.offline;
+            return;
+        }
         if (event.data.type === 'planmilt-3d-status' && typeof event.data.message === 'string') {
             showStatus(event.data.message);
             return;

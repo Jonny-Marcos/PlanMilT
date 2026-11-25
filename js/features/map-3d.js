@@ -6,7 +6,7 @@
     const button = document.getElementById('view3DButton');
     const overlay = document.getElementById('map3DOverlay');
     const frame = document.getElementById('map3DFrame');
-    const viewerLayout = 'offline-3d-presets-v1';
+    const viewerLayout = 'offline-3d-presets-v2';
     let viewerReady = false;
     let selectedSource = 'opentopo';
     let selectedZoom = null;
@@ -34,6 +34,16 @@
             frame.contentWindow.postMessage(message, window.location.origin);
         }
     }
+
+    /**
+     * Sincroniza o estado de conexão da página principal com o indicador do iframe.
+     */
+    function syncConnectionStatus() {
+        post({ type: 'planmilt-3d-connection', offline: window.navigator?.onLine === false });
+    }
+
+    window.addEventListener('online', syncConnectionStatus);
+    window.addEventListener('offline', syncConnectionStatus);
 
     /**
      * Atualiza a textura da camada-base e a grade de elevação no visualizador 3D.
@@ -179,7 +189,10 @@
             button.focus();
             return;
         }
-        if (event.data.type === 'planmilt-3d-ready') viewerReady = true;
+        if (event.data.type === 'planmilt-3d-ready') {
+            viewerReady = true;
+            syncConnectionStatus();
+        }
         if (!overlay.hidden && (event.data.type === 'planmilt-3d-ready' || event.data.type === 'planmilt-3d-refresh')) {
             if (!['opentopo', 'bdgex'].includes(event.data.source)) return;
             if (event.data.zoom !== undefined && event.data.zoom !== null

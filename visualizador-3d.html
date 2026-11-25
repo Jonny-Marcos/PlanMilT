@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-br" data-planmilt-viewer-layout="offline-3d-presets-v1">
+<html lang="pt-br" data-planmilt-viewer-layout="offline-3d-presets-v2">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -60,9 +60,10 @@
         #viewerStatus[hidden], #viewerWarnings[hidden] { display: none; }
         #viewerWarnings { color: #ffe4a8; background: #382e19e8; }
         #viewerConnectionStatus {
-            align-self: flex-start; display: flex; align-items: center; gap: 6px;
-            padding: 7px 12px; border: 1px solid #a96916; border-radius: 6px;
-            background: #fff4d6; color: #70420a; font-size: 13px; font-weight: 600;
+            display: inline-flex; flex: 0 0 36px; align-items: center; justify-content: center;
+            width: 36px; min-width: 36px; min-height: 34px; padding: 5px;
+            border: 1px solid #a96916; border-radius: 5px;
+            background: #fff4d6; color: #70420a; font-size: 14px; cursor: help;
         }
         #viewerConnectionStatus[hidden] { display: none; }
         @media (max-width: 600px), (hover: none) and (pointer: coarse) {
@@ -98,6 +99,9 @@
         <p id="viewerAttribution"></p>
         <aside class="viewer-controls" aria-label="Controles do visualizador">
             <div class="viewer-actions">
+                <span id="viewerConnectionStatus" role="status" aria-label="Modo offline" title="Modo offline" hidden>
+                    <i class="fas fa-wifi" aria-hidden="true"></i>
+                </span>
                 <button id="toggleViewerControls" type="button" aria-label="Ocultar controles" title="Ocultar controles" aria-controls="viewerControlFields" aria-expanded="true"><i class="fas fa-sliders-h" aria-hidden="true"></i><span class="sr-only">Controles</span></button>
                 <button id="refreshViewer" type="button" aria-label="Atualizar com o mapa 2D" title="Atualizar com o mapa 2D"><i class="fas fa-sync-alt viewer-action-icon" aria-hidden="true"></i><span class="viewer-action-label">Atualizar</span></button>
                 <button id="resetCamera" type="button" aria-label="Restaurar vista" title="Restaurar vista"><i class="fas fa-undo viewer-action-icon" aria-hidden="true"></i><span class="viewer-action-label">Restaurar vista</span></button>
@@ -134,10 +138,6 @@
         </aside>
     </header>
     <div class="viewer-messages">
-        <div id="viewerConnectionStatus" role="status" aria-live="polite" hidden>
-            <i class="fas fa-wifi" aria-hidden="true"></i>
-            Modo offline
-        </div>
         <div id="viewerWarnings" role="status" aria-live="polite" hidden></div>
         <div id="viewerStatus" role="status" aria-live="polite">Abra o visualizador pelo botão 3D no mapa PlanMilT.</div>
     </div>
