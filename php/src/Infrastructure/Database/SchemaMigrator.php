@@ -12,7 +12,7 @@ use Throwable;
  */
 final class SchemaMigrator
 {
-    private const VERSION = 9;
+    private const VERSION = 10;
 
     /**
      * Renomeia o esquema legado e padroniza timestamps sem remover registros.
@@ -274,6 +274,9 @@ final class SchemaMigrator
                     "SELECT setting_value FROM app_settings WHERE setting_key = 'map_defaults'"
                 );
                 $rawDefaults = $statement ? $statement->fetchColumn() : false;
+                if ($statement !== false) {
+                    $statement->closeCursor();
+                }
                 $mapDefaults = is_string($rawDefaults) ? json_decode($rawDefaults, true) : null;
                 if (is_array($mapDefaults)
                     && ($mapDefaults['defaultLayers'] ?? null) === ['OpenTopo']
@@ -292,6 +295,22 @@ final class SchemaMigrator
                     ]);
                 }
                 $database->exec('PRAGMA user_version = 9');
+            }
+
+            if ($version < 10) {
+                self::renameTable($database, 'drawings', 'plans');
+                self::renameColumn($database, 'plans', 'username', 'name');
+                if (!self::tableExists($database, 'plans')
+                    || !self::columnExists($database, 'plans', 'name')
+                    || !self::columnExists($database, 'plans', 'link')) {
+                    throw new RuntimeException(
+                        'A tabela de planejamentos ou suas colunas obrigatórias não foram encontradas. '
+                        . 'A migração foi interrompida sem alterar o esquema.'
+                    );
+                }
+                $database->exec('DROP INDEX IF EXISTS idx_drawings_username_link');
+                self::createUniqueIndex($database, 'plans', 'idx_plans_name_link', ['name', 'link']);
+                $database->exec('PRAGMA user_version = 10');
             }
 
             $database->commit();

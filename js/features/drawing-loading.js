@@ -3,7 +3,7 @@
  * @requires Leaflet, drawnItems, map, layerControl e SweetAlert disponíveis no escopo legado.
  */
             document.getElementById('loadDrawings').addEventListener('click', async function() {
-                const { value: usuario } = await Swal.fire({
+                const { value: planName } = await Swal.fire({
                     title: 'Nome do planejamento',
                     input: 'text',
                     inputPlaceholder: 'Nome do planejamento',
@@ -17,16 +17,16 @@
                     }
                 });
 
-                if (!usuario) return;
-                await window.PlanMilT.drawingLoading.load(usuario);
+                if (!planName) return;
+                await window.PlanMilT.drawingLoading.load(planName);
             });
 
             window.PlanMilT.drawingLoading = Object.freeze({
                 /**
-                 * Carrega um planejamento pelo identificador usado no servidor.
-                 * @param {string} usuario - Identificador do planejamento.
+                 * Carrega um planejamento pelo nome usado no servidor.
+                 * @param {string} planName - Nome do planejamento.
                  */
-                async load(usuario, localData) {
+                async load(planName, localData) {
                 const urlCompleta = window.location.href;
                 const padraoDiretorio = /https:\/\/methodux\.online\/(.*?)\//;
                 const resultado = padraoDiretorio.exec(urlCompleta);
@@ -38,7 +38,7 @@
                         const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                             method: "POST",
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: `usuario=${encodeURIComponent(usuario)}&link=${encodeURIComponent(diretorio)}`
+                            body: `plan_name=${encodeURIComponent(planName)}&link=${encodeURIComponent(diretorio)}`
                         });
                         if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
                         geoJsonData = await response.json();
@@ -98,7 +98,7 @@
 
                     if (!escolha) {
                         // Carrega como camada não-editável
-                        const newLayerName = usuario;
+                        const newLayerName = planName;
                         const newLayer = L.geoJson(null).addTo(map);
                         loadedOverlay = newLayer;
                         coverageLayers.forEach(layer => newLayer.addLayer(layer));
@@ -261,7 +261,7 @@
                         map.fitBounds(drawnItems.getBounds());
                     }
 
-                    if (!window.PlanMilT.welcome.record(usuario)) {
+                    if (!window.PlanMilT.welcome.record(planName)) {
                         Swal.fire('Aviso', 'Planejamento carregado, mas não foi possível atualizar a lista de recentes neste navegador.', 'warning');
                     }
                 } catch (error) {

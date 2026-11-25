@@ -2,7 +2,7 @@
  * @fileoverview Gerencia camadas WMS dinâmicas, camadas compartilhadas atualizáveis e consulta GetFeatureInfo.
  * @requires Leaflet, proxy.php, API client, mapa e layerRegistry no escopo legado.
  */
-                var selectedLayers = []; // Agora é um array para armazenar múltiplos usuários
+                var selectedLayers = [];
                 var intervalId;     // Variável para armazenar o intervalo de atualização
                 var previousGeoJsonData = {}; // Para armazenar o estado anterior da camada carregada
 
@@ -20,7 +20,7 @@
                  */
                 async function reloadLayer() {
                     if (!selectedLayers || selectedLayers.length === 0) {
-                        Swal.fire('Nenhum usuário fornecido!', 'Por favor, insira pelo menos um nome de usuário para carregar a camada.', 'warning');
+                        Swal.fire('Nenhum planejamento fornecido!', 'Por favor, insira pelo menos um nome de planejamento para carregar a camada.', 'warning');
                         return;
                     }
 
@@ -29,21 +29,21 @@
                             const response = await window.PlanMilT.apiClient.request("/carregar.php", {
                                 method: "POST",
                                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: `usuario=${encodeURIComponent(layerName)}`
+                                body: `plan_name=${encodeURIComponent(layerName)}`
                             });
 
                             if (!response.ok) {
                                 const errorMessage = await response.text();
-                                Swal.fire('Erro no servidor', `Erro ao carregar o usuário ${layerName}: ${errorMessage}`, 'error');
-                                continue; // Pula para o próximo usuário
+                                Swal.fire('Erro no servidor', `Erro ao carregar o planejamento ${layerName}: ${errorMessage}`, 'error');
+                                continue;
                             }
 
                             const geoJsonData = await response.json();
 
                             if (!isValidGeoJson(geoJsonData)) {
                                 const errorMessage = typeof geoJsonData === 'string' ? geoJsonData : 'A camada carregada não é um GeoJSON válido.';
-                                Swal.fire('Erro', `Erro no usuário ${layerName}: ${errorMessage}`, 'error');
-                                continue; // Pula para o próximo usuário
+                                Swal.fire('Erro', `Erro no planejamento ${layerName}: ${errorMessage}`, 'error');
+                                continue;
                             }
 
                             const currentGeoJsonHash = generateGeoJsonHash(geoJsonData);
@@ -120,7 +120,7 @@
                             }
 
                         } catch (error) {
-                            console.error(`Erro ao atualizar a camada para o usuário ${layerName}:`, error);
+                            console.error(`Erro ao atualizar a camada do planejamento ${layerName}:`, error);
                         }
                     }
                 }
@@ -137,29 +137,29 @@
                         (geoJsonObject.type === 'FeatureCollection' ? geoJsonObject.features && Array.isArray(geoJsonObject.features) : true);
                 }
 
-                // Função para solicitar os nomes dos usuários e configurar o tempo de atualização
+                // Função para solicitar os nomes dos planejamentos e configurar o tempo de atualização
                 /**
-                 * Solicita usuários e intervalo para recarregar camadas periodicamente.
+                 * Solicita nomes de planejamentos e intervalo para recarregar camadas periodicamente.
                  */
-                function promptUserAndUpdate() {
+                function promptPlansAndUpdate() {
                     Swal.fire({
-                        title: 'Nome(s) de usuário(s)',
+                        title: 'Nome(s) de planejamento(s)',
                         input: 'text',
-                        inputLabel: 'Insira o nome do usuário. Caso existam mais de um, separe os nomes com vírgula. Exemplo: "sca,ge".',
+                        inputLabel: 'Insira o nome do planejamento. Para vários, separe os nomes com vírgula.',
                         inputPlaceholder: 'teste,teste2',
                         showCancelButton: true,
                         confirmButtonText: 'Carregar Camada(s)',
-                        preConfirm: (usernameInput) => {
-                            if (!usernameInput) {
-                                Swal.showValidationMessage('Por favor, insira pelo menos um nome de usuário válido.');
+                        preConfirm: (planNamesInput) => {
+                            if (!planNamesInput) {
+                                Swal.showValidationMessage('Por favor, insira pelo menos um nome de planejamento válido.');
                                 return false;
                             }
-                            const usernames = usernameInput.split(',').map(name => name.trim()).filter(name => name !== '');
-                            if (usernames.length === 0) {
-                                Swal.showValidationMessage('Por favor, insira pelo menos um nome de usuário válido.');
+                            const planNames = planNamesInput.split(',').map(name => name.trim()).filter(name => name !== '');
+                            if (planNames.length === 0) {
+                                Swal.showValidationMessage('Por favor, insira pelo menos um nome de planejamento válido.');
                                 return false;
                             }
-                            return usernames;
+                            return planNames;
                         }
                     }).then((result) => {
                         if (result.isConfirmed) {
@@ -203,7 +203,7 @@
                 }
 
                 // Event listener para o botão de iniciar a atualização periódica
-                document.getElementById('startUpdateButton').addEventListener('click', promptUserAndUpdate);
+                document.getElementById('startUpdateButton').addEventListener('click', promptPlansAndUpdate);
 
 
 

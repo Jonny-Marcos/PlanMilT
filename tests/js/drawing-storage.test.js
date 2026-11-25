@@ -37,7 +37,7 @@ function setup() {
         addEventListener(name, callback) { click = callback; }
     };
     const nodes = {
-        'swal-input-usuario': { value: '' },
+        'swal-input-plan-name': { value: '' },
         'swal-input-senha': { value: '' },
         drawingAutoSaveChoice: { checked: false }
     };
@@ -50,7 +50,7 @@ function setup() {
     let confirmEmpty = true;
     let visible = false;
     let cancelCredentials = false;
-    let username = 'teste';
+    let planName = 'teste';
     let features = [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [0, 0] } }];
     let coverage = [];
     let failSerialization = false;
@@ -79,7 +79,8 @@ function setup() {
             setItem(key, value) {
                 if (failStorageWrite) throw new Error('storage unavailable');
                 storage.set(key, value);
-            }
+            },
+            removeItem(key) { storage.delete(key); }
         },
         window: { location: { href: 'https://example.test/' }, PlanMilT: {
             welcome: { record(name) { recent.push(name); return true; } },
@@ -101,7 +102,7 @@ function setup() {
                 if (options?.title === 'Salvar planejamento') {
                     if (cancelCredentials) return { isConfirmed: false };
                     options.didOpen();
-                    nodes['swal-input-usuario'].value = username;
+                    if (planName !== undefined) nodes['swal-input-plan-name'].value = planName;
                     nodes['swal-input-senha'].value = 'senha';
                     nodes.drawingAutoSaveChoice.checked = enabled;
                     return { isConfirmed: true, value: options.preConfirm() };
@@ -127,7 +128,7 @@ function setup() {
         setCoverage(value) { coverage = value; },
         setConfirmEmpty(value) { confirmEmpty = value; },
         setVisible(value) { visible = value; },
-        setUsername(value) { username = value; },
+        setUsername(value) { planName = value; },
         cancelCredentials(value = true) { cancelCredentials = value; },
         failSerialization() { failSerialization = true; },
         failStorageRead() { failStorageRead = true; },
@@ -142,7 +143,9 @@ test('manual save offers automatic saving once per page and preserves the HTTP c
     await h.click();
     assert.match(h.alerts[0][0].html, /id="drawingAutoSaveChoice"/);
     assert.equal(h.requests[0].url, '/salvar.php');
-    assert.equal(h.requestData(0).get('usuario'), 'teste');
+    assert.equal(h.requestData(0).get('plan_name'), 'teste');
+    assert.equal(h.storage.get('planName'), 'teste');
+    assert.equal(h.storage.has('usuario'), false);
     assert.equal(h.requestData(0).get('senha'), 'senha');
     assert.equal(JSON.parse(h.requestData(0).get('leaflet')).features.length, 1);
     assert.equal(h.timers.size, 0);
@@ -164,13 +167,23 @@ test('cancelled credentials do not consume the first choice', async () => {
     assert.match(h.alerts.filter(args => args[0]?.title === 'Salvar planejamento')[1][0].html, /drawingAutoSaveChoice/);
 });
 
+test('stored legacy plan names are reused and migrated to the current session key', async () => {
+    const h = setup();
+    h.storage.set('usuario', 'nome-legado');
+    h.setUsername(undefined);
+    await h.click();
+    assert.equal(h.requestData(0).get('plan_name'), 'nome-legado');
+    assert.equal(h.storage.get('planName'), 'nome-legado');
+    assert.equal(h.storage.has('usuario'), false);
+});
+
 test('save dialog presents labelled credentials, an optional explanation and clear actions', async () => {
     const h = setup();
     await h.click();
     const dialog = h.alerts[0][0];
     assert.equal(dialog.customClass.popup, 'drawing-save-modal');
     assert.match(dialog.html, /<style>[\s\S]*drawing-save-modal/);
-    assert.match(dialog.html, /<label[^>]*for="swal-input-usuario"[^>]*>Nome do planejamento/);
+    assert.match(dialog.html, /<label[^>]*for="swal-input-plan-name"[^>]*>Nome do planejamento/);
     assert.match(dialog.html, /Informe o nome e a senha do planejamento/);
     assert.match(dialog.html, /<label[^>]*for="swal-input-senha"[^>]*>Senha/);
     assert.match(dialog.html, /for="drawingAutoSaveChoice"/);
@@ -285,8 +298,8 @@ test('a manual save waits for an in-flight automatic save before switching targe
     finish({ ok: true, text: async () => 'Desenho atualizado com sucesso!' });
     await automatic;
     await manual;
-    assert.equal(h.requestData(1).get('usuario'), 'teste');
-    assert.equal(h.requestData(2).get('usuario'), 'outro');
+    assert.equal(h.requestData(1).get('plan_name'), 'teste');
+    assert.equal(h.requestData(2).get('plan_name'), 'outro');
     assert.equal(JSON.parse(h.requestData(2).get('leaflet')).features[0].properties.name, 'novo');
 });
 

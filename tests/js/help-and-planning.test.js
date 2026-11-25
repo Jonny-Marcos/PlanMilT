@@ -38,7 +38,7 @@ function setup(ready = Promise.resolve()) {
             fire(config) {
                 alerts.push(config);
                 if (config.didOpen) config.didOpen();
-                return Promise.resolve({ isConfirmed: true, value: { usuario: 'teste', senha: 'senha' } });
+                return Promise.resolve({ isConfirmed: true, value: { planName: 'teste', senha: 'senha' } });
             },
             close() {},
             isVisible: () => visible
@@ -83,11 +83,11 @@ test('help groups current tools in accessible expandable sections', () => {
     }
     assert.match(mainSource, /id="saveDrawings"[^>]*title="Salvar planejamento"/);
     assert.match(mainSource, /id="loadDrawings"[^>]*title="Carregar planejamento"/);
-    assert.match(sharedLayersSource, /<label for="userInput">Insira os nomes dos planejamentos:<\/label>/);
-    assert.match(sharedLayersSource, /id="userInput"[^>]*placeholder="Nome do planejamento"/);
-    assert.match(sharedLayersSource, /id="addUserBtn"[^>]*>Adicionar planejamento<\/button>/);
+    assert.match(sharedLayersSource, /<label for="planNameInput">Insira os nomes dos planejamentos:<\/label>/);
+    assert.match(sharedLayersSource, /id="planNameInput"[^>]*placeholder="Nome do planejamento"/);
+    assert.match(sharedLayersSource, /id="addPlanNameBtn"[^>]*>Adicionar planejamento<\/button>/);
     assert.match(sharedLayersSource, /Você deve inserir pelo menos um nome de planejamento/);
-    assert.match(sharedLayersSource, /camadasParam = encodeURIComponent\(users\.join\(','\)\)/);
+    assert.match(sharedLayersSource, /camadasParam = encodeURIComponent\(planNames\.join\(','\)\)/);
 });
 
 test('help and welcome share the existing preference and preserve recent entries', () => {

@@ -97,22 +97,22 @@
                     Swal.fire({
                         title: 'Nome do planejamento',
                         html: `
-<input type="text" id="swal-input-usuario" class="swal2-input" placeholder="Nome do planejamento">
+<input type="text" id="swal-input-plan-name" class="swal2-input" placeholder="Nome do planejamento">
 <input type="password" id="swal-input-senha" class="swal2-input" placeholder="Senha">
 `,
                         focusConfirm: false,
                         preConfirm: () => {
-                            const usuario = document.getElementById('swal-input-usuario').value;
+                            const planName = document.getElementById('swal-input-plan-name').value;
                             const senha = document.getElementById('swal-input-senha').value;
-                            if (!usuario || !senha) {
+                            if (!planName || !senha) {
                                 Swal.showValidationMessage('Nome do planejamento e senha são necessários!');
                                 return false;
                             }
-                            return { usuario: usuario, senha: senha };
+                            return { planName, senha };
                         }
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            const { usuario, senha } = result.value;
+                            const { planName, senha } = result.value;
 
                             // Gera o GeoJSON da camada "Sugestão de Planejamento"
                             let planejamentoData;
@@ -163,7 +163,7 @@
                                 return;
                             }
                             const data = {
-                                usuario: usuario,
+                                plan_name: planName,
                                 senha: senha,
                                 link: diretorio, // Diretório a ser usado na requisição
                                 leaflet: serializedData
@@ -176,7 +176,7 @@
                                 data: data,
                                 success: function(response) {
                                     if (response.includes('Desenho atualizado com sucesso!') || response.includes('Desenho salvo com sucesso!')) {
-                                        const recorded = window.PlanMilT.welcome.record(usuario);
+                                        const recorded = window.PlanMilT.welcome.record(planName);
                                         Swal.fire('Sucesso!', recorded ? 'Sugestão de Planejamento salva com sucesso!' :
                                             'Sugestão salva, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
                                         console.info('[PlanMilT][Planejamento] Sugestão salva.', {

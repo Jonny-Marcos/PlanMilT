@@ -137,10 +137,10 @@ final class AdminService
                     'category_rank' => 'category_rank',
                 ],
             ],
-            'drawings' => [
-                'sql' => 'SELECT id, username, link, created_at, updated_at FROM drawings',
+            'plans' => [
+                'sql' => 'SELECT id, name, link, created_at, updated_at FROM plans',
                 'order' => 'id DESC',
-                'fields' => ['id' => 'id', 'username' => 'username', 'link' => 'link'],
+                'fields' => ['id' => 'id', 'name' => 'name', 'link' => 'link'],
             ],
             'images' => [
                 'sql' => 'SELECT id, description, location, is_shared, created_at, updated_at FROM images',
@@ -246,7 +246,7 @@ final class AdminService
             'map_services' => 'SELECT id, name, url FROM map_services WHERE id = ?',
             'map_layers' => 'SELECT id, category_code, military_relevance, review_status, category_rank '
                 . 'FROM map_layers WHERE id = ?',
-            'drawings' => 'SELECT id, username, link, geojson FROM drawings WHERE id = ?',
+            'plans' => 'SELECT id, name, link, geojson FROM plans WHERE id = ?',
             'images' => 'SELECT id, description, location, is_shared FROM images WHERE id = ?',
             'task_sequences' => 'SELECT id, name, sequence, description FROM task_sequences WHERE id = ?',
             'suggestions' => 'SELECT id, title, description, status, admin_reply FROM suggestions WHERE id = ?',
@@ -310,30 +310,30 @@ final class AdminService
                 $statement->execute([$name, $url, $id]);
                 return $this->requireUpdatedRecord($statement->rowCount(), 'map_services', $id);
 
-            case 'drawings':
-                $username = $this->requiredString($data, 'username', 120);
+            case 'plans':
+                $name = $this->requiredString($data, 'name', 120);
                 $link = $this->requiredString($data, 'link', 2048);
                 $geoJson = $this->requiredJson($data, 'geojson');
                 $drawingData = json_decode($geoJson, true);
                 if (!is_array($drawingData)
                     || ($drawingData['type'] ?? null) !== 'FeatureCollection'
                     || !is_array($drawingData['features'] ?? null)) {
-                    throw new RuntimeException('O desenho deve ser uma FeatureCollection GeoJSON.');
+                    throw new RuntimeException('O planejamento deve ser uma FeatureCollection GeoJSON.');
                 }
                 if ($id === 0) {
                     $password = $this->requiredString($data, 'password', 1024, false);
                     $statement = $this->database->prepare(
-                        'INSERT INTO drawings (username, password_hash, link, geojson, created_at, updated_at) '
+                        'INSERT INTO plans (name, password_hash, link, geojson, created_at, updated_at) '
                         . 'VALUES (?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
                     );
-                    $statement->execute([$username, password_hash($password, PASSWORD_DEFAULT), $link, $geoJson]);
+                    $statement->execute([$name, password_hash($password, PASSWORD_DEFAULT), $link, $geoJson]);
                     return (int) $this->database->lastInsertId();
                 }
                 $statement = $this->database->prepare(
-                    'UPDATE drawings SET username = ?, link = ?, geojson = ?, updated_at = datetime(\'now\') WHERE id = ?'
+                    'UPDATE plans SET name = ?, link = ?, geojson = ?, updated_at = datetime(\'now\') WHERE id = ?'
                 );
-                $statement->execute([$username, $link, $geoJson, $id]);
-                return $this->requireUpdatedRecord($statement->rowCount(), 'drawings', $id);
+                $statement->execute([$name, $link, $geoJson, $id]);
+                return $this->requireUpdatedRecord($statement->rowCount(), 'plans', $id);
 
             case 'images':
                 if ($id < 1) {
@@ -431,7 +431,7 @@ final class AdminService
         $tables = [
             'map_services' => 'map_services',
             'map_layers' => 'map_layers',
-            'drawings' => 'drawings',
+            'plans' => 'plans',
             'images' => 'images',
             'task_sequences' => 'task_sequences',
             'suggestions' => 'suggestions',
@@ -824,7 +824,7 @@ final class AdminService
     private function requireUpdatedRecord(int $affectedRows, string $table, int $id): int
     {
         if ($affectedRows === 0) {
-            $allowedTables = ['map_services', 'drawings', 'images', 'task_sequences', 'map_layers'];
+            $allowedTables = ['map_services', 'plans', 'images', 'task_sequences', 'map_layers'];
             if (!in_array($table, $allowedTables, true)) {
                 throw new RuntimeException('Tipo de registro não permitido.');
             }

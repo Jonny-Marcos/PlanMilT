@@ -17,17 +17,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 header('Content-Type: application/json');
 
-$user = $_POST['usuario'] ?? '';
+$planName = $_POST['plan_name'] ?? $_POST['usuario'] ?? '';
 $link = $_POST['link'] ?? '';
 
-if (!is_string($user) || !is_string($link)) {
+if (!is_string($planName) || !is_string($link)) {
     echo json_encode(['error' => 'Erro na conexão com o banco de dados: parâmetros inválidos.']);
     exit;
 }
 
 try {
     $service = new DrawingsService(ConnectionFactory::create());
-    $drawing = $service->load($user, $link);
+    $drawing = $service->load($planName, $link);
 
     if ($drawing !== null) {
         echo $drawing;

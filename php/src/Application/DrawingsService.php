@@ -6,7 +6,7 @@ namespace PlanMilT\Application;
 use PDO;
 
 /**
- * Encapsula leitura e persistência de desenhos armazenados no SQLite.
+ * Encapsula leitura e persistência de planejamentos armazenados no SQLite.
  *
  * O serviço preserva o conteúdo GeoJSON sem decodificá-lo.
  */
@@ -25,19 +25,19 @@ final class DrawingsService
     }
 
     /**
-     * Localiza o desenho pelo usuário e link.
+     * Localiza o planejamento pelo nome e link.
      *
-     * @param string $user Identificador armazenado na coluna `username`.
-     * @param string $link Identificador do desenho armazenado na coluna `link`.
+     * @param string $planName Nome armazenado na coluna `plans.name`.
+     * @param string $link Identificador do planejamento armazenado na coluna `link`.
      * @return string|null JSON bruto da coluna `geojson`, ou null se não houver registro.
      */
-    public function load(string $user, string $link): ?string
+    public function load(string $planName, string $link): ?string
     {
         $statement = $this->database->prepare(
-            'SELECT geojson FROM drawings WHERE username = :username AND link = :link'
+            'SELECT geojson FROM plans WHERE name = :name AND link = :link'
         );
         $statement->execute([
-            ':username' => $user,
+            ':name' => $planName,
             ':link' => $link
         ]);
 
@@ -48,19 +48,19 @@ final class DrawingsService
     /**
      * Cria ou atualiza o desenho depois de validar a senha do registro existente.
      *
-     * @param string $user Identificador do usuário proprietário do desenho.
+     * @param string $planName Nome do planejamento.
      * @param string $password Senha em texto claro para validar ou armazenar com hash.
-     * @param string $link Identificador do desenho.
-     * @param string $geoJson JSON serializado do conteúdo do desenho.
+     * @param string $link Identificador do planejamento.
+     * @param string $geoJson JSON serializado do conteúdo do planejamento.
      * @return string Mensagem de sucesso ou de senha incorreta esperada pelo endpoint legado.
      */
-    public function save(string $user, string $password, string $link, string $geoJson): string
+    public function save(string $planName, string $password, string $link, string $geoJson): string
     {
         $statement = $this->database->prepare(
-            'SELECT id, password_hash FROM drawings WHERE username = :username AND link = :link'
+            'SELECT id, password_hash FROM plans WHERE name = :name AND link = :link'
         );
         $statement->execute([
-            ':username' => $user,
+            ':name' => $planName,
             ':link' => $link
         ]);
         $existingDrawing = $statement->fetch(PDO::FETCH_ASSOC);
@@ -71,7 +71,7 @@ final class DrawingsService
             }
 
             $statement = $this->database->prepare(
-                'UPDATE drawings SET geojson = :geojson, updated_at = datetime(\'now\') WHERE id = :id'
+                'UPDATE plans SET geojson = :geojson, updated_at = datetime(\'now\') WHERE id = :id'
             );
             $statement->execute([
                 ':id' => $existingDrawing['id'],
@@ -83,11 +83,11 @@ final class DrawingsService
 
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         $statement = $this->database->prepare(
-            'INSERT INTO drawings (username, password_hash, link, geojson, created_at, updated_at) '
-            . 'VALUES (:username, :passwordHash, :link, :geojson, datetime(\'now\'), datetime(\'now\'))'
+            'INSERT INTO plans (name, password_hash, link, geojson, created_at, updated_at) '
+            . 'VALUES (:name, :passwordHash, :link, :geojson, datetime(\'now\'), datetime(\'now\'))'
         );
         $statement->execute([
-            ':username' => $user,
+            ':name' => $planName,
             ':passwordHash' => $passwordHash,
             ':link' => $link,
             ':geojson' => $geoJson

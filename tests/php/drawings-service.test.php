@@ -8,9 +8,9 @@ require_once dirname(__DIR__, 2) . '/php/src/Application/DrawingsService.php';
 $database = new PDO('sqlite::memory:');
 $database->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $database->exec(
-    'CREATE TABLE drawings ('
+    'CREATE TABLE plans ('
     . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
-    . 'username TEXT NOT NULL, '
+    . 'name TEXT NOT NULL, '
     . 'password_hash TEXT NOT NULL, '
     . 'link TEXT NOT NULL, '
     . 'geojson TEXT NOT NULL, '
@@ -32,7 +32,7 @@ $drawingJson = '{"type":"FeatureCollection","features":[]}';
 $created = $service->save('user-a', 'secret', 'map-1', $drawingJson);
 $assert($created === 'Desenho salvo com sucesso!', 'Drawing creation response changed.');
 $assert($service->load('user-a', 'map-1') === $drawingJson, 'Stored drawing JSON was altered.');
-$timestamps = $database->query('SELECT created_at, updated_at FROM drawings')->fetch(PDO::FETCH_ASSOC);
+$timestamps = $database->query('SELECT created_at, updated_at FROM plans')->fetch(PDO::FETCH_ASSOC);
 $assert(
     !empty($timestamps['created_at']) && !empty($timestamps['updated_at']),
     'Drawing creation did not populate standard timestamps.'
@@ -46,7 +46,7 @@ $updatedJson = '{"type":"FeatureCollection","features":[{"id":1}]}';
 $updated = $service->save('user-a', 'secret', 'map-1', $updatedJson);
 $assert($updated === 'Desenho atualizado com sucesso!', 'Drawing update response changed.');
 $assert($service->load('user-a', 'map-1') === $updatedJson, 'Drawing update was not persisted.');
-$updatedAt = $database->query('SELECT updated_at FROM drawings WHERE link = \'map-1\'')->fetchColumn();
+$updatedAt = $database->query('SELECT updated_at FROM plans WHERE link = \'map-1\'')->fetchColumn();
 $assert(!empty($updatedAt), 'Drawing update did not populate updated_at.');
 
 $otherLinkJson = '{"type":"FeatureCollection","features":[{"id":2}]}';
@@ -55,7 +55,7 @@ $assert($otherDrawing === 'Desenho salvo com sucesso!', 'A different link should
 $assert($service->load('user-a', 'map-2') === $otherLinkJson, 'Separate drawing was not persisted.');
 $assert(
     $service->save('user-a', 'secret', 'map-1', '{"features":[{"id":3}]}') === 'Desenho atualizado com sucesso!',
-    'Updating one drawing should succeed when the user has multiple drawings.'
+    'Updating one plan should succeed when the same name has multiple links.'
 );
 $assert(
     $service->load('user-a', 'map-2') === $otherLinkJson,

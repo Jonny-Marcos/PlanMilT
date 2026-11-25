@@ -35,8 +35,8 @@ $database->exec(
     . 'updated_at TEXT)'
 );
 $database->exec(
-    'CREATE TABLE drawings ('
-    . 'id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password_hash TEXT, link TEXT, geojson TEXT, '
+    'CREATE TABLE plans ('
+    . 'id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, password_hash TEXT, link TEXT, geojson TEXT, '
     . 'created_at TEXT, updated_at TEXT)'
 );
 $database->exec(
@@ -321,26 +321,26 @@ $assert(
     'Map layer classification changes were not saved.'
 );
 
-$drawingId = $service->saveRecord('drawings', 0, [
-    'username' => 'admin-created',
+$drawingId = $service->saveRecord('plans', 0, [
+    'name' => 'admin-created',
     'link' => 'test-map',
     'geojson' => '{"type":"FeatureCollection","features":[]}',
     'password' => 'drawing-secret',
 ]);
-$drawing = $service->getRecord('drawings', $drawingId);
+$drawing = $service->getRecord('plans', $drawingId);
 $assert(!isset($drawing['password_hash']), 'Drawing password hashes were exposed to the admin panel.');
-$service->saveRecord('drawings', $drawingId, [
-    'username' => 'renamed',
+$service->saveRecord('plans', $drawingId, [
+    'name' => 'renamed',
     'link' => 'test-map',
     'geojson' => '{"type":"FeatureCollection","features":[{"type":"Feature"}]}',
 ]);
 $assert(
-    (string) $database->query('SELECT username FROM drawings WHERE id = ' . $drawingId)->fetchColumn() === 'renamed',
-    'An existing drawing was not updated.'
+    (string) $database->query('SELECT name FROM plans WHERE id = ' . $drawingId)->fetchColumn() === 'renamed',
+    'An existing plan was not updated.'
 );
 $assertThrows(
-    static fn () => $service->saveRecord('drawings', $drawingId, [
-        'username' => 'invalid',
+    static fn () => $service->saveRecord('plans', $drawingId, [
+        'name' => 'invalid',
         'link' => 'test-map',
         'geojson' => '{',
     ]),

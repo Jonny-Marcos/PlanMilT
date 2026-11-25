@@ -10,6 +10,14 @@ require_once dirname(__DIR__, 2) . '/php/src/Application/AdminService.php';
 require_once dirname(__DIR__, 2) . '/php/src/Infrastructure/Database/SchemaMigrator.php';
 
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$db->exec(
+    'CREATE TABLE drawings (id INTEGER PRIMARY KEY, username TEXT NOT NULL, password_hash TEXT NOT NULL, '
+    . 'link TEXT NOT NULL, geojson TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
+);
+$db->exec(
+    'CREATE TABLE app_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL, '
+    . 'updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))'
+);
 $db->exec('PRAGMA user_version = 7');
 SchemaMigrator::migrate($db);
 $service = new SuggestionsService($db);

@@ -18,7 +18,8 @@ if ($method !== 'POST') {
     exit;
 }
 
-if (!isset($_POST['usuario'], $_POST['senha'], $_POST['leaflet'])) {
+if ((!isset($_POST['plan_name']) && !isset($_POST['usuario']))
+    || !isset($_POST['senha'], $_POST['leaflet'])) {
     $postLimit = ini_parse_quantity((string) ini_get('post_max_size'));
     $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
     if ($_POST === [] && $postLimit > 0 && $contentLength > $postLimit) {
@@ -31,19 +32,19 @@ if (!isset($_POST['usuario'], $_POST['senha'], $_POST['leaflet'])) {
     exit;
 }
 
-$user = $_POST['usuario'] ?? '';
+$planName = $_POST['plan_name'] ?? $_POST['usuario'] ?? '';
 $password = $_POST['senha'] ?? '';
 $link = $_POST['link'] ?? '';
 $geoJson = $_POST['leaflet'] ?? '';
 
-if (!is_string($user) || !is_string($password) || !is_string($link) || !is_string($geoJson)) {
+if (!is_string($planName) || !is_string($password) || !is_string($link) || !is_string($geoJson)) {
     echo 'Erro na conexão com o banco de dados: parâmetros inválidos.';
     exit;
 }
 
 try {
     $service = new DrawingsService(ConnectionFactory::create());
-    echo $service->save($user, $password, $link, $geoJson);
+    echo $service->save($planName, $password, $link, $geoJson);
 } catch (PDOException $error) {
     echo 'Não foi possível salvar os desenhos.';
 }

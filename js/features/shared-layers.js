@@ -1,5 +1,5 @@
 /**
- * @fileoverview Carrega camadas por usuário a partir dos parâmetros do link e constrói links compartilháveis com imagens.
+ * @fileoverview Carrega planejamentos compartilhados a partir dos parâmetros do link e cria links com imagens.
  * @requires Endpoints de desenhos/imagens, Leaflet, DOM e Swal no escopo legado.
  */
             document.addEventListener('DOMContentLoaded', function() {
@@ -50,7 +50,7 @@
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
                             },
-                            body: `usuario=${encodeURIComponent(camada)}&link=${encodeURIComponent(diretorio)}`
+                            body: `plan_name=${encodeURIComponent(camada)}&link=${encodeURIComponent(diretorio)}`
                         });
 
                         if (!response.ok) {
@@ -168,30 +168,30 @@
                 const { value: formValues } = await Swal.fire({
                     title: 'Compartilhar Camadas Ativas',
                     html:
-                    `<label for="userInput">Insira os nomes dos planejamentos:</label>
-<input id="userInput" class="swal2-input" placeholder="Nome do planejamento" type="text">
-<div id="userList" style="margin-top: 10px;"></div>
+                    `<label for="planNameInput">Insira os nomes dos planejamentos:</label>
+<input id="planNameInput" class="swal2-input" placeholder="Nome do planejamento" type="text">
+<div id="planNameList" style="margin-top: 10px;"></div>
 <label for="imageSelect">Selecione as imagens:</label>
 <select id="imageSelect" class="swal2-input" multiple style="width: 100%; height: 150px;" size="6"></select>
-<button type="button" id="addUserBtn" class="swal2-confirm swal2-styled">Adicionar planejamento</button>`,
+<button type="button" id="addPlanNameBtn" class="swal2-confirm swal2-styled">Adicionar planejamento</button>`,
                     focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonText: 'Gerar Link',
                     didOpen: () => {
-                        // Função para adicionar usuários ao pressionar "Enter"
-                        const userInput = document.getElementById('userInput');
-                        userInput.addEventListener('keydown', (event) => {
-                            if (event.key === 'Enter' && userInput.value.trim() !== '') {
-                                addUserToList(userInput.value);
-                                userInput.value = ''; // Limpa o campo de entrada
+                        // Adiciona o nome informado ao pressionar Enter.
+                        const planNameInput = document.getElementById('planNameInput');
+                        planNameInput.addEventListener('keydown', (event) => {
+                            if (event.key === 'Enter' && planNameInput.value.trim() !== '') {
+                                addPlanName(planNameInput.value);
+                                planNameInput.value = '';
                             }
                         });
 
-                        // Função para adicionar usuários ao clicar no botão "Adicionar Usuário"
-                        document.getElementById('addUserBtn').addEventListener('click', () => {
-                            if (userInput.value.trim() !== '') {
-                                addUserToList(userInput.value);
-                                userInput.value = ''; // Limpa o campo de entrada
+                        // Adiciona o nome informado pelo botão.
+                        document.getElementById('addPlanNameBtn').addEventListener('click', () => {
+                            if (planNameInput.value.trim() !== '') {
+                                addPlanName(planNameInput.value);
+                                planNameInput.value = '';
                             }
                         });
 
@@ -199,18 +199,18 @@
                         loadImages();
                     },
                     preConfirm: () => {
-                        const users = Array.from(document.querySelectorAll('#userList .user')).map(el => el.textContent.trim());
+                        const planNames = Array.from(document.querySelectorAll('#planNameList .plan-name')).map(el => el.textContent.trim());
                         const images = Array.from(document.querySelectorAll('#imageSelect option:checked')).map(el => el.value);
-                        if (!users.length) {
+                        if (!planNames.length) {
                             Swal.showValidationMessage('Você deve inserir pelo menos um nome de planejamento!');
                             return false;
                         }
-                        return { users, images };
+                        return { planNames, images };
                     }
                 });
 
                 if (formValues) {
-                    const { users, images } = formValues;
+                    const { planNames, images } = formValues;
 
                     // Função para obter o valor de um parâmetro da URL
                     /**
@@ -228,7 +228,7 @@
                     }
 
                     const calcoValue = images.join(','); // IDs das imagens
-                    const camadasParam = encodeURIComponent(users.join(',')); // Usuários separados por vírgula
+                    const camadasParam = encodeURIComponent(planNames.join(','));
 
                     // Função para obter o fragmento da URL (parte que começa com #)
                     const urlFragment = window.location.hash || '';
@@ -258,17 +258,16 @@
                     });
                 }
 
-                // Função para adicionar um usuário à lista
                 /**
-                 * Acrescenta um usuário à lista do formulário de compartilhamento.
-                 * @param {string} userName - Nome de usuário inserido para compartilhamento.
+                 * Acrescenta um nome à lista do formulário de compartilhamento.
+                 * @param {string} planName - Nome do planejamento compartilhado.
                  */
-                function addUserToList(userName) {
-                    const userList = document.getElementById('userList');
-                    const userDiv = document.createElement('div');
-                    userDiv.className = 'user';
-                    userDiv.textContent = userName;
-                    userList.appendChild(userDiv);
+                function addPlanName(planName) {
+                    const planNameList = document.getElementById('planNameList');
+                    const planNameItem = document.createElement('div');
+                    planNameItem.className = 'plan-name';
+                    planNameItem.textContent = planName;
+                    planNameList.appendChild(planNameItem);
                 }
 
                 // Função para carregar imagens do servidor

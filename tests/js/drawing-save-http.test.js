@@ -49,10 +49,10 @@ test('drawing endpoint persists a large collection and rejects oversized request
         const drawing = JSON.stringify({ type: 'FeatureCollection', features: Array(2000).fill(feature) });
         const save = leaflet => fetch(`${base}drawing-save.php`, {
             method: 'POST',
-            body: new URLSearchParams({ usuario: 'teste', senha: 'senha', link: '', leaflet })
+            body: new URLSearchParams({ plan_name: 'teste', senha: 'senha', link: '', leaflet })
         });
         const load = () => fetch(`${base}drawing-load.php`, {
-            method: 'POST', body: new URLSearchParams({ usuario: 'teste', link: '' })
+            method: 'POST', body: new URLSearchParams({ plan_name: 'teste', link: '' })
         });
         const saved = await save(drawing);
         assert.equal(saved.status, 200, serverOutput);
@@ -64,6 +64,10 @@ test('drawing endpoint persists a large collection and rejects oversized request
         assert.equal(legacy.status, 200);
         assert.match(await legacy.text(), /Desenho atualizado com sucesso/);
         assert.equal(await (await load()).text(), drawing);
+        const legacyLoad = await fetch(`${base}drawing-load.php`, {
+            method: 'POST', body: new URLSearchParams({ usuario: 'teste', link: '' })
+        });
+        assert.equal(await legacyLoad.text(), drawing);
         const rejected = await save('x'.repeat(1100000));
         assert.equal(rejected.status, 413);
         assert.match(await rejected.text(), /post_max_size/);

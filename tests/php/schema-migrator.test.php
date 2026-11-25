@@ -46,11 +46,11 @@ $database->exec("INSERT INTO task_sequences (name, password, sequence, date_crea
 
 SchemaMigrator::migrate($database);
 SchemaMigrator::migrate($database);
-$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 9, 'Schema version was not recorded.');
+$assert((int) $database->query('PRAGMA user_version')->fetchColumn() === 10, 'Schema version was not recorded.');
 
 $expectedTables = [
-    'admin_login_attempts', 'admin_users', 'app_settings', 'drawings', 'images', 'map_layer_categories',
-    'map_layers', 'map_services', 'suggestion_submissions', 'suggestions', 'task_sequences'
+    'admin_login_attempts', 'admin_users', 'app_settings', 'images', 'map_layer_categories',
+    'map_layers', 'map_services', 'plans', 'suggestion_submissions', 'suggestions', 'task_sequences'
 ];
 $actualTables = $database->query(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -147,10 +147,10 @@ $assert(
 );
 
 $drawing = $database->query(
-    'SELECT username, password_hash, geojson, link, created_at, updated_at FROM drawings'
+    'SELECT name, password_hash, geojson, link, created_at, updated_at FROM plans'
 )->fetch(PDO::FETCH_ASSOC);
 $assert(
-    $drawing['username'] === 'user'
+    $drawing['name'] === 'user'
     && $drawing['password_hash'] === 'hash'
     && $drawing['geojson'] === '{"type":"FeatureCollection"}'
     && $drawing['link'] === 'map'
@@ -193,7 +193,7 @@ $assert(
 );
 
 foreach ([
-    "INSERT INTO drawings (username, password_hash, geojson, link, created_at, updated_at) VALUES ('user', 'hash', '{}', 'map', datetime('now'), datetime('now'))",
+    "INSERT INTO plans (name, password_hash, geojson, link, created_at, updated_at) VALUES ('user', 'hash', '{}', 'map', datetime('now'), datetime('now'))",
     "INSERT INTO task_sequences (name, password_hash, sequence, created_at, updated_at) VALUES ('plan', 'hash', '[]', datetime('now'), datetime('now'))"
 ] as $duplicateInsert) {
     try {
@@ -238,10 +238,10 @@ $previousPath = getenv('PLANMILT_DB_PATH');
 putenv('PLANMILT_DB_PATH=' . $factoryPath);
 try {
     $factoryConnection = ConnectionFactory::create();
-    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 9, 'ConnectionFactory did not apply migrations.');
+    $assert((int) $factoryConnection->query('PRAGMA user_version')->fetchColumn() === 10, 'ConnectionFactory did not apply migrations.');
     $indexes = $factoryConnection->query(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN "
-        . "('idx_drawings_username_link', 'idx_task_sequences_name')"
+        . "('idx_plans_name_link', 'idx_task_sequences_name')"
     )->fetchColumn();
     $assert((int) $indexes === 2, 'ConnectionFactory did not create the expected unique indexes.');
     unset($factoryConnection);
@@ -251,5 +251,44 @@ try {
         unlink($factoryPath);
     }
 }
+
+$versionNine = new PDO('sqlite::memory:');
+$versionNine->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$versionNine->exec(
+    'CREATE TABLE drawings (id INTEGER PRIMARY KEY, username TEXT NOT NULL, password_hash TEXT NOT NULL, '
+    . 'link TEXT NOT NULL, geojson TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
+);
+$versionNine->exec(
+    "INSERT INTO drawings (id, username, password_hash, link, geojson, created_at, updated_at) "
+    . "VALUES (27, 'legacy-name', 'existing-hash', 'shared-link', '{\"features\":[]}', 'created', 'updated')"
+);
+$versionNine->exec('CREATE UNIQUE INDEX idx_drawings_username_link ON drawings (username, link)');
+$versionNine->exec('PRAGMA user_version = 9');
+SchemaMigrator::migrate($versionNine);
+$plan = $versionNine->query(
+    'SELECT id, name, password_hash, link, geojson, created_at, updated_at FROM plans'
+)->fetch(PDO::FETCH_ASSOC);
+$assert(
+    (int) $versionNine->query('PRAGMA user_version')->fetchColumn() === 10
+    && $plan === [
+        'id' => 27,
+        'name' => 'legacy-name',
+        'password_hash' => 'existing-hash',
+        'link' => 'shared-link',
+        'geojson' => '{"features":[]}',
+        'created_at' => 'created',
+        'updated_at' => 'updated',
+    ],
+    'Version 10 did not migrate plans while preserving every existing field.'
+);
+$assert(
+    (int) $versionNine->query(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_plans_name_link'"
+    )->fetchColumn() === 1
+    && (int) $versionNine->query(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'drawings'"
+    )->fetchColumn() === 0,
+    'Version 10 did not replace the legacy drawings table and index.'
+);
 
 echo "SchemaMigrator tests passed.\n";

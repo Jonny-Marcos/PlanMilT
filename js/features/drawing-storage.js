@@ -109,7 +109,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 response = await window.PlanMilT.apiClient.request('/salvar.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ usuario: credentials.usuario, senha: credentials.senha,
+                    body: new URLSearchParams({ plan_name: credentials.planName, senha: credentials.senha,
                         link: credentials.diretorio, leaflet: json }).toString()
                 });
             } catch (error) {
@@ -205,10 +205,10 @@ window.PlanMilT.drawingAutoSave = (() => {
     });
 
     saveButton.addEventListener('click', async () => {
-        let savedUsuario;
+        let savedPlanName;
         let savedSenha;
         try {
-            savedUsuario = sessionStorage.getItem('usuario') || '';
+            savedPlanName = sessionStorage.getItem('planName') || sessionStorage.getItem('usuario') || '';
             savedSenha = sessionStorage.getItem('senha') || '';
         } catch (error) {
             console.error('[PlanMilT][Desenhos] Não foi possível acessar as credenciais da sessão.', { name: error.name });
@@ -221,8 +221,8 @@ window.PlanMilT.drawingAutoSave = (() => {
             html: `<style>${SAVE_MODAL_STYLES}</style>
 <div id="drawingSaveForm">
     <p class="drawing-save-intro">Informe o nome e a senha do planejamento para salvá-lo no servidor.</p>
-    <label class="drawing-save-field" for="swal-input-usuario">Nome do planejamento
-        <input type="text" id="swal-input-usuario" autocomplete="username">
+    <label class="drawing-save-field" for="swal-input-plan-name">Nome do planejamento
+        <input type="text" id="swal-input-plan-name" autocomplete="off">
     </label>
     <label class="drawing-save-field" for="swal-input-senha">Senha
         <input type="password" id="swal-input-senha" autocomplete="current-password">
@@ -243,27 +243,28 @@ window.PlanMilT.drawingAutoSave = (() => {
             reverseButtons: true,
             focusConfirm: false,
             didOpen: () => {
-                document.getElementById('swal-input-usuario').value = savedUsuario;
+                document.getElementById('swal-input-plan-name').value = savedPlanName;
                 document.getElementById('swal-input-senha').value = savedSenha;
             },
             preConfirm: () => {
-                const usuario = document.getElementById('swal-input-usuario').value;
+                const planName = document.getElementById('swal-input-plan-name').value;
                 const senha = document.getElementById('swal-input-senha').value;
-                if (!usuario || !senha) {
+                if (!planName || !senha) {
                     Swal.showValidationMessage('Nome do planejamento e senha são necessários!');
                     return false;
                 }
-                return { usuario, senha, autoSave: askChoice && document.getElementById('drawingAutoSaveChoice').checked };
+                return { planName, senha, autoSave: askChoice && document.getElementById('drawingAutoSaveChoice').checked };
             }
         });
         if (!result.isConfirmed) return;
-        const { usuario, senha } = result.value;
+        const { planName, senha } = result.value;
         if (askChoice) choice = !!result.value.autoSave;
         pause(target ? 'Salvamento automático pausado durante o salvamento manual.' : undefined);
         const requestGeneration = generation;
         try {
             try {
-                sessionStorage.setItem('usuario', usuario);
+                sessionStorage.setItem('planName', planName);
+                sessionStorage.removeItem('usuario');
                 sessionStorage.setItem('senha', senha);
             } catch (error) {
                 console.error('[PlanMilT][Desenhos] Não foi possível guardar as credenciais da sessão.', { name: error.name });
@@ -279,7 +280,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                 current = snapshot();
             }
             const match = /https:\/\/methodux\.online\/(.*?)\//.exec(window.location.href);
-            const credentials = { usuario, senha, diretorio: match ? match[1] : '' };
+            const credentials = { planName, senha, diretorio: match ? match[1] : '' };
             if (!await send(credentials, current.json, requestGeneration, false)) return;
             if (requestGeneration === generation) {
                 baseline = current.json;
@@ -298,7 +299,7 @@ window.PlanMilT.drawingAutoSave = (() => {
                     status = undefined;
                 }
             }
-            const recorded = window.PlanMilT.welcome.record(usuario);
+            const recorded = window.PlanMilT.welcome.record(planName);
             Swal.fire('Sucesso!', recorded ? 'Planejamento salvo com sucesso!' :
                 'Planejamento salvo, mas não foi possível atualizar a lista de recentes neste navegador.', 'success');
             console.info('[PlanMilT][Desenhos] Salvamento concluído.', { featureCount: current.data.features.length });

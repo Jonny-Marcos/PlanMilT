@@ -195,7 +195,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
                     <option value="settings">Configurações do mapa</option>
                     <option value="map_services">Serviços SIG</option>
                     <option value="map_layers">Camadas WMS</option>
-                    <option value="drawings">Desenhos</option>
+                    <option value="plans">Planejamentos</option>
                     <option value="images">Temas e imagens</option>
                     <option value="task_sequences">Sequências de tarefas</option>
                     <option value="suggestions">Sugestões de desenvolvimento</option>
@@ -263,7 +263,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         settings: 'Configurações do mapa',
         map_services: 'Serviços SIG',
         map_layers: 'Camadas WMS',
-        drawings: 'Desenhos',
+        plans: 'Planejamentos',
         images: 'Temas e imagens',
         task_sequences: 'Sequências de tarefas',
         suggestions: 'Sugestões de desenvolvimento',
@@ -280,8 +280,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             ['review_status', 'Revisão', 'select', [['pending', 'Pendente'], ['reviewed', 'Revisada']]],
             ['category_rank', 'Posição recomendada (1 a 10; vazio remove)', 'number']
         ],
-        drawings: [
-            ['username', 'Usuário', 'text'],
+        plans: [
+            ['name', 'Nome do planejamento', 'text'],
             ['link', 'Identificador/link', 'text'],
             ['geojson', 'GeoJSON', 'textarea']
         ],
@@ -327,8 +327,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             ['layer_name', 'Nome técnico'], ['layer_title', 'Título'], ['category_code', 'Categoria'],
             ['military_relevance', 'Relevância'], ['review_status', 'Revisão'], ['category_rank', 'Posição']
         ],
-        drawings: [
-            ['all', 'Todos os campos'], ['id', 'Identificador'], ['username', 'Usuário'], ['link', 'Link']
+        plans: [
+            ['all', 'Todos os campos'], ['id', 'Identificador'], ['name', 'Nome do planejamento'], ['link', 'Link']
         ],
         images: [
             ['all', 'Todos os campos'], ['id', 'Identificador'], ['description', 'Descrição'], ['location', 'Localização']
@@ -364,7 +364,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         loginPanel.hidden = adminConfig.authenticated;
         passwordPanel.hidden = !adminConfig.authenticated || !adminConfig.mustChangePassword;
         adminPanel.hidden = !adminConfig.authenticated || adminConfig.mustChangePassword;
-        document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
+        document.getElementById('newButton').hidden = !['map_services', 'plans', 'task_sequences'].includes(entitySelect.value);
     }
 
     function updateSearchControls() {
@@ -711,7 +711,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             recordForm.appendChild(details);
         }
         fieldsByEntity[entitySelect.value].forEach(field => addField(recordForm, field, record[field[0]], isNew));
-        if (isNew && ['drawings', 'task_sequences'].includes(entitySelect.value)) addPasswordField(recordForm);
+        if (isNew && ['plans', 'task_sequences'].includes(entitySelect.value)) addPasswordField(recordForm);
         const save = document.createElement('button');
         save.type = 'submit';
         save.textContent = 'Salvar';
@@ -935,13 +935,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         offset = 0;
         updatePanels();
         updateSearchControls();
-        document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
+        document.getElementById('newButton').hidden = !['map_services', 'plans', 'task_sequences'].includes(entitySelect.value);
         document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
         loadRecords();
     });
     updatePanels();
     updateSearchControls();
-    document.getElementById('newButton').hidden = !['map_services', 'drawings', 'task_sequences'].includes(entitySelect.value);
+    document.getElementById('newButton').hidden = !['map_services', 'plans', 'task_sequences'].includes(entitySelect.value);
     document.getElementById('editSettingsButton').hidden = entitySelect.value !== 'settings';
     if (adminConfig.authenticated && !adminConfig.mustChangePassword) loadRecords();
 </script>
