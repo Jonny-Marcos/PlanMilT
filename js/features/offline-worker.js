@@ -1,7 +1,7 @@
 /**
  * @fileoverview Mantém o shell da aplicação e os pacotes de tiles disponíveis sem rede.
  */
-const APP_CACHE = 'planmilt-app-shell-v22';
+const APP_CACHE = 'planmilt-app-shell-v23';
 const APP_CACHE_PREFIX = 'planmilt-app-shell-';
 const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
 const SHELL_DOCUMENTS = [

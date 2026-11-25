@@ -231,6 +231,7 @@ window.PlanMilT.mapPrint = (() => {
 #mapPrintSheets .map-print-bar{position:fixed;top:0;left:0;right:0;height:44px;z-index:2;display:flex;align-items:center;gap:8px;padding:0 12px;background:#243447;color:#fff;font-size:14px}
 #mapPrintSheets .map-print-bar button{height:30px;padding:0 12px;border:0;border-radius:6px;cursor:pointer;font:inherit}
 #mapPrintSheets .map-print-sheet{position:relative;box-sizing:border-box;width:${pageWidth}mm;height:${pageHeight}mm;background:#fff;margin:0 auto 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden;color:#000}
+#mapPrintSheets .map-print-map.leaflet-container{background:#fff}
 #mapPrintSheets .map-print-map{position:absolute;left:${PAGE_MARGIN_MM}mm;top:${PAGE_MARGIN_MM}mm;outline:.25mm solid #444;outline-offset:-.25mm}
 #mapPrintSheets .map-print-footer{position:absolute;left:${PAGE_MARGIN_MM}mm;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden}
 #mapPrintSheets .map-print-edge{position:absolute;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:nowrap;color:#000}
@@ -312,6 +313,18 @@ body>*:not(#mapPrintSheets){display:none!important}
         }
 
         /**
+         * Recria uma grade métrica (quadrículas UTM), que o plugin de impressão não sabe clonar.
+         * Copia também as opções herdadas, pois o construtor UTM só guarda as informadas.
+         * @param {Object} grid - Grade métrica do mapa principal.
+         * @returns {Object} Nova grade com as mesmas opções.
+         */
+        function cloneMetricGrid(grid) {
+            const options = {};
+            for (const key in grid.options) options[key] = grid.options[key];
+            return new leaflet.MetricGrid(options);
+        }
+
+        /**
          * Copia para o mapa da folha as camadas hoje visíveis no mapa principal.
          * @param {Object} sheetMap - Mapa da folha.
          * @returns {number} Quantidade de camadas que não puderam ser copiadas.
@@ -326,7 +339,12 @@ body>*:not(#mapPrintSheets){display:none!important}
                 }
             }
             for (const layer of Object.values(map._layers)) {
-                if (layer instanceof leaflet.Popup || layer instanceof leaflet.Tooltip || !utils.getType(layer)) continue;
+                if (layer instanceof leaflet.Popup || layer instanceof leaflet.Tooltip) continue;
+                if (leaflet.MetricGrid && layer instanceof leaflet.MetricGrid) {
+                    cloneMetricGrid(layer).addTo(sheetMap);
+                    continue;
+                }
+                if (!utils.getType(layer)) continue;
                 const clone = utils.cloneLayer(layer);
                 if (!clone) {
                     skipped++;

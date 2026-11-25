@@ -113,15 +113,22 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     class Layer { constructor(kind) { this.kind = kind; } getTooltip() { return this.tip; } }
     class Popup extends Layer {}
     class Tooltip extends Layer {}
+    class MetricGrid extends Layer {
+        constructor(options) { super('grid'); this.options = options; }
+        addTo(target) { target.added.push(this); return this; }
+    }
+    const utm = new MetricGrid({ color: '#800', minZoom: 4 });
+    utm.options = Object.create({ weight: 2, minZoom: 4 });
+    utm.options.color = '#800';
     const tile = new Layer('tile');
     const polygon = new Layer('polygon');
     polygon.tip = { getContent: () => 'Alvo', options: { permanent: true } };
     const group = new Layer('group');
-    map._layers = { 1: tile, 2: polygon, 3: group, 4: new Popup('popup') };
+    map._layers = { 1: tile, 2: polygon, 3: group, 4: new Popup('popup'), 5: utm };
     const sheetMaps = [];
     let scales = 0;
     const L = {
-        Popup, Tooltip,
+        Popup, Tooltip, MetricGrid,
         BrowserPrint: {
             Mode: { Portrait: (p, o) => ({ p, o }) },
             Utils: {
@@ -166,7 +173,9 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     assert.equal(printed, 1);
     assert.equal(scales, sheetMaps.length);
     for (const [index, sheetMap] of sheetMaps.entries()) {
-        assert.deepEqual(sheetMap.added.map(l => l.kind), ['tile', 'polygon']);
+        assert.deepEqual(sheetMap.added.map(l => l.kind), ['tile', 'polygon', 'grid']);
+        assert.notEqual(sheetMap.added[2], utm);
+        assert.deepEqual(sheetMap.added[2].options, { color: '#800', weight: 2, minZoom: 4 });
         assert.deepEqual(sheetMap.added[1].tooltips, ['Alvo']);
         assert.equal(sheetMap.options.zoomSnap, 0);
         assert.equal(sheetMap.view.zoom, settings.zoom);
@@ -177,6 +186,7 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     const css = doc.head.children[0].textContent;
     assert.ok(css.includes('@page{size:A4 portrait;margin:0}'));
     assert.ok(css.includes('left:10mm;top:10mm'));
+    assert.ok(css.includes('.map-print-map.leaflet-container{background:#fff}'));
     // Nenhuma marcação fica a menos de 4 mm do papel e todas ficam dentro da margem de 1 cm.
     const offsets = [...css.matchAll(/map-print-edge\.[A-Za-z]+\{[^}]*?(?:top|bottom|left|right):(\d+)mm/g)].map(m => Number(m[1]));
     assert.ok(offsets.length >= 8 && offsets.every(mm => mm >= 4 && mm <= 10));
