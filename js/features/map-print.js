@@ -13,6 +13,10 @@ window.PlanMilT.mapPrint = (() => {
     });
     const PAGE_MARGIN_MM = 10;
     const FOOTER_HEIGHT_MM = 8;
+    const FOOTER_TWO_LINES_MM = 12;
+    const HEADER_HEIGHT_MM = 10;
+    const OVERLAP_OPTIONS_MM = Object.freeze([0, 5, 10]);
+    const TEXT_LIMITS = Object.freeze({ title: 80, header: 120, footerText: 120, date: 30 });
     // Folga de 1 mm evita que o conteúdo ultrapasse a área útil e gere uma folha em branco.
     const SAFETY_MM = 1;
     // Faixa de 4 mm junto ao papel que nenhuma marcação ocupa, pois muitas impressoras não imprimem ali.
@@ -30,15 +34,16 @@ window.PlanMilT.mapPrint = (() => {
      * Calcula a área do mapa impresso dentro das margens de uma folha.
      * @param {string} paper - Folha (`A4` ou `A3`).
      * @param {string} orientation - `portrait` ou `landscape`.
-     * @param {boolean} withFooter - Indica se o rodapé reduz a altura do mapa.
+     * @param {number} [footerMm] - Altura reservada ao rodapé (0 sem rodapé).
+     * @param {number} [headerMm] - Altura reservada ao cabeçalho (0 sem cabeçalho).
      * @returns {{width: number, height: number}} Dimensões em milímetros.
      */
-    function getMapAreaMm(paper, orientation, withFooter) {
+    function getMapAreaMm(paper, orientation, footerMm = 0, headerMm = 0) {
         const size = PAPER_SIZES_MM[paper];
         if (!size) throw new Error('Folha não suportada.');
         const short = size.width - 2 * PAGE_MARGIN_MM;
         const long = size.height - 2 * PAGE_MARGIN_MM;
-        const reserved = SAFETY_MM + (withFooter ? FOOTER_HEIGHT_MM : 0);
+        const reserved = SAFETY_MM + footerMm + headerMm;
         return orientation === 'landscape'
             ? { width: long, height: short - reserved }
             : { width: short, height: long - reserved };
@@ -110,27 +115,31 @@ window.PlanMilT.mapPrint = (() => {
      * @param {Object} map - Mapa Leaflet (usa `getBounds`, `project` e `unproject`).
      * @param {number} zoom - Zoom (possivelmente fracionário) da impressão.
      * @param {{width: number, height: number}} areaMm - Área do mapa em cada folha, em milímetros.
+     * @param {number} [overlapMm] - Faixa repetida entre folhas vizinhas, em milímetros.
      * @returns {{columns: number, rows: number, sheets: Array<{row: number, column: number, center: Object}>}} Grade de folhas, da esquerda para a direita e de cima para baixo.
      */
-    function computeGrid(map, zoom, areaMm) {
+    function computeGrid(map, zoom, areaMm, overlapMm = 0) {
         const bounds = map.getBounds();
         const northWest = map.project(bounds.getNorthWest(), zoom);
         const southEast = map.project(bounds.getSouthEast(), zoom);
         const pageWidth = areaMm.width * CSS_PIXELS_PER_MM;
         const pageHeight = areaMm.height * CSS_PIXELS_PER_MM;
+        const overlap = overlapMm * CSS_PIXELS_PER_MM;
+        const stepX = pageWidth - overlap;
+        const stepY = pageHeight - overlap;
         const width = southEast.x - northWest.x;
         const height = southEast.y - northWest.y;
         // A tolerância evita uma folha extra por erro de arredondamento em quadros que cabem exatamente.
-        const columns = Math.max(1, Math.ceil(width / pageWidth - 1e-6));
-        const rows = Math.max(1, Math.ceil(height / pageHeight - 1e-6));
-        const originX = northWest.x + width / 2 - columns * pageWidth / 2;
-        const originY = northWest.y + height / 2 - rows * pageHeight / 2;
+        const columns = Math.max(1, Math.ceil((width - overlap) / stepX - 1e-6));
+        const rows = Math.max(1, Math.ceil((height - overlap) / stepY - 1e-6));
+        const originX = northWest.x + width / 2 - (columns * stepX + overlap) / 2;
+        const originY = northWest.y + height / 2 - (rows * stepY + overlap) / 2;
         const sheets = [];
         for (let row = 0; row < rows; row++) {
             for (let column = 0; column < columns; column++) {
                 sheets.push({
                     row, column,
-                    center: map.unproject({ x: originX + (column + 0.5) * pageWidth, y: originY + (row + 0.5) * pageHeight }, zoom)
+                    center: map.unproject({ x: originX + column * stepX + pageWidth / 2, y: originY + row * stepY + pageHeight / 2 }, zoom)
                 });
             }
         }
@@ -139,7 +148,7 @@ window.PlanMilT.mapPrint = (() => {
 
     /**
      * Valida as escolhas do formulário e resolve escala, zoom e grade de folhas.
-     * @param {Object} input - Valores do formulário (`paper`, `orientation`, `scaleChoice`, `customScale`, `footer`).
+     * @param {Object} input - Valores do formulário (`paper`, `orientation`, `scaleChoice`, `customScale`, `footer`, `overlap` e textos opcionais `title`, `header`, `footerText`, `date`).
      * @param {Object} context - Contexto do mapa (`latitude`, `currentZoom`, `minZoom`, `maxZoom`, `computeGrid` opcional).
      * @returns {{settings?: Object, error?: string}} Configuração pronta ou mensagem de erro.
      */
@@ -163,16 +172,23 @@ window.PlanMilT.mapPrint = (() => {
                 return { error: 'Esta escala não pode ser obtida no zoom suportado pelo mapa nesta latitude.' };
             }
         }
+        const overlapMm = Number(input.overlap || 0);
+        if (!OVERLAP_OPTIONS_MM.includes(overlapMm)) return { error: 'Escolha a sobreposição entre folhas.' };
         const footer = Boolean(input.footer);
-        const areaMm = getMapAreaMm(input.paper, input.orientation, footer);
-        const grid = context.computeGrid ? context.computeGrid(zoom, areaMm) : null;
+        const text = {};
+        for (const [key, limit] of Object.entries(TEXT_LIMITS)) text[key] = String(input[key] || '').trim().slice(0, limit);
+        if (!footer) text.footerText = '';
+        const headerMm = text.title || text.header ? HEADER_HEIGHT_MM : 0;
+        const footerMm = footer ? (text.footerText ? FOOTER_TWO_LINES_MM : FOOTER_HEIGHT_MM) : 0;
+        const areaMm = getMapAreaMm(input.paper, input.orientation, footerMm, headerMm);
+        const grid = context.computeGrid ? context.computeGrid(zoom, areaMm, overlapMm) : null;
         if (grid && grid.sheets.length > MAX_SHEETS) {
             return { error: `Esta escala exige ${grid.sheets.length} folhas (máximo ${MAX_SHEETS}). Aproxime o mapa ou use uma escala menor.` };
         }
         return {
             settings: {
                 paper: input.paper, orientation: input.orientation, scale, zoom, approximate, footer,
-                areaMm, groundMeters: getGroundSizeMeters(scale, areaMm), grid
+                overlapMm, text, headerMm, footerMm, areaMm, groundMeters: getGroundSizeMeters(scale, areaMm), grid
             }
         };
     }
@@ -193,7 +209,8 @@ window.PlanMilT.mapPrint = (() => {
             const number = sheet.row * grid.columns + sheet.column + 1;
             parts.push(`Folha ${number} de ${grid.sheets.length} (linha ${sheet.row + 1}, coluna ${sheet.column + 1})`);
         }
-        parts.push(`Impresso em ${date.toLocaleDateString('pt-BR')}`);
+        const customDate = settings.text && settings.text.date;
+        parts.push(customDate ? `Data: ${customDate}` : `Impresso em ${date.toLocaleDateString('pt-BR')}`);
         return parts.join(' · ');
     }
 
@@ -232,7 +249,11 @@ window.PlanMilT.mapPrint = (() => {
 #mapPrintSheets .map-print-bar button{height:30px;padding:0 12px;border:0;border-radius:6px;cursor:pointer;font:inherit}
 #mapPrintSheets .map-print-sheet{position:relative;box-sizing:border-box;width:${pageWidth}mm;height:${pageHeight}mm;background:#fff;margin:0 auto 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden;color:#000}
 #mapPrintSheets .map-print-map.leaflet-container{background:#fff}
-#mapPrintSheets .map-print-map{position:absolute;left:${PAGE_MARGIN_MM}mm;top:${PAGE_MARGIN_MM}mm;outline:.25mm solid #444;outline-offset:-.25mm}
+#mapPrintSheets .map-print-map{position:absolute;z-index:0;left:${PAGE_MARGIN_MM}mm;top:${PAGE_MARGIN_MM}mm;outline:.25mm solid #444;outline-offset:-.25mm}
+#mapPrintSheets .map-print-header{position:absolute;left:${PAGE_MARGIN_MM}mm;top:${PAGE_MARGIN_MM}mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;text-align:center;white-space:nowrap}
+#mapPrintSheets .map-print-header b{font-size:14px;line-height:5mm}
+#mapPrintSheets .map-print-header span{font-size:11px;line-height:5mm}
+#mapPrintSheets .map-print-overlap{position:absolute;z-index:1;border:0 dashed #c00;pointer-events:none}
 #mapPrintSheets .map-print-footer{position:absolute;left:${PAGE_MARGIN_MM}mm;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden}
 #mapPrintSheets .map-print-edge{position:absolute;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;white-space:nowrap;color:#000}
 #mapPrintSheets .map-print-edge.top,#mapPrintSheets .map-print-edge.bottom{left:${PAGE_MARGIN_MM}mm;right:${PAGE_MARGIN_MM}mm;height:5mm}
@@ -247,6 +268,7 @@ window.PlanMilT.mapPrint = (() => {
 #mapPrintSheets .map-print-edge.bottomLeft{left:${UNPRINTABLE_MM}mm;bottom:${UNPRINTABLE_MM + 1}mm}
 #mapPrintSheets .map-print-edge.bottomRight{right:${UNPRINTABLE_MM}mm;bottom:${UNPRINTABLE_MM + 1}mm}
 #mapPrintSheets .map-print-index{padding:${PAGE_MARGIN_MM}mm;font-size:12px;line-height:1.4}
+#mapPrintSheets .map-print-index h1{margin:0 0 2mm;font-size:22px}
 #mapPrintSheets .map-print-index h2{margin:0 0 4mm;font-size:18px}
 #mapPrintSheets .map-print-index p{margin:0 0 3mm}
 #mapPrintSheets .map-print-index table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:4mm}
@@ -276,9 +298,10 @@ body>*:not(#mapPrintSheets){display:none!important}
 .swal2-popup.map-print-modal{width:min(460px,calc(100vw - 28px))!important;padding:20px!important}
 #mapPrintDialog{text-align:left;font:14px/1.45 sans-serif;color:#27364a}
 #mapPrintDialog label{display:block;margin:10px 0 4px;font-size:13px;font-weight:600}
-#mapPrintDialog select,#mapPrintDialog input[type=number]{box-sizing:border-box;width:100%;height:40px;margin:0;padding:6px;border:1px solid #c5cad2;border-radius:6px;font:inherit}
+#mapPrintDialog select,#mapPrintDialog input[type=number],#mapPrintDialog input[type=text]{box-sizing:border-box;width:100%;height:40px;margin:0;padding:6px;border:1px solid #c5cad2;border-radius:6px;font:inherit}
 #mapPrintDialog .map-print-check{display:flex;align-items:center;gap:8px;font-weight:400}
 #mapPrintDialog .map-print-check input{width:17px;height:17px;margin:0;accent-color:#435f88}
+#mapPrintDialog summary{margin-top:10px;font-size:13px;font-weight:600;cursor:pointer}
 #mapPrintDialog #mapPrintSummary{margin:12px 0 6px;padding:8px 10px;background:#eef1f5;border-radius:6px}
 #mapPrintDialog .map-print-hint{margin:6px 0 0;font-size:12px;color:#5b6778}
 </style><div id="mapPrintDialog">
@@ -289,7 +312,15 @@ body>*:not(#mapPrintSheets){display:none!important}
 <label for="mapPrintScale">Escala</label>
 <select id="mapPrintScale"><option value="current">Zoom atual da tela (≈ ${formatScale(roundScale(currentScale))})</option>${presets}<option value="custom">Outra escala…</option></select>
 <input id="mapPrintCustomScale" type="number" min="${MIN_SCALE}" max="${MAX_SCALE}" step="1" placeholder="Ex.: 40000" aria-label="Denominador da escala" hidden>
+<label for="mapPrintOverlap">Sobreposição entre folhas</label>
+<select id="mapPrintOverlap"><option value="0">Nenhuma</option><option value="5" selected>5 mm (linha tracejada para alinhar)</option><option value="10">10 mm (linha tracejada para alinhar)</option></select>
 <label class="map-print-check"><input id="mapPrintFooter" type="checkbox" checked> Incluir escala gráfica e rodapé com a escala</label>
+<details class="map-print-texts"><summary>Textos opcionais (título, cabeçalho, rodapé, data)</summary>
+<label for="mapPrintTitle">Título</label><input id="mapPrintTitle" type="text" maxlength="${TEXT_LIMITS.title}" placeholder="Ex.: Ataque coordenado">
+<label for="mapPrintHeader">Cabeçalho</label><input id="mapPrintHeader" type="text" maxlength="${TEXT_LIMITS.header}" placeholder="Ex.: 2º Pelotão · Exercício de campo">
+<label for="mapPrintFooterText">Rodapé (linha adicional, exige o rodapé acima)</label><input id="mapPrintFooterText" type="text" maxlength="${TEXT_LIMITS.footerText}" placeholder="Ex.: Fonte: levantamento do pelotão">
+<label for="mapPrintDate">Data (vazio = data de hoje)</label><input id="mapPrintDate" type="text" maxlength="${TEXT_LIMITS.date}" placeholder="Ex.: 25/11/2026">
+</details>
 <p id="mapPrintSummary" role="status"></p>
 <p class="map-print-hint">Todo o quadro visível no mapa é impresso, em quantas folhas forem necessárias (até ${MAX_SHEETS}), com as camadas ativas. A escala é exata na latitude do centro do mapa. Na janela do navegador, use o mesmo papel e orientação, escala 100 % (sem “ajustar à página”) e desative cabeçalhos e rodapés.</p>
 </div>`;
@@ -379,11 +410,15 @@ body>*:not(#mapPrintSheets){display:none!important}
         function buildIndexPage(settings) {
             const grid = settings.grid;
             const page = createElement('div', 'map-print-sheet map-print-index');
+            const text = settings.text || {};
+            if (text.title) page.appendChild(createElement('h1', '', text.title));
+            if (text.header) page.appendChild(createElement('p', '', text.header));
             page.appendChild(createElement('h2', '', 'Mapa de montagem do mosaico'));
             page.appendChild(createElement('p', '', `${grid.sheets.length} folhas ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]} (${grid.columns} colunas × ${grid.rows} linhas), `
                 + `${settings.approximate ? 'escala aproximada ' + formatScale(roundScale(settings.scale)) : 'escala ' + formatScale(settings.scale)}.`));
             page.appendChild(createElement('p', '', 'Recorte as margens ao longo da moldura de cada folha e cole-as lado a lado, conforme a tabela. '
-                + 'Em cada borda, a marcação indica o número da folha vizinha que deve ser colada ali; nos cantos, a folha diagonal.'));
+                + 'Em cada borda, a marcação indica o número da folha vizinha que deve ser colada ali; nos cantos, a folha diagonal.'
+                + (settings.overlapMm ? ` A linha tracejada marca a faixa de ${settings.overlapMm} mm repetida na folha vizinha: alinhe as feições por ela.` : '')));
             const table = createElement('table');
             for (let row = 0; row < grid.rows; row++) {
                 const tr = createElement('tr');
@@ -396,6 +431,7 @@ body>*:not(#mapPrintSheets){display:none!important}
             }
             page.appendChild(table);
             page.appendChild(createElement('p', '', `Cada folha cobre ${formatDistance(settings.groundMeters.width)} × ${formatDistance(settings.groundMeters.height)} no terreno.`));
+            if (text.footerText) page.appendChild(createElement('p', '', text.footerText));
             return page;
         }
 
@@ -413,6 +449,33 @@ body>*:not(#mapPrintSheets){display:none!important}
                 const corner = !(position in arrows);
                 const text = corner ? `Folha ${number}` : `${arrows[position]} Cole a folha ${number} ${arrows[position]}`;
                 sheetEl.appendChild(createElement('div', `map-print-edge ${position}${corner ? ' corner' : ''}`, text));
+            }
+        }
+
+        /**
+         * Desenha linhas tracejadas onde começa o conteúdo repetido da folha vizinha.
+         * @param {Object} sheetEl - Elemento da folha.
+         * @param {Object} grid - Grade de folhas.
+         * @param {{row: number, column: number}} sheet - Folha atual.
+         * @param {Object} settings - Configuração resolvida da impressão.
+         * @param {number} mapTopMm - Distância do topo da folha até o mapa.
+         */
+        function addOverlapGuides(sheetEl, grid, sheet, settings, mapTopMm) {
+            const overlap = settings.overlapMm;
+            if (!overlap) return;
+            const { width, height } = settings.areaMm;
+            const neighbors = getNeighbors(grid, sheet);
+            const guides = {
+                left: [PAGE_MARGIN_MM + overlap, mapTopMm, 0, height, 'borderLeftWidth'],
+                right: [PAGE_MARGIN_MM + width - overlap, mapTopMm, 0, height, 'borderLeftWidth'],
+                top: [PAGE_MARGIN_MM, mapTopMm + overlap, width, 0, 'borderTopWidth'],
+                bottom: [PAGE_MARGIN_MM, mapTopMm + height - overlap, width, 0, 'borderTopWidth']
+            };
+            for (const [side, [left, top, w, h, border]] of Object.entries(guides)) {
+                if (neighbors[side] === null) continue;
+                const guide = createElement('div', `map-print-overlap ${side}`);
+                Object.assign(guide.style, { left: `${left}mm`, top: `${top}mm`, width: `${w}mm`, height: `${h}mm`, [border]: '0.3mm' });
+                sheetEl.appendChild(guide);
             }
         }
 
@@ -437,8 +500,9 @@ body>*:not(#mapPrintSheets){display:none!important}
         async function print(settings) {
             close();
             leaflet.BrowserPrint.Utils.initialize();
-            const grid = settings.grid || computeGrid(map, settings.zoom, settings.areaMm);
-            const footerMm = settings.footer ? FOOTER_HEIGHT_MM : 0;
+            const grid = settings.grid || computeGrid(map, settings.zoom, settings.areaMm, settings.overlapMm);
+            const { footerMm, headerMm } = settings;
+            const mapTopMm = PAGE_MARGIN_MM + headerMm;
             const style = doc.createElement('style');
             style.textContent = buildPrintCss(settings);
             doc.head.appendChild(style);
@@ -469,15 +533,30 @@ body>*:not(#mapPrintSheets){display:none!important}
                 const mapEl = createElement('div', 'map-print-map');
                 mapEl.style.width = `${settings.areaMm.width}mm`;
                 mapEl.style.height = `${settings.areaMm.height}mm`;
+                mapEl.style.top = `${mapTopMm}mm`;
                 sheetEl.appendChild(mapEl);
+                if (headerMm) {
+                    const headerEl = createElement('div', 'map-print-header');
+                    headerEl.style.width = `${settings.areaMm.width}mm`;
+                    headerEl.style.height = `${headerMm - 1}mm`;
+                    if (settings.text.title) headerEl.appendChild(createElement('b', '', settings.text.title));
+                    if (settings.text.header) headerEl.appendChild(createElement('span', '', settings.text.header));
+                    sheetEl.appendChild(headerEl);
+                }
                 if (settings.footer) {
-                    const footerEl = createElement('div', 'map-print-footer', buildFooterText(settings, sheet));
-                    footerEl.style.top = `${PAGE_MARGIN_MM + settings.areaMm.height}mm`;
+                    const base = buildFooterText(settings, sheet);
+                    const footerEl = createElement('div', 'map-print-footer', settings.text.footerText ? undefined : base);
+                    if (settings.text.footerText) {
+                        footerEl.appendChild(createElement('div', '', base));
+                        footerEl.appendChild(createElement('div', '', settings.text.footerText));
+                    }
+                    footerEl.style.top = `${mapTopMm + settings.areaMm.height}mm`;
                     footerEl.style.width = `${settings.areaMm.width}mm`;
                     footerEl.style.height = `${footerMm}mm`;
-                    footerEl.style.lineHeight = `${footerMm}mm`;
+                    footerEl.style.lineHeight = settings.text.footerText ? `${footerMm / 2}mm` : `${footerMm}mm`;
                     sheetEl.appendChild(footerEl);
                 }
+                addOverlapGuides(sheetEl, grid, sheet, settings, mapTopMm);
                 addEdgeMarks(sheetEl, grid, sheet);
                 overlay.appendChild(sheetEl);
                 const sheetMap = leaflet.map(mapEl, {
@@ -522,11 +601,14 @@ body>*:not(#mapPrintSheets){display:none!important}
             const size = map.getSize();
             const context = {
                 latitude, currentZoom: map.getZoom(), minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom(),
-                computeGrid: (zoom, areaMm) => computeGrid(map, zoom, areaMm)
+                computeGrid: (zoom, areaMm, overlapMm) => computeGrid(map, zoom, areaMm, overlapMm)
             };
             const readForm = () => {
                 const value = id => doc.getElementById(id);
+                const text = id => { const element = value(id); return element ? element.value : ''; };
                 return resolveSettings({
+                    overlap: text('mapPrintOverlap'), title: text('mapPrintTitle'), header: text('mapPrintHeader'),
+                    footerText: text('mapPrintFooterText'), date: text('mapPrintDate'),
                     paper: value('mapPrintPaper').value, orientation: value('mapPrintOrientation').value,
                     scaleChoice: value('mapPrintScale').value, customScale: value('mapPrintCustomScale').value,
                     footer: value('mapPrintFooter').checked
@@ -555,13 +637,18 @@ body>*:not(#mapPrintSheets){display:none!important}
                         const count = settings.grid.sheets.length;
                         summary.textContent = `${settings.approximate ? 'Escala aproximada' : 'Escala'} `
                             + `${formatScale(settings.approximate ? roundScale(settings.scale) : settings.scale)} · `
-                            + `${count} folha${count > 1 ? 's' : ''} (${settings.grid.columns} × ${settings.grid.rows}); cada uma cobre `
+                            + `${count} folha${count > 1 ? 's' : ''} (${settings.grid.columns} × ${settings.grid.rows})`
+                            + `${settings.overlapMm ? `, sobreposição de ${settings.overlapMm} mm` : ''}; cada uma cobre `
                             + `${formatDistance(settings.groundMeters.width)} × ${formatDistance(settings.groundMeters.height)}.`;
                     };
-                    for (const id of ['mapPrintPaper', 'mapPrintOrientation', 'mapPrintScale', 'mapPrintFooter']) {
-                        doc.getElementById(id).addEventListener('change', refresh);
+                    for (const id of ['mapPrintPaper', 'mapPrintOrientation', 'mapPrintScale', 'mapPrintFooter', 'mapPrintOverlap']) {
+                        const element = doc.getElementById(id);
+                        if (element) element.addEventListener('change', refresh);
                     }
-                    custom.addEventListener('input', refresh);
+                    for (const id of ['mapPrintCustomScale', 'mapPrintTitle', 'mapPrintHeader', 'mapPrintFooterText', 'mapPrintDate']) {
+                        const element = doc.getElementById(id);
+                        if (element) element.addEventListener('input', refresh);
+                    }
                     refresh();
                 },
                 preConfirm: () => {
@@ -593,7 +680,7 @@ body>*:not(#mapPrintSheets){display:none!important}
     }
 
     return Object.freeze({
-        PAPER_SIZES_MM, PAGE_MARGIN_MM, SCALE_PRESETS, MAX_SHEETS, getMapAreaMm, scaleForZoom, zoomForScale,
+        PAPER_SIZES_MM, PAGE_MARGIN_MM, OVERLAP_OPTIONS_MM, SCALE_PRESETS, MAX_SHEETS, getMapAreaMm, scaleForZoom, zoomForScale,
         getGroundSizeMeters, roundScale, formatScale, formatDistance, computeGrid, getNeighbors, resolveSettings,
         buildFooterText, attach
     });

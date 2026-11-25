@@ -29,7 +29,8 @@ test('zoom e escala são inversos e as áreas por folha consideram margens e rod
         assert.ok(Math.abs(mp.scaleForZoom(zoom, -21.5) - scale) < 1e-6);
     }
     assert.deepEqual(mp.getMapAreaMm('A4', 'portrait', false), { width: 190, height: 276 });
-    assert.deepEqual(mp.getMapAreaMm('A3', 'landscape', true), { width: 400, height: 268 });
+    assert.deepEqual(mp.getMapAreaMm('A3', 'landscape', 8), { width: 400, height: 268 });
+    assert.deepEqual(mp.getMapAreaMm('A4', 'portrait', 12, 10), { width: 190, height: 254 });
     assert.deepEqual(mp.getGroundSizeMeters(50000, { width: 190, height: 276 }), { width: 9500, height: 13800 });
 });
 
@@ -46,6 +47,42 @@ test('a grade cobre todo o quadro com folhas contíguas, centralizada e ordenada
     const middle = (quadro.getNorthWest().lng + quadro.getSouthEast().lng) / 2;
     assert.ok(Math.abs(grid.sheets[1].center.lng - middle) < 1e-9);
     assert.equal(mp.computeGrid(fakeMap({ widthPx: 100 * MM, heightPx: 100 * MM }), 10, area).sheets.length, 1);
+});
+
+test('a sobreposição repete uma faixa entre folhas vizinhas e mantém a grade centralizada', () => {
+    const area = { width: 100, height: 100 };
+    const map = fakeMap({ widthPx: 250 * MM, heightPx: 90 * MM });
+    const plain = mp.computeGrid(map, 10, area, 0);
+    const overlapped = mp.computeGrid(map, 10, area, 10);
+    assert.equal(plain.columns, 3);
+    assert.equal(overlapped.columns, 3);
+    const degrees = mm => mm * MM * 360 / (256 * 2 ** 10);
+    const step = overlapped.sheets[1].center.lng - overlapped.sheets[0].center.lng;
+    assert.ok(Math.abs(step - degrees(90)) < 1e-9);
+    const quadro = map.getBounds();
+    const middle = (quadro.getNorthWest().lng + quadro.getSouthEast().lng) / 2;
+    assert.ok(Math.abs(overlapped.sheets[1].center.lng - middle) < 1e-9);
+    // 250 mm exigem 3 folhas sem sobreposição, mas 4 quando cada junta perde 10 mm.
+    assert.equal(mp.computeGrid(fakeMap({ widthPx: 290 * MM, heightPx: 90 * MM }), 10, area, 0).columns, 3);
+    assert.equal(mp.computeGrid(fakeMap({ widthPx: 290 * MM, heightPx: 90 * MM }), 10, area, 10).columns, 4);
+});
+
+test('textos opcionais só reservam espaço quando preenchidos e são limitados', () => {
+    const ctx = { latitude: 0, currentZoom: 10, minZoom: 1, maxZoom: 28 };
+    const base = { paper: 'A4', orientation: 'portrait', scaleChoice: 'current', footer: true };
+    const plain = mp.resolveSettings(base, ctx).settings;
+    assert.equal(plain.headerMm, 0);
+    assert.equal(plain.footerMm, 8);
+    assert.equal(plain.overlapMm, 0);
+    const texts = mp.resolveSettings({ ...base, title: '  Ataque  ', footerText: 'x'.repeat(500), date: '25/11/2026', overlap: '5' }, ctx).settings;
+    assert.equal(texts.text.title, 'Ataque');
+    assert.equal(texts.text.footerText.length, 120);
+    assert.equal(texts.headerMm, 10);
+    assert.equal(texts.footerMm, 12);
+    assert.equal(texts.areaMm.height, plain.areaMm.height - 10 - 4);
+    assert.equal(mp.resolveSettings({ ...base, footer: false, footerText: 'oculto' }, ctx).settings.text.footerText, '');
+    assert.ok(mp.resolveSettings({ ...base, overlap: '7' }, ctx).error);
+    assert.match(mp.buildFooterText({ ...texts, grid: null }, null, new Date(2024, 0, 5)), /Data: 25\/11\/2026$/);
 });
 
 test('resolveSettings valida escala, folha, zoom e limite de folhas', () => {
@@ -164,8 +201,8 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     };
     const warnings = [];
     const api = mp.attach({ map, leaflet: L, Swal: {}, doc, win, settleMs: 0 });
-    const settings = mp.resolveSettings({ paper: 'A4', orientation: 'portrait', scaleChoice: 'current', footer: true },
-        { latitude: 0, currentZoom: 10, minZoom: 1, maxZoom: 28, computeGrid: (zoom, area) => mp.computeGrid(map, zoom, area) }).settings;
+    const settings = mp.resolveSettings({ paper: 'A4', orientation: 'portrait', scaleChoice: 'current', footer: true, overlap: '5' },
+        { latitude: 0, currentZoom: 10, minZoom: 1, maxZoom: 28, computeGrid: (zoom, area, overlap) => mp.computeGrid(map, zoom, area, overlap) }).settings;
     await api.print(settings);
 
     assert.equal(sheetMaps.length, settings.grid.sheets.length);
@@ -207,6 +244,11 @@ test('imprime várias folhas com as camadas ativas, escala gráfica e limpeza po
     assert.ok(!first.some(([c]) => c.includes(' left') || c.includes(' top')));
     assert.equal(settings.grid.rows, 1);
     assert.ok(!first.some(([c]) => c.includes('bottom')));
+
+    const guides = sheet => sheet.children.filter(child => child.className.startsWith('map-print-overlap')).map(g => g.className);
+    assert.deepEqual(guides(sheets[0]), ['map-print-overlap right']);
+    assert.deepEqual(guides(sheets[1]).slice(0, 1), ['map-print-overlap left']);
+    assert.ok(sheets[0].children.find(c => c.className.startsWith('map-print-overlap')).style.left === '195mm');
 
     listeners.afterprint();
     assert.ok(overlay.removed && sheetMaps.every(m => m.removed) && doc.head.children[0].removed);
