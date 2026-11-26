@@ -39,6 +39,7 @@
         'loadImages',
         'shareLink',
         'startPlanning',
+        'weatherForecastButton',
         'suggestionsButton',
         'addLayerButton',
         'imageEditorLoadTheme'

@@ -203,7 +203,7 @@ test('worker caches the application shell, then serves it and its assets without
     const worker = loadWorker(caches, network);
     await worker.install();
 
-    const shell = await caches.open('planmilt-app-shell-v25');
+    const shell = await caches.open('planmilt-app-shell-v26');
     for (const asset of ['index.html', 'css/app.css', 'js/features/main.js', 'img/bg.png', 'js/features/map-3d-viewer.js']) {
         assert.ok(await shell.match(`${ORIGIN}/${asset}`), `${asset} deve estar no cache do shell`);
     }
@@ -229,6 +229,14 @@ test('worker leaves PHP endpoints and HGT downloads to the page', async () => {
     ]) {
         assert.equal(await worker.fetchEvent(url), null, url);
     }
+});
+
+test('worker does not intercept weather forecasts, even if a package contains the URL', async () => {
+    const caches = createCacheStorage();
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=1&longitude=2';
+    await (await caches.open(`${PACKAGE_PREFIX}old`)).put(url, new Response('previsão antiga'));
+    const worker = loadWorker(caches, createNetwork());
+    assert.equal(await worker.fetchEvent(url), null);
 });
 
 test('package download stores every tile, reports progress and deduplicates URLs', async () => {

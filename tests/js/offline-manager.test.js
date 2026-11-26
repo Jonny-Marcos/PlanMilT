@@ -1036,6 +1036,11 @@ test('offline connectivity state marks the interface and disables network action
         setAttribute(name, value) { this.attributes[name] = value; },
         removeAttribute(name) { delete this.attributes[name]; }
     };
+    const weatherButton = {
+        disabled: false, title: 'Previsão do tempo', dataset: {}, attributes: {}, classList: createClassList(),
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; }
+    };
     const body = { classList: createClassList() };
     const documentRoot = {
         body,
@@ -1044,6 +1049,7 @@ test('offline connectivity state marks the interface and disables network action
             if (id === 'saveDrawings') return saveButton;
             if (id === 'view3DButton') return view3DButton;
             if (id === 'linkPredictionBtn') return radioButton;
+            if (id === 'weatherForecastButton') return weatherButton;
             return null;
         },
         querySelectorAll() { return []; }
@@ -1059,12 +1065,15 @@ test('offline connectivity state marks the interface and disables network action
     assert.equal(view3DButton.classList.contains('is-offline-disabled'), false);
     assert.equal(radioButton.disabled, false);
     assert.equal(radioButton.classList.contains('is-offline-disabled'), false);
+    assert.equal(weatherButton.disabled, true);
 
     manager.updateConnectionState(documentRoot, true);
     assert.equal(status.hidden, true);
     assert.equal(saveButton.disabled, false);
     assert.equal(saveButton.title, 'Salvar planejamento');
     assert.equal(saveButton.classList.contains('is-offline-disabled'), false);
+    assert.equal(weatherButton.disabled, false);
+    assert.equal(weatherButton.title, 'Previsão do tempo');
 });
 
 test('offline manager is wired through the rewritten root service worker', () => {
@@ -1092,7 +1101,7 @@ test('offline manager is wired through the rewritten root service worker', () =>
 
 test('application shell includes the integrated viewer for offline navigation', () => {
     assert.match(worker, /visualizador-3d\.html/);
-    assert.match(worker, /planmilt-app-shell-v25/);
+    assert.match(worker, /planmilt-app-shell-v26/);
     assert.match(worker, /criador-tema\.html/);
     assert.match(worker, /manifest\.webmanifest/);
     assert.match(worker, /APP_CACHE_PREFIX/);

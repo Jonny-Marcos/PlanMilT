@@ -27,6 +27,13 @@
                 apiClient: window.PlanMilT.apiClient
             });
 
+            window.PlanMilT.weatherForecast.attach({
+                map,
+                button: document.getElementById('weatherForecastButton'),
+                sweetAlert: Swal,
+                apiClient: window.PlanMilT.apiClient
+            });
+
             window.PlanMilT.offlineManager?.attach({
                 map,
                 leaflet: L,

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Mantém o shell da aplicação e os pacotes de tiles disponíveis sem rede.
  */
-const APP_CACHE = 'planmilt-app-shell-v25';
+const APP_CACHE = 'planmilt-app-shell-v26';
 const APP_CACHE_PREFIX = 'planmilt-app-shell-';
 const PACKAGE_PREFIX = 'planmilt-offline-package-v1:';
 const SHELL_DOCUMENTS = [
@@ -230,6 +230,7 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     if (request.method !== 'GET') return;
     const url = new URL(request.url);
+    if (url.origin === 'https://api.open-meteo.com' && url.pathname === '/v1/forecast') return;
     if (url.origin !== self.location.origin && url.protocol !== 'https:') {
         return;
     }
