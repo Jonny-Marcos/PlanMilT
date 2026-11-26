@@ -22,28 +22,33 @@ function forecast() {
     };
 }
 
-function setup({ online = true, response = forecast(), status = 200, cancel = false } = {}) {
+function setup({ online = true, response = forecast(), status = 200, requestHandler } = {}) {
     let click;
     const calls = [];
     const requests = [];
-    const validations = [];
+    const updates = [];
     const center = { lat: -21.5, lng: 308.7 };
     const navigator = { onLine: online };
+    const popup = {};
+    let activePopup;
+    let close;
     const sweetAlert = {
-        isLoading: () => false,
-        showValidationMessage(message) { validations.push(message); },
+        getPopup: () => activePopup,
+        showLoading() {},
+        hideLoading() {},
+        update(options) { updates.push(options); close(); },
         async fire(options, ...args) {
             calls.push([options, ...args]);
-            if (options?.preConfirm) {
-                if (cancel) return { isConfirmed: false };
-                const value = await options.preConfirm();
-                return { isConfirmed: value !== false, value };
-            }
-            return {};
+            if (!options?.didOpen) return {};
+            activePopup = popup;
+            return new Promise(resolve => {
+                close = () => resolve({});
+                options.didOpen();
+            });
         }
     };
     const context = {
-        window: {}, navigator, URLSearchParams, Intl,
+        window: {}, navigator, URLSearchParams, Intl, AbortController,
         console: { error() {} }
     };
     vm.runInNewContext(read('js/features/weather-forecast.js'), context);
@@ -54,14 +59,18 @@ function setup({ online = true, response = forecast(), status = 200, cancel = fa
         apiClient: {
             async request(url, options) {
                 requests.push({ url, options });
+                if (requestHandler) return requestHandler(url, options);
                 return { ok: status >= 200 && status < 300, status, async json() { return response; } };
             }
         }
     });
-    return { click: () => click(), calls, requests, validations, center, navigator };
+    return {
+        click: () => click(), calls, requests, updates, center, navigator,
+        dismiss() { calls[0][0].willClose(); activePopup = null; close(); }
+    };
 }
 
-test('consulta somente após confirmação e mostra sete dias no centro do mapa', async () => {
+test('consulta diretamente e mostra sete dias no centro do mapa', async () => {
     const fixture = setup();
     await fixture.click();
 
@@ -76,22 +85,23 @@ test('consulta somente após confirmação e mostra sete dias no centro do mapa'
     assert.equal(request.options.credentials, 'omit');
     assert.equal(request.options.cache, 'no-store');
     assert.equal(request.options.referrerPolicy, 'no-referrer');
-    assert.match(fixture.calls[0][0].text, /coordenadas.*Open-Meteo/);
-    const html = fixture.calls[1][0].html;
+    assert.equal(fixture.calls.length, 1);
+    assert.match(fixture.calls[0][0].text, /Consultando/);
+    assert.equal(fixture.calls[0][0].preConfirm, undefined);
+    const html = fixture.updates[0].html;
     assert.match(html, /Condições atuais estimadas/);
     assert.match(html, /27,5 °C/);
-    assert.match(html, /chance de precipitação/);
+    assert.match(html, /Chance de precipitação/);
     assert.match(html, /Indisponível/);
-    assert.equal((html.match(/<li>/g) || []).length, 7);
+    assert.equal((html.match(/<li class="weather-day">/g) || []).length, 7);
     assert.match(html, /open-meteo\.com/);
+    assert.match(html, /weather-current/);
+    assert.match(html, /fa-cloud-rain/);
+    assert.match(html, /@media\(max-width:540px\)/);
+    assert.doesNotMatch(html, /dados formatados e códigos traduzidos pelo PlanMilT/);
 });
 
-test('cancelamento e modo offline não enviam coordenadas', async () => {
-    const cancelled = setup({ cancel: true });
-    await cancelled.click();
-    assert.equal(cancelled.requests.length, 0);
-    assert.equal(cancelled.calls.length, 1);
-
+test('modo offline não envia coordenadas', async () => {
     const offline = setup({ online: false });
     await offline.click();
     assert.equal(offline.requests.length, 0);
@@ -102,7 +112,8 @@ test('falhas HTTP e respostas incompletas são exibidas sem mostrar previsão', 
     for (const fixture of [setup({ status: 429 }), setup({ response: { current: {} } })]) {
         await fixture.click();
         assert.equal(fixture.calls.length, 1);
-        assert.match(fixture.validations[0], /Não foi possível obter a previsão/);
+        assert.match(fixture.updates[0].text, /Não foi possível obter a previsão/);
+        assert.equal(fixture.updates[0].icon, 'error');
     }
 });
 
@@ -112,8 +123,21 @@ test('valores externos não são inseridos como HTML', async () => {
     data.daily.weather_code[0] = '<script>alert(1)</script>';
     const fixture = setup({ response: data });
     await fixture.click();
-    assert.doesNotMatch(fixture.calls[1][0].html, /<img|<script/);
-    assert.match(fixture.calls[1][0].html, /Indisponível/);
+    assert.doesNotMatch(fixture.updates[0].html, /<img|<script/);
+    assert.match(fixture.updates[0].html, /Indisponível/);
+});
+
+test('fechar durante a consulta cancela a requisição e impede atualização tardia', async () => {
+    let finish;
+    const fixture = setup({ requestHandler: () => new Promise(resolve => { finish = resolve; }) });
+    const pending = fixture.click();
+    assert.equal(fixture.requests.length, 1);
+    fixture.dismiss();
+    assert.equal(fixture.requests[0].options.signal.aborted, true);
+    finish({ ok: true, json: async () => forecast() });
+    await pending;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(fixture.updates.length, 0);
 });
 
 test('botão e módulo são carregados junto às ferramentas do mapa', () => {
