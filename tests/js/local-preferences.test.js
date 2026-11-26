@@ -52,6 +52,17 @@ test('preferences are isolated by install path and invalid data is ignored', () 
     assert.equal(broken.errors.length, 1);
 });
 
+test('print preferences are cached and invalid sizes are rejected', () => {
+    const { api } = load();
+    api.setUi('printPaper', 'A0');
+    api.setUi('printPaper', 'A5');
+    api.setUi('printOrientation', 'landscape');
+    api.setUi('printTitle', 'Operação Alfa');
+    assert.equal(api.getUi('printPaper', 'A4'), 'A0');
+    assert.equal(api.getUi('printOrientation', 'portrait'), 'landscape');
+    assert.equal(api.getUi('printTitle', ''), 'Operação Alfa');
+});
+
 test('task draft is stored, restored into fields and cleared', () => {
     const { api } = load();
     const text = field('maxDistance', 'number', '12');

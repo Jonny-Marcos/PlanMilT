@@ -29,6 +29,7 @@ test('zoom e escala são inversos e as áreas por folha consideram margens e rod
         assert.ok(Math.abs(mp.scaleForZoom(zoom, -21.5) - scale) < 1e-6);
     }
     assert.deepEqual(mp.getMapAreaMm('A4', 'portrait', false), { width: 190, height: 276 });
+    assert.deepEqual(mp.getMapAreaMm('A0', 'portrait', false), { width: 821, height: 1168 });
     assert.deepEqual(mp.getMapAreaMm('A3', 'landscape', 8), { width: 400, height: 268 });
     assert.deepEqual(mp.getMapAreaMm('A4', 'portrait', 12, 10), { width: 190, height: 254 });
     assert.deepEqual(mp.getGroundSizeMeters(50000, { width: 190, height: 276 }), { width: 9500, height: 13800 });
@@ -47,6 +48,23 @@ test('a grade cobre todo o quadro com folhas contíguas, centralizada e ordenada
     const middle = (quadro.getNorthWest().lng + quadro.getSouthEast().lng) / 2;
     assert.ok(Math.abs(grid.sheets[1].center.lng - middle) < 1e-9);
     assert.equal(mp.computeGrid(fakeMap({ widthPx: 100 * MM, heightPx: 100 * MM }), 10, area).sheets.length, 1);
+});
+
+test('folhas sem desenhos ou ícones podem ser removidas sem perder a posição original', () => {
+    const grid = {
+        columns: 3,
+        rows: 2,
+        sheets: [
+            { row: 0, column: 0 }, { row: 0, column: 1 }, { row: 0, column: 2 },
+            { row: 1, column: 0 }, { row: 1, column: 1 }, { row: 1, column: 2 }
+        ]
+    };
+    const filtered = mp.filterEmptySheets(grid, sheet => sheet.column !== 1);
+    assert.deepEqual(filtered.sheets.map(sheet => [sheet.row, sheet.column, sheet.number]),
+        [[0, 0, 1], [0, 2, 3], [1, 0, 4], [1, 2, 6]]);
+    assert.deepEqual(filtered.emptyNumbers, [2, 5]);
+    assert.equal(filtered.columns, 3);
+    assert.equal(filtered.rows, 2);
 });
 
 test('a sobreposição repete uma faixa entre folhas vizinhas e mantém a grade centralizada', () => {

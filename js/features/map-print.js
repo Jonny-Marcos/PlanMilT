@@ -1,5 +1,5 @@
 /**
- * @fileoverview Impressão do mapa em folhas A4/A3: divide o quadro visível em quantas folhas forem
+ * @fileoverview Impressão do mapa em folhas A0/A1/A2/A3/A4: divide o quadro visível em quantas folhas forem
  * necessárias na escala escolhida (zoom atual ou 1:N), repetindo as camadas ativas, com escala gráfica e rodapé.
  * @exports window.PlanMilT.mapPrint
  * @requires Leaflet, leaflet.browser.print (apenas o controle e as rotinas de clonagem de camadas) e SweetAlert2
@@ -8,8 +8,11 @@ window.PlanMilT = window.PlanMilT || {};
 
 window.PlanMilT.mapPrint = (() => {
     const PAPER_SIZES_MM = Object.freeze({
-        A4: Object.freeze({ width: 210, height: 297 }),
-        A3: Object.freeze({ width: 297, height: 420 })
+        A0: Object.freeze({ width: 841, height: 1189 }),
+        A1: Object.freeze({ width: 594, height: 841 }),
+        A2: Object.freeze({ width: 420, height: 594 }),
+        A3: Object.freeze({ width: 297, height: 420 }),
+        A4: Object.freeze({ width: 210, height: 297 })
     });
     const PAGE_MARGIN_MM = 10;
     const FOOTER_HEIGHT_MM = 8;
@@ -147,13 +150,81 @@ window.PlanMilT.mapPrint = (() => {
     }
 
     /**
+     * Remove folhas sem desenho ou ícone visível e preserva sua posição na grade original.
+     * @param {{columns: number, rows: number, sheets: Array<Object>}} grid - Grade completa.
+     * @param {Function} isFilled - Verifica se uma folha tem conteúdo.
+     * @returns {{columns: number, rows: number, sheets: Array<Object>, emptyNumbers: Array<number>, totalSheets: number}} Grade ativa.
+     */
+    function filterEmptySheets(grid, isFilled) {
+        const totalSheets = grid.sheets.length;
+        const emptyNumbers = [];
+        const sheets = [];
+        grid.sheets.forEach((sheet, index) => {
+            const number = index + 1;
+            const copy = { ...sheet, number };
+            if (isFilled(copy)) sheets.push(copy);
+            else emptyNumbers.push(number);
+        });
+        return { columns: grid.columns, rows: grid.rows, sheets, emptyNumbers, totalSheets };
+    }
+
+    /**
+     * Verifica se camadas Leaflet visíveis têm desenho ou ícone dentro da folha.
+     * @param {Object} map - Mapa Leaflet principal.
+     * @param {Object} leaflet - Biblioteca Leaflet.
+     * @param {{row: number, column: number, center: Object}} sheet - Folha da grade.
+     * @param {number} zoom - Zoom da folha.
+     * @param {{width: number, height: number}} areaMm - Área útil da folha em milímetros.
+     * @returns {boolean} Verdadeiro quando há pelo menos um conteúdo visível na folha.
+     */
+    function sheetHasContent(map, leaflet, sheet, zoom, areaMm) {
+        if (typeof leaflet.latLngBounds !== 'function') return true;
+        const center = map.project(sheet.center, zoom);
+        const width = areaMm.width * CSS_PIXELS_PER_MM;
+        const height = areaMm.height * CSS_PIXELS_PER_MM;
+        const northWest = map.unproject({ x: center.x - width / 2, y: center.y - height / 2 }, zoom);
+        const southEast = map.unproject({ x: center.x + width / 2, y: center.y + height / 2 }, zoom);
+        const sheetBounds = leaflet.latLngBounds(northWest, southEast);
+
+        let filled = false;
+        const inspect = layer => {
+            if (filled || !map.hasLayer || map.hasLayer(layer) === false) return;
+            if (layer instanceof leaflet.Popup || layer instanceof leaflet.Tooltip) return;
+            if (leaflet.MetricGrid && layer instanceof leaflet.MetricGrid) return;
+            if (leaflet.ImageOverlay && layer instanceof leaflet.ImageOverlay) return;
+            if (typeof layer.getLatLng === 'function') {
+                if (sheetBounds.contains(layer.getLatLng())) filled = true;
+                return;
+            }
+            if (typeof layer.getBounds === 'function') {
+                try {
+                    const bounds = layer.getBounds();
+                    if (bounds && typeof sheetBounds.intersects === 'function' && sheetBounds.intersects(bounds)) filled = true;
+                    else if (bounds && typeof sheetBounds.contains === 'function' && sheetBounds.contains(bounds)) filled = true;
+                } catch (error) {
+                    // Camadas sem limites Leaflet válidos não podem contar como conteúdo.
+                }
+            }
+        };
+        for (const layer of Object.values(map._layers || {})) {
+            if (typeof layer.eachLayer === 'function') {
+                layer.eachLayer(inspect);
+            } else {
+                inspect(layer);
+            }
+            if (filled) break;
+        }
+        return filled;
+    }
+
+    /**
      * Valida as escolhas do formulário e resolve escala, zoom e grade de folhas.
      * @param {Object} input - Valores do formulário (`paper`, `orientation`, `scaleChoice`, `customScale`, `footer`, `overlap` e textos opcionais `title`, `header`, `footerText`, `date`).
      * @param {Object} context - Contexto do mapa (`latitude`, `currentZoom`, `minZoom`, `maxZoom`, `computeGrid` opcional).
      * @returns {{settings?: Object, error?: string}} Configuração pronta ou mensagem de erro.
      */
     function resolveSettings(input, context) {
-        if (!PAPER_SIZES_MM[input.paper]) return { error: 'Escolha a folha A4 ou A3.' };
+        if (!PAPER_SIZES_MM[input.paper]) return { error: 'Escolha uma folha de A0 a A4.' };
         if (!ORIENTATION_LABELS[input.orientation]) return { error: 'Escolha a orientação da folha.' };
         let scale;
         let zoom;
@@ -181,7 +252,11 @@ window.PlanMilT.mapPrint = (() => {
         const headerMm = text.title || text.header ? HEADER_HEIGHT_MM : 0;
         const footerMm = footer ? (text.footerText ? FOOTER_TWO_LINES_MM : FOOTER_HEIGHT_MM) : 0;
         const areaMm = getMapAreaMm(input.paper, input.orientation, footerMm, headerMm);
-        const grid = context.computeGrid ? context.computeGrid(zoom, areaMm, overlapMm) : null;
+        let grid = context.computeGrid ? context.computeGrid(zoom, areaMm, overlapMm) : null;
+        if (grid && context.filterGrid) grid = context.filterGrid(grid, zoom, areaMm);
+        if (grid && grid.sheets.length === 0) {
+            return { error: 'Nenhuma folha contém desenhos ou ícones no quadro visível.' };
+        }
         if (grid && grid.sheets.length > MAX_SHEETS) {
             return { error: `Esta escala exige ${grid.sheets.length} folhas (máximo ${MAX_SHEETS}). Aproxime o mapa ou use uma escala menor.` };
         }
@@ -205,8 +280,8 @@ window.PlanMilT.mapPrint = (() => {
             : `Escala ${formatScale(settings.scale)}`;
         const parts = [scale, `Folha ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]}`];
         const grid = settings.grid;
-        if (sheet && grid && grid.sheets.length > 1) {
-            const number = sheet.row * grid.columns + sheet.column + 1;
+        if (sheet && grid && (grid.totalSheets || grid.sheets.length) > 1) {
+            const number = sheet.number || sheet.row * grid.columns + sheet.column + 1;
             parts.push(`Folha ${number} de ${grid.sheets.length} (linha ${sheet.row + 1}, coluna ${sheet.column + 1})`);
         }
         const customDate = settings.text && settings.text.date;
@@ -291,9 +366,14 @@ body>*:not(#mapPrintSheets){display:none!important}
      * @param {Object} context - Escala aproximada atual e orientação inicial.
      * @returns {string} HTML com estilos próprios do diálogo.
      */
-    function buildDialogHtml({ currentScale, orientation }) {
-        const selected = value => (value === orientation ? ' selected' : '');
-        const presets = SCALE_PRESETS.map(value => `<option value="${value}">${formatScale(value)}</option>`).join('');
+    function buildDialogHtml({ currentScale, orientation, saved = {} }) {
+        const escapeHtml = value => String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+        const selectedPaper = PAPER_SIZES_MM[saved.paper] ? saved.paper : 'A4';
+        const selectedOrientation = saved.orientation || orientation;
+        const selectedScale = saved.scaleChoice || 'current';
+        const papers = Object.keys(PAPER_SIZES_MM).map(value => `<option value="${value}"${value === selectedPaper ? ' selected' : ''}>${value} (${PAPER_SIZES_MM[value].width} × ${PAPER_SIZES_MM[value].height} mm)</option>`).join('');
+        const selected = value => (value === selectedOrientation ? ' selected' : '');
+        const presets = SCALE_PRESETS.map(value => `<option value="${value}"${String(value) === selectedScale ? ' selected' : ''}>${formatScale(value)}</option>`).join('');
         return `<style>
 .swal2-popup.map-print-modal{width:min(460px,calc(100vw - 28px))!important;padding:20px!important}
 #mapPrintDialog{text-align:left;font:14px/1.45 sans-serif;color:#27364a}
@@ -306,20 +386,20 @@ body>*:not(#mapPrintSheets){display:none!important}
 #mapPrintDialog .map-print-hint{margin:6px 0 0;font-size:12px;color:#5b6778}
 </style><div id="mapPrintDialog">
 <label for="mapPrintPaper">Folha</label>
-<select id="mapPrintPaper"><option value="A4">A4 (210 × 297 mm)</option><option value="A3">A3 (297 × 420 mm)</option></select>
+<select id="mapPrintPaper">${papers}</select>
 <label for="mapPrintOrientation">Orientação</label>
 <select id="mapPrintOrientation"><option value="portrait"${selected('portrait')}>Retrato</option><option value="landscape"${selected('landscape')}>Paisagem</option></select>
 <label for="mapPrintScale">Escala</label>
-<select id="mapPrintScale"><option value="current">Zoom atual da tela (≈ ${formatScale(roundScale(currentScale))})</option>${presets}<option value="custom">Outra escala…</option></select>
-<input id="mapPrintCustomScale" type="number" min="${MIN_SCALE}" max="${MAX_SCALE}" step="1" placeholder="Ex.: 40000" aria-label="Denominador da escala" hidden>
+<select id="mapPrintScale"><option value="current"${selectedScale === 'current' ? ' selected' : ''}>Zoom atual da tela (≈ ${formatScale(roundScale(currentScale))})</option>${presets}<option value="custom"${selectedScale === 'custom' ? ' selected' : ''}>Outra escala…</option></select>
+<input id="mapPrintCustomScale" type="number" min="${MIN_SCALE}" max="${MAX_SCALE}" step="1" value="${escapeHtml(saved.customScale)}" placeholder="Ex.: 40000" aria-label="Denominador da escala" hidden>
 <label for="mapPrintOverlap">Sobreposição entre folhas</label>
-<select id="mapPrintOverlap"><option value="0">Nenhuma</option><option value="5" selected>5 mm (linha tracejada para alinhar)</option><option value="10">10 mm (linha tracejada para alinhar)</option></select>
-<label class="map-print-check"><input id="mapPrintFooter" type="checkbox" checked> Incluir escala gráfica e rodapé com a escala</label>
+<select id="mapPrintOverlap"><option value="0"${String(saved.overlap || '') === '0' ? ' selected' : ''}>Nenhuma</option><option value="5"${String(saved.overlap || '5') === '5' ? ' selected' : ''}>5 mm (linha tracejada para alinhar)</option><option value="10"${String(saved.overlap || '') === '10' ? ' selected' : ''}>10 mm (linha tracejada para alinhar)</option></select>
+<label class="map-print-check"><input id="mapPrintFooter" type="checkbox"${saved.footer === false ? '' : ' checked'}> Incluir escala gráfica e rodapé com a escala</label>
 <details class="map-print-texts"><summary>Textos opcionais (título, cabeçalho, rodapé, data)</summary>
-<label for="mapPrintTitle">Título</label><input id="mapPrintTitle" type="text" maxlength="${TEXT_LIMITS.title}" placeholder="Ex.: Ataque coordenado">
-<label for="mapPrintHeader">Cabeçalho</label><input id="mapPrintHeader" type="text" maxlength="${TEXT_LIMITS.header}" placeholder="Ex.: 2º Pelotão · Exercício de campo">
-<label for="mapPrintFooterText">Rodapé (linha adicional, exige o rodapé acima)</label><input id="mapPrintFooterText" type="text" maxlength="${TEXT_LIMITS.footerText}" placeholder="Ex.: Fonte: levantamento do pelotão">
-<label for="mapPrintDate">Data (vazio = data de hoje)</label><input id="mapPrintDate" type="text" maxlength="${TEXT_LIMITS.date}" placeholder="Ex.: 25/11/2026">
+<label for="mapPrintTitle">Título</label><input id="mapPrintTitle" type="text" maxlength="${TEXT_LIMITS.title}" value="${escapeHtml(saved.title)}" placeholder="Ex.: Ataque coordenado">
+<label for="mapPrintHeader">Cabeçalho</label><input id="mapPrintHeader" type="text" maxlength="${TEXT_LIMITS.header}" value="${escapeHtml(saved.header)}" placeholder="Ex.: 2º Pelotão · Exercício de campo">
+<label for="mapPrintFooterText">Rodapé (linha adicional, exige o rodapé acima)</label><input id="mapPrintFooterText" type="text" maxlength="${TEXT_LIMITS.footerText}" value="${escapeHtml(saved.footerText)}" placeholder="Ex.: Fonte: levantamento do pelotão">
+<label for="mapPrintDate">Data (vazio = data de hoje)</label><input id="mapPrintDate" type="text" maxlength="${TEXT_LIMITS.date}" value="${escapeHtml(saved.date)}" placeholder="Ex.: 25/11/2026">
 </details>
 <p id="mapPrintSummary" role="status"></p>
 <p class="map-print-hint">Todo o quadro visível no mapa é impresso, em quantas folhas forem necessárias (até ${MAX_SHEETS}), com as camadas ativas. A escala é exata na latitude do centro do mapa. Na janela do navegador, use o mesmo papel e orientação, escala 100 % (sem “ajustar à página”) e desative cabeçalhos e rodapés.</p>
@@ -331,7 +411,7 @@ body>*:not(#mapPrintSheets){display:none!important}
      * @param {Object} dependencies - `map`, `leaflet`, `Swal` e, opcionalmente, `doc`, `win` e `settleMs` (espera após o carregamento dos tiles).
      * @returns {{control: Object, open: Function, print: Function, close: Function}} Controle criado e ações disponíveis.
      */
-    function attach({ map, leaflet, Swal, boundaryLayout, doc = document, win = window, settleMs = 800 }) {
+    function attach({ map, leaflet, Swal, boundaryLayout, localPreferences, doc = document, win = window, settleMs = 800 }) {
         let session = null;
 
         /**
@@ -437,7 +517,7 @@ body>*:not(#mapPrintSheets){display:none!important}
             if (text.title) page.appendChild(createElement('h1', '', text.title));
             if (text.header) page.appendChild(createElement('p', '', text.header));
             page.appendChild(createElement('h2', '', 'Mapa de montagem do mosaico'));
-            page.appendChild(createElement('p', '', `${grid.sheets.length} folhas ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]} (${grid.columns} colunas × ${grid.rows} linhas), `
+            page.appendChild(createElement('p', '', `${grid.totalSheets || grid.sheets.length} posições no mosaico; ${grid.sheets.length} folhas impressas ${settings.paper} ${ORIENTATION_LABELS[settings.orientation]} (${grid.columns} colunas × ${grid.rows} linhas), `
                 + `${settings.approximate ? 'escala aproximada ' + formatScale(roundScale(settings.scale)) : 'escala ' + formatScale(settings.scale)}.`));
             page.appendChild(createElement('p', '', 'Recorte as margens ao longo da moldura de cada folha e cole-as lado a lado, conforme a tabela. '
                 + 'Em cada borda, a marcação indica o número da folha vizinha que deve ser colada ali; nos cantos, a folha diagonal.'
@@ -446,8 +526,10 @@ body>*:not(#mapPrintSheets){display:none!important}
             for (let row = 0; row < grid.rows; row++) {
                 const tr = createElement('tr');
                 for (let column = 0; column < grid.columns; column++) {
-                    const cell = createElement('td', '', String(row * grid.columns + column + 1));
-                    cell.appendChild(createElement('small', '', `L${row + 1} · C${column + 1}`));
+                    const number = row * grid.columns + column + 1;
+                    const empty = (grid.emptyNumbers || []).includes(number);
+                    const cell = createElement('td', '', empty ? '—' : String(number));
+                    cell.appendChild(createElement('small', '', empty ? `Vazia · L${row + 1} · C${column + 1}` : `L${row + 1} · C${column + 1}`));
                     tr.appendChild(cell);
                 }
                 table.appendChild(tr);
@@ -468,7 +550,7 @@ body>*:not(#mapPrintSheets){display:none!important}
             const neighbors = getNeighbors(grid, sheet);
             const arrows = { top: '▲', bottom: '▼', left: '◀', right: '▶' };
             for (const [position, number] of Object.entries(neighbors)) {
-                if (number === null) continue;
+                if (number === null || (grid.emptyNumbers || []).includes(number)) continue;
                 const corner = !(position in arrows);
                 const text = corner ? `Folha ${number}` : `${arrows[position]} Cole a folha ${number} ${arrows[position]}`;
                 sheetEl.appendChild(createElement('div', `map-print-edge ${position}${corner ? ' corner' : ''}`, text));
@@ -590,6 +672,8 @@ body>*:not(#mapPrintSheets){display:none!important}
                 });
                 current.maps.push(sheetMap);
                 sheetMap.setView(sheet.center, settings.zoom, { animate: false });
+                if (typeof sheetMap.invalidateSize === 'function') sheetMap.invalidateSize({ pan: false, debounceMoveend: false });
+                sheetMap.setView(sheet.center, settings.zoom, { animate: false });
                 skipped += copyLayers(sheetMap, settings.zoom);
                 if (settings.footer) {
                     leaflet.control.scale({ maxWidth: 150, metric: true, imperial: false, position: 'bottomleft' }).addTo(sheetMap);
@@ -624,7 +708,8 @@ body>*:not(#mapPrintSheets){display:none!important}
             const size = map.getSize();
             const context = {
                 latitude, currentZoom: map.getZoom(), minZoom: map.getMinZoom(), maxZoom: map.getMaxZoom(),
-                computeGrid: (zoom, areaMm, overlapMm) => computeGrid(map, zoom, areaMm, overlapMm)
+                computeGrid: (zoom, areaMm, overlapMm) => computeGrid(map, zoom, areaMm, overlapMm),
+                filterGrid: (grid, zoom, areaMm) => filterEmptySheets(grid, sheet => sheetHasContent(map, leaflet, sheet, zoom, areaMm))
             };
             const readForm = () => {
                 const value = id => doc.getElementById(id);
@@ -637,12 +722,25 @@ body>*:not(#mapPrintSheets){display:none!important}
                     footer: value('mapPrintFooter').checked
                 }, context);
             };
+            const saved = localPreferences ? {
+                paper: localPreferences.getUi('printPaper', 'A4'),
+                orientation: localPreferences.getUi('printOrientation', size.x > size.y ? 'landscape' : 'portrait'),
+                scaleChoice: localPreferences.getUi('printScaleChoice', 'current'),
+                customScale: localPreferences.getUi('printCustomScale', ''),
+                overlap: localPreferences.getUi('printOverlap', '5'),
+                footer: localPreferences.getUi('printFooter', true),
+                title: localPreferences.getUi('printTitle', ''),
+                header: localPreferences.getUi('printHeader', ''),
+                footerText: localPreferences.getUi('printFooterText', ''),
+                date: localPreferences.getUi('printDate', '')
+            } : {};
             const result = await Swal.fire({
                 title: 'Imprimir mapa',
                 customClass: { popup: 'map-print-modal' },
                 html: buildDialogHtml({
                     currentScale: scaleForZoom(context.currentZoom, latitude),
-                    orientation: size.x > size.y ? 'landscape' : 'portrait'
+                    orientation: size.x > size.y ? 'landscape' : 'portrait',
+                    saved
                 }),
                 showCancelButton: true,
                 confirmButtonText: 'Imprimir',
@@ -680,6 +778,18 @@ body>*:not(#mapPrintSheets){display:none!important}
                         Swal.showValidationMessage(error);
                         return false;
                     }
+                    if (localPreferences) {
+                        localPreferences.setUi('printPaper', settings.paper);
+                        localPreferences.setUi('printOrientation', settings.orientation);
+                        localPreferences.setUi('printScaleChoice', doc.getElementById('mapPrintScale').value);
+                        localPreferences.setUi('printCustomScale', doc.getElementById('mapPrintCustomScale').value);
+                        localPreferences.setUi('printOverlap', String(settings.overlapMm));
+                        localPreferences.setUi('printFooter', settings.footer);
+                        localPreferences.setUi('printTitle', settings.text.title);
+                        localPreferences.setUi('printHeader', settings.text.header);
+                        localPreferences.setUi('printFooterText', settings.text.footerText);
+                        localPreferences.setUi('printDate', settings.text.date);
+                    }
                     return settings;
                 }
             });
@@ -705,6 +815,6 @@ body>*:not(#mapPrintSheets){display:none!important}
     return Object.freeze({
         PAPER_SIZES_MM, PAGE_MARGIN_MM, OVERLAP_OPTIONS_MM, SCALE_PRESETS, MAX_SHEETS, getMapAreaMm, scaleForZoom, zoomForScale,
         getGroundSizeMeters, roundScale, formatScale, formatDistance, computeGrid, getNeighbors, resolveSettings,
-        buildFooterText, attach
+        buildFooterText, filterEmptySheets, sheetHasContent, attach
     });
 })();

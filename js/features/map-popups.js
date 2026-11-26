@@ -66,9 +66,10 @@
             // Adiciona o controle de escala ao mapa
             L.control.scale({maxWidth: 100, metric: true, imperial: false, position: 'bottomleft'}).addTo(map);
 
-            // Controle de impressão em escala (A4/A3)
+            // Controle de impressão em escala (A0/A1/A2/A3/A4)
             window.PlanMilT.mapPrint.attach({
                 map: map, leaflet: L, Swal: Swal,
+                localPreferences: window.PlanMilT.localPreferences,
                 boundaryLayout: function (geometry, count, zoom) { return window.PlanMilT.boundaryLayout(geometry, count, zoom); }
             });
 

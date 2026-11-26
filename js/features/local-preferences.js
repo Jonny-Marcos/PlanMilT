@@ -20,7 +20,17 @@ window.PlanMilT.localPreferences = (() => {
         selectedLayer: value => typeof value === 'string' && value.length <= 200,
         transparency: value => Number.isFinite(value) && value >= 0 && value <= 100,
         controlsHidden: value => typeof value === 'boolean',
-        catalogCategory: value => typeof value === 'string' && value.length <= 64
+        catalogCategory: value => typeof value === 'string' && value.length <= 64,
+        printPaper: value => typeof value === 'string' && ['A0', 'A1', 'A2', 'A3', 'A4'].includes(value),
+        printOrientation: value => value === 'portrait' || value === 'landscape',
+        printScaleChoice: value => typeof value === 'string' && value.length <= 32,
+        printCustomScale: value => typeof value === 'string' && value.length <= 32,
+        printOverlap: value => typeof value === 'string' && ['0', '5', '10'].includes(value),
+        printFooter: value => typeof value === 'boolean',
+        printTitle: value => typeof value === 'string' && value.length <= 80,
+        printHeader: value => typeof value === 'string' && value.length <= 120,
+        printFooterText: value => typeof value === 'string' && value.length <= 120,
+        printDate: value => typeof value === 'string' && value.length <= 30
     };
 
     const radioFormNumbers = ['freq', 'txPower', 'txGain', 'txHeight', 'rxGain', 'rxHeight', 'rxSens', 'radius'];
