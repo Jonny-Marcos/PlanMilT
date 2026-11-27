@@ -33,7 +33,6 @@
 <i id="startPlanning" class="fas fa-network-wired toolbar-icon" title="Planejamento Automático"></i>
 <i id="linkPredictionBtn" class="fas fa-broadcast-tower toolbar-icon" title="Predição de Enlace (Rádio)"></i>
 <button id="weatherForecastButton" class="view-3d-button" type="button" title="Previsão do tempo no centro do mapa" aria-label="Previsão do tempo no centro do mapa"><i class="fas fa-cloud-sun" aria-hidden="true"></i></button>
-<i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
 <button id="offlineManagerButton" class="view-3d-button" type="button" title="Gerenciar pacotes offline" aria-label="Gerenciar pacotes offline"><i class="fas fa-map-marked-alt" aria-hidden="true"></i></button>
 <button id="view3DButton" class="view-3d-button" type="button" title="Abrir visualizador 3D integrado, somente para visualização" aria-label="Abrir visualizador 3D"><i class="fas fa-cube" aria-hidden="true"></i></button>
 <button id="suggestionsButton" class="view-3d-button" type="button" title="Sugestões para o desenvolvimento" aria-label="Sugestões para o desenvolvimento"><i class="fas fa-comment-dots" aria-hidden="true"></i></button>
@@ -41,6 +40,7 @@
     <i id="toggleControlsIcon" class="fas fa-eye" aria-hidden="true"></i>
     <span id="toggleControlsLabel">Mostrar controles</span>
 </button>
+<i id="helpButton" class="fas fa-question-circle toolbar-icon" title="Ajuda"></i>
 <input type="file" id="fileInput" accept=".kmz" style="display: none;">
             </div>
 <div class="toolbar-item color-picker-label">
